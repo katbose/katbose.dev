@@ -1,4 +1,4 @@
-# katbose.dev
+# katbose-portfolio
 
 > A minimalistic, ultra-fast, **AI-powered personal platform** — a portfolio, project showcase,
 > technical blog, and resume system built to be *searchable and readable by both humans and AI
