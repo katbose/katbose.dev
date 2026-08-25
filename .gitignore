@@ -1,0 +1,11 @@
+# Installed tooling (local-only, ~1GB) - reinstall via its own setup script
+.claude/skills/gstack/
+
+# Environment & secrets
+.env
+.env.*
+!.env.example
+
+# OS / editor noise
+Thumbs.db
+.DS_Store
