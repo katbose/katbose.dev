@@ -1,6 +1,15 @@
 # Installed tooling (local-only, ~1GB) - reinstall via its own setup script
 .claude/skills/gstack/
 
+# Dependencies & build artifacts
+node_modules/
+.next/
+.open-next/
+.wrangler/
+test-results/
+playwright-report/
+package-lock.json
+
 # Environment & secrets
 .env
 .env.*
@@ -9,3 +18,4 @@
 # OS / editor noise
 Thumbs.db
 .DS_Store
+

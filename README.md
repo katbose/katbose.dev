@@ -23,6 +23,13 @@ This is a **planning repository**. The three Cloudflare validation spikes (OpenN
 Payload `schemaName`, AI Search binding) are *execution gates*, not documentation claims — the plan
 is only as good as the first run of those probes once the scaffold and Cloudflare account exist.
 
+**Spike A status:** the OpenNext-on-Workers gate has its first local pass (2026-08-25) — 6/6 probes
+green in `workerd` via `opennextjs-cloudflare preview` (ISR/revalidation with the R2 cache binding,
+Draft Mode cookies, `node:crypto` `timingSafeEqual`, dynamic OG images, OS-default theme + toggle
+persistence, image-loader URL shape + origin-proxy bytes). The remote `/cdn-cgi/image` transform
+check awaits the registered zone. Probe scaffolds stay uncommitted by design ([decision
+#56](docs/16-decision-log.md)).
+
 ---
 
 ## What it is
@@ -192,7 +199,7 @@ katbose-portfolio/
 | [13](docs/13-seo-and-agent-readability.md) | **SEO & Agent Readability** | Core Web Vitals targets, JSON-LD, `robots.txt`, `llms.txt`, `humans.txt`, utility pages |
 | [14](docs/14-privacy-and-compliance.md) | **Privacy & Compliance** | Data inventory, no-cookie-banner rationale, retention, privacy policy, i18n out of scope |
 | [15](docs/15-roadmap-and-checklist.md) | **Roadmap & Checklist** | Five phases with build lists and non-negotiable production gates |
-| [16](docs/16-decision-log.md) | **Decision Log** | Decisions through #54 with reasoning, plus rejected options |
+| [16](docs/16-decision-log.md) | **Decision Log** | Decisions through #56 with reasoning, plus rejected options |
 | [17](docs/17-env-vars.md) | **Environment Variables** | Full secrets inventory per surface, generation, rotation calendar |
 | [18](docs/18-knowledge-base.md) | **Knowledge Base** | Separate repository, TIE boundary, future indexing |
 | [19](docs/19-design-reference.md) | **Design Reference** | justaditya.com/Hackyfolio as primary visual reference, micro-interaction catalogue, intro loader, `npx katbose`, compatibility analysis |

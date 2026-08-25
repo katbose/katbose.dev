@@ -22,13 +22,21 @@ commands in [11-testing-and-ci.md](11-testing-and-ci.md) §11.2.2 pass:
 
 ### Spike A — before Phase 1 feature work
 
-- [ ] Scaffold the smallest OpenNext app and run `test:spike:workers` in `workerd`
-- [ ] Prove ISR/revalidation, Draft Mode cookies, Node-compatible crypto and dynamic OG images
+- [x] Scaffold the smallest OpenNext app and run `test:spike:workers` in `workerd`
+      (**local pass 2026-08-25** — 6/6 probes green via `opennextjs-cloudflare preview`;
+      probe scaffold intentionally kept out of the repository, see decision [#56](16-decision-log.md))
+- [x] Prove ISR/revalidation, Draft Mode cookies, Node-compatible crypto and dynamic OG images
+      (ISR stale-while-revalidate with the R2 incremental cache binding; `__prerender_bypass`
+      round-trip; `timingSafeEqual` from `node:crypto`; `ImageResponse` PNG — all verified in
+      `workerd`, not `next dev`)
 - [ ] After `katbose.dev` is on Cloudflare, prove Supabase media original → same-zone proxy →
 	`/cdn-cgi/image` transform/cache → `onerror=redirect` original fallback; a forced
 	transform failure still displays the image
-- [ ] Prove a clean first visit follows emulated OS light/dark mode and the top-right toggle
-	persists an explicit override
+      (*partial local proof 2026-08-25: custom loader emits `/cdn-cgi/image?url=/media/original/{key}`
+      URLs incl. a `w=640` variant and the origin proxy serves immutable PNG bytes; the actual
+      edge transform requires the registered zone)
+- [x] Prove a clean first visit follows emulated OS light/dark mode and the top-right toggle
+	persists an explicit override (Playwright `colorScheme` emulation + reload persistence)
 
 ### Spike B — before Phase 2 feature work
 

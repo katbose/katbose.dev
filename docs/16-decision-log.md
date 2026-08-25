@@ -164,3 +164,12 @@ not a quiet change of direction.
 | 52 | Production deployment pipeline | **Cloudflare Workers Builds from protected `main`** | GitHub Actions remains the quality gate; Cloudflare owns the OpenNext build/deploy integration and its Worker secrets. This avoids adding a Cloudflare deployment token to GitHub Actions. |
 | 53 | Hero timezone | **`Asia/Kolkata` (IST)** | The live clock should represent Kat's timezone consistently for every visitor; the browser's local timezone must not change the displayed zone. |
 | 54 | Reference typography and palette | **Match the typography and light/dark color direction of justaditya.com, recreated in project-owned design tokens** | This honors the visual reference without copying upstream component/CSS files. Font licensing and contrast are verified during the Phase 1 design pass; both palettes remain subject to the accessibility gates. |
+
+---
+
+## 16.13 Decisions from the Spike A execution (2026-08-25)
+
+| # | Question | Decision | Reasoning |
+| --- | --- | --- | --- |
+| 55 | Windows spike toolchain | **Build and install spike dependencies with npm inside `apps/web`; pnpm remains the committed project standard** | OpenNext recreates pnpm's symlink layout verbatim when copying traced files (`copyTracedFiles.js`), and esbuild cannot traverse those recreated directory symlinks on Windows ("Access is denied"). Separately, OpenNext's internal `pnpm build` invocation overflows cmd.exe's 8 KB command-line limit under long OneDrive paths — worked around with `next build && opennextjs-cloudflare build --skipNextBuild`. Revisit both at the Phase 1 monorepo scaffold; WSL remains the documented fallback if friction persists. |
+| 56 | Validation-spike artifacts | **Spike scaffolds stay local-only; repositories receive results, not probe code** | The repo is documentation-first until the real Phase 1 monorepo scaffold lands. Committing throwaway probe routes plus hundreds of MB of `node_modules` contradicts that; `.gitignore` now excludes dependency/build artifacts (`node_modules/`, `.next/`, `.open-next/`, test output) at every depth. Spike A outcomes are recorded in [15](15-roadmap-and-checklist.md) §"Validation spikes". |
