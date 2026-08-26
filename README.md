@@ -6,7 +6,7 @@
 
 Use this repository's documentation as the single source of truth for the design, architecture and
 operations of the site. **[PLAN.md](PLAN.md)** is the index and summary;
-**[`docs/`](docs/)** holds the full 19-part specification.
+**[`docs/`](docs/)** holds the full 20-part specification.
 
 ---
 
@@ -203,6 +203,7 @@ katbose-portfolio/
 | [17](docs/17-env-vars.md) | **Environment Variables** | Full secrets inventory per surface, generation, rotation calendar |
 | [18](docs/18-knowledge-base.md) | **Knowledge Base** | Separate repository, TIE boundary, future indexing |
 | [19](docs/19-design-reference.md) | **Design Reference** | justaditya.com/Hackyfolio as primary visual reference, micro-interaction catalogue, intro loader, `npx katbose`, compatibility analysis |
+| [20](docs/20-design-system.md) | **Design System & Tokens** | Token architecture, measured light/dark palettes, type and space scales, motion vocabulary, component inventory, section manifest contract, parity checklist |
 
 ---
 

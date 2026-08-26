@@ -35,6 +35,7 @@ documentation set so each concern can be read, reviewed and updated on its own.
 | 17 | [Environment Variables](docs/17-env-vars.md) | Full secrets inventory per surface, generation, rotation calendar |
 | 18 | [Knowledge Base](docs/18-knowledge-base.md) | Separate repository, TIE boundary, future indexing |
 | 19 | [Design Reference](docs/19-design-reference.md) | justaditya.com/Hackyfolio as primary visual reference, micro-interaction catalogue, intro loader, `npx katbose`, compatibility analysis |
+| 20 | [Design System & Tokens](docs/20-design-system.md) | Token architecture, measured light/dark palettes, type and space scales, motion vocabulary, component inventory, section manifest contract, parity checklist |
 
 ---
 
