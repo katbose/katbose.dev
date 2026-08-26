@@ -1,14 +1,15 @@
 # Kat Bose — katbose.dev
 
-> Portfolio, technical blog, and engineering notes of Kat Bose.
+> Checked-in planning snapshot. Once the web scaffold exists, `/llms.txt` is generated from the typed route manifest; `/agent` is the canonical agent-readable view.
 
 ## Pages
-- [Projects](https://katbose.dev/projects): Detailed project case studies with architecture and lessons learned
+- [Agent view](https://katbose.dev/agent): Canonical plain-Markdown representation of public portfolio content
+- [Projects](https://katbose.dev/projects): Project case studies with architecture, challenges and lessons learned
 - [Experience](https://katbose.dev/experience): Professional timeline
 - [Blog](https://katbose.dev/blog): Long-form technical articles
 - [TIE](https://katbose.dev/tie): Short engineering notes (Things I Explore)
 - [Resume](https://katbose.dev/resume): Full resume, viewable online
-- [Ask AI](https://katbose.dev/ask-ai): Semantic search over all site content
+- [Ask AI](https://katbose.dev/ask-ai): Semantic search over public site content with validated citations
 
 ## Contact
 - [Contact form](https://katbose.dev/contact)

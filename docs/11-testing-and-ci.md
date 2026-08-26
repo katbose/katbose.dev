@@ -14,7 +14,7 @@ matter, without a test suite that becomes its own maintenance project.
 | Static | `tsc --noEmit`, Oxlint, Oxfmt (`--check`) | Type errors, lint rules, unused code, formatting drift |
 | Unit | Vitest | Security helpers, rate-limit failure modes, Zod schemas, injection screen, fallback logic |
 | E2E | Playwright | Resume download flow, contact form, 404, navigation |
-| Accessibility | axe-core + Playwright | WCAG 2.1 AA, keyboard operability ([12-accessibility.md](12-accessibility.md)) |
+| Accessibility | axe-core + Playwright | WCAG 2.2 AA, keyboard operability ([12-accessibility.md](12-accessibility.md)) |
 | Build | `opennextjs-cloudflare build` | Catches Next.js and Workers build-time failures before deploy |
 
 ---
@@ -69,10 +69,17 @@ project and live rate limiters are never used by CI.
 Production deployment is handled by **Cloudflare Workers Builds**, not by a GitHub Actions deploy
 job. Connect this repository in the Cloudflare dashboard with:
 
-- Production branch: `main`
-- Root directory: `apps/web` (or the monorepo root if the workspace build requires it)
-- Build command: `pnpm --filter web build` — the `web` package runs `opennextjs-cloudflare build`
-- Wrangler configuration: the committed `wrangler.jsonc` with the `AI_SEARCH` binding
+- Production branch: protected `main`
+- Root directory: repository root
+- Install command: `corepack enable && pnpm install --frozen-lockfile`
+- Build command: `pnpm --filter web build`
+- Wrangler configuration: `apps/web/wrangler.jsonc`
+
+Workers Builds owns only the OpenNext production build/deploy. It never applies Supabase migrations.
+A protected explicit GitHub `workflow_dispatch` migration job applies committed migrations after
+backup and before a migration-bearing change is merged to deployment-triggering `main`. GitHub CI
+validates; Workers Builds deploys; the migration workflow changes production data—ownership does
+not overlap.
 
 Workers Build variables and secrets are configured in Cloudflare. GitHub Actions keeps only the
 non-deployment secrets it needs for CI, backups and scheduled jobs. A merge into protected `main`
@@ -114,7 +121,8 @@ Not coverage for its own sake. These specific behaviours are security or correct
 that must not regress silently:
 
 ```ts
-// hashIp — stable output, salt-dependent, never the raw IP
+// pseudonymizeIp — HMAC-SHA-256 is deterministic within one epoch, differs across epochs,
+//     and never returns the raw IP
 // checkRateLimit — Upstash unreachable:
 //     resume  → allowed = true   (fail open)
 //     askAi   → allowed = false  (fail closed)
@@ -122,7 +130,8 @@ that must not regress silently:
 // checkGlobalAskAiCap — returns allowed = false at 51 on the same day
 // looksLikeInjection — matches known payloads, does not match ordinary questions
 // ContactSchema — rejects an empty message, oversized input, a filled honeypot
-// Ask AI output gate — an answer with zero sources is discarded
+// Ask AI citation gate — every emitted ID must resolve to the retrieved allowed published set;
+//     zero, invented, stale or disallowed IDs discard the answer
 // resume route — no is_current row → redirect to /resume-unavailable
 // media loader — transform error/quota → original Supabase-CDN response, never a broken image
 // seed guard — seed:dev throws when NODE_ENV=production or ALLOW_DEV_SEED is not true
@@ -210,3 +219,31 @@ The web package owns these production-runtime scripts:
 
 `.env.example` files are committed for every app with placeholder values and comments describing
 each variable — see [17-env-vars.md](17-env-vars.md). Real values never enter the repo.
+
+---
+
+## 11.7 Final lock test matrix
+
+- **Spike gates:** local Spike A is recorded passed; remote image Spike A, Spike B and Spike C are
+  fail-stop tests. No dependent phase proceeds on failure.
+- **Database denial:** inspect current and default ACL/RLS catalogs for every application table,
+  sequence and function and attempt CRUD as both
+  `anon` and `authenticated`; reject grants or permissive policies.
+- **Pseudonyms:** verify trusted Worker `CF-Connecting-IP` header sourcing (never `request.cf` or an `x-forwarded-*` fallback), HMAC determinism within one epoch, different
+  output across epochs, no cross-epoch correlation and daily 90-day deletion.
+- **Secrets:** equal-length helper accepts exact matches and rejects mismatched content/length;
+  production bundles contain no server secret.
+- **Preview:** expired/tampered scope never reaches the CMS; exit Route Handler clears Draft Mode
+  without middleware.
+- **Resume:** size/MIME/`%PDF-`, collision, cleanup, concurrent RPC serialization, old-pointer
+  preservation, Turnstile POST and trusted bot metadata.
+- **AI:** every model-emitted citation ID must resolve to a retrieved allowed published chunk;
+  invented/stale/disallowed IDs discard the answer while page/input remain visible.
+- **Registry/content:** manifest and Lexical fixtures pass exhaustive Zod schemas; unknown variants
+  fail; slugs/URLs reject reserved, unsafe and non-HTTPS values.
+- **Agent routes:** canonical `/agent`, generated `/llms.txt`, navigation and sitemap derive from one
+  route manifest; root planning snapshot matches docs/13 until scaffold replacement.
+- **Backups:** all pagination is exhausted, counts/checksums match, ciphertext reaches off-primary R2
+  and a scratch restore succeeds without primary-provider access.
+- **Design/accessibility:** WCAG 2.2 AA, four font weights, strong control borders, pinned responsive
+  dimensions/timings, reduced motion, no runtime media CDN and ≤2-second intro.

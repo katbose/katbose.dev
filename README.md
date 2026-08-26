@@ -14,21 +14,18 @@ operations of the site. **[PLAN.md](PLAN.md)** is the index and summary;
 
 | | |
 | --- | --- |
-| **Master plan** | v1.5 — **Approved for implementation** (last updated 2026-08-24) |
-| **Code** | Not yet written. This repo (and, for now, its implementation) is documentation-first. |
+| **Master plan** | v1.6 — **Final architecture lock; approved for Phase 1 implementation** (last updated 2026-08-26) |
+| **Code** | Application scaffold pending. The `katbose` npm package is published; monorepo integration is pending. |
 | **Roadmap** | 5 phases · Foundation → Content → AI Search → Resume Security → Analytics & Ops |
-| **Shipped so far** | `katbose` business-card package published to npm (2026-08-24) |
+| **Validation** | Spike A local runtime pass complete; Spike A remote image pass, Spike B and Spike C remain fail-stop gates. |
 
-This is a **planning repository**. The three Cloudflare validation spikes (OpenNext Worker runtime,
-Payload `schemaName`, AI Search binding) are *execution gates*, not documentation claims — the plan
-is only as good as the first run of those probes once the scaffold and Cloudflare account exist.
-
-**Spike A status:** the OpenNext-on-Workers gate has its first local pass (2026-08-25) — 6/6 probes
-green in `workerd` via `opennextjs-cloudflare preview` (ISR/revalidation with the R2 cache binding,
-Draft Mode cookies, `node:crypto` `timingSafeEqual`, dynamic OG images, OS-default theme + toggle
-persistence, image-loader URL shape + origin-proxy bytes). The remote `/cdn-cgi/image` transform
-check awaits the registered zone. Probe scaffolds stay uncommitted by design ([decision
-#56](docs/16-decision-log.md)).
+Architecture and Phase 1 implementation choices are closed. Validation spikes prove external or
+experimental integrations; they do not reopen settled architecture. A failed gate stops its
+dependent phase and requires a new decision entry—never an undocumented workaround. Spike A has a
+local 6/6 `workerd` pass (2026-08-25); its registered-zone `/cdn-cgi/image` transform/fallback check
+is still pending. Spike B must prove Payload's `payload` schema boundary before Phase 2, and Spike C
+must prove the AI Search binding and Items API before Phase 3. Probe scaffolds remain uncommitted by
+design ([decision #56](docs/16-decision-log.md)).
 
 ---
 
@@ -36,7 +33,7 @@ check awaits the registered zone. Probe scaffolds stay uncommitted by design ([d
 
 - A **professional portfolio** — projects, experience, education, certifications
 - A **project showcase** — case studies with architecture, challenges and lessons learned
-- A **technical blog** — long-form, MDX-authored articles with reading time, TOC and RSS
+- A **technical blog** — long-form articles authored in Payload Lexical, with Markdown/MDX derived for rendering/export, reading time, TOC and RSS
 - A place to publish **Things I Explore (TIE)** — short, deliberately-unpolished engineering notes
 - An **AI-searchable representation** of that work — answer questions with *source citations*
 - A **recruiter-friendly resume portal** — View online + one-click secured PDF download
@@ -50,9 +47,9 @@ It is **not** a knowledge base — reference notes live in a
 
 - **White-first, minimalistic UI** with a light ⇄ dark toggle that defaults to system preference
 - **Fast** — under 1s initial load, excellent Core Web Vitals (Lighthouse ≥ 95)
-- **Responsive and accessible** — WCAG 2.1 AA, fully keyboard-operable
+- **Responsive and accessible** — WCAG 2.2 AA, fully keyboard-operable
 - **Excellent typography**
-- **SEO-optimized *and* agent-readable** — `robots.txt`, `llms.txt`, `humans.txt`, JSON-LD
+- **SEO-optimized *and* agent-readable** — canonical `/agent`; route-manifest-generated `robots.txt`, `llms.txt`, `humans.txt` and JSON-LD
 - **TypeScript-first, strict mode**, no `any` in application code
 - **Everything fits inside free tiers**
 - **One clear responsibility per vendor** — no overlapping services
@@ -86,7 +83,7 @@ See the [decision log](docs/16-decision-log.md) before reintroducing any of them
 
 ## Domains
 
-```
+```text
 katbose.dev            → Next.js public site (Cloudflare Workers via OpenNext)
 cms.katbose.dev        → Payload CMS (Render, production only) — /admin behind Cloudflare Access
 dashboard.katbose.dev  → Private analytics (Render, production only) — behind Cloudflare Access
@@ -99,7 +96,7 @@ migrations and Cloudflare-runtime checks all happen locally before reaching `mai
 
 ## Architecture
 
-```
+```text
                     ┌──────────────────────────────┐
                     │          Cloudflare          │
                     │  DNS · WAF · Rate Limiting   │
@@ -114,7 +111,7 @@ migrations and Cloudflare-runtime checks all happen locally before reaching `mai
 │OpenNext Worker │        │  Render         │          │ Render          │
 └─────┬──────────┘        └────────┬────────┘          └────────┬────────┘
       │                            │                             │
-      │  anon key / own routes     │  service role key           │  service role key
+      │ server-only service role   │  service role key           │  service role key
       └────────────────────────────┼─────────────────────────────┘
                                    │
                         ┌──────────▼───────────┐
@@ -129,7 +126,9 @@ Side services: Upstash Redis · PostHog · Sentry · Slack · GitHub Actions
 
 The public site is served from **Cloudflare Workers via OpenNext** specifically so every request
 traverses Cloudflare's edge — there is no separate, always-on origin to bypass, which is what makes
-`cf-connecting-ip` trustworthy for IP hashing and rate limiting.
+`CF-Connecting-IP` trustworthy for HMAC IP pseudonymization and rate limiting. Privileged Supabase operations
+run only in the Worker through a server-only service-role client; browser code and anon-key clients
+have no privileged path.
 
 ---
 
@@ -144,35 +143,37 @@ content. → [docs/03](docs/03-search-and-ai.md)
 Turnstile only on suspicion → 60s signed URL over a private bucket → logged. Versions are immutable
 and kept forever. → [docs/04](docs/04-resume-system.md)
 
-**3. Ask AI** — always visible, never an "unavailable" *error* state (backend problems render as an
-inline retry). Protected by per-IP limits, a **50/day global cap** — beyond which it shows a polite
-capacity message rather than a failure — and four layers of injection/hallucination defence, the
-most important being a **citation gate**: an answer that cannot be grounded in retrieved sources is
-discarded — the failure mode is *"no answer"*, never *"wrong answer attributed to me"*.
-→ [docs/03](docs/03-search-and-ai.md)
+**3. Ask AI** — always visible and resilient, not always active: dependency failure, fail-closed
+limiting or the **50/day global cap** keeps the page/input visible and shows an inline retry or
+capacity message. Four injection/hallucination controls culminate in a structured citation-ID gate:
+every model-emitted ID must resolve to a retrieved, allowed, published chunk or the answer is
+discarded. → [docs/03](docs/03-search-and-ai.md)
 
-**4. Data protection** — every table is RLS deny-by-default and reachable only from server-side Worker
-or Render code with the service role key, which never enters a client bundle. IPs are stored as
-salted hashes with a quarterly rotation aligned to a 90-day purge. → [docs/05](docs/05-security.md) ·
+**4. Data protection** — client roles have grants revoked plus role-scoped restrictive deny RLS
+policies, verified through catalogs and CRUD tests. Server-only service-role clients are the sole
+privileged path. IP-derived telemetry uses HMAC-SHA-256 pseudonyms from trusted production
+Cloudflare request metadata; a daily purge enforces 90 days independently of quarterly key rotation.
+Old epochs may coexist until purge and are never correlated. → [docs/05](docs/05-security.md) ·
 [docs/06](docs/06-data-model.md)
 
 ---
 
 ## Repository structure
 
-```
+```text
 katbose-portfolio/
 ├── apps/
 │   ├── web/                  # Next.js public site → Cloudflare Workers via OpenNext
 │   ├── cms/                  # Payload CMS → Render, production only (render.yaml blueprint)
 │   └── dashboard/            # Private analytics dashboard → Render, production only
 ├── packages/
-│   └── shared/               # shared types, Zod schemas, constants, utils
+│   ├── shared/               # shared types, Zod schemas, constants, utils
+│   └── katbose-card/         # source integration pending; npm package already published
 ├── supabase/migrations/      # public-schema + RLS migrations, run in order
 ├── scripts/                  # export-content.ts, backup helpers, retention purge
 ├── e2e/                      # Playwright specs
 ├── .github/workflows/        # ci, nightly-reconciliation, weekly-backup, secret-scan
-├── docs/                     # this documentation set (01–19)
+├── docs/                     # this documentation set (01–20)
 ├── render.yaml               # Render blueprint (no secret values)
 ├── pnpm-workspace.yaml
 └── PLAN.md
@@ -188,18 +189,18 @@ katbose-portfolio/
 | [02](docs/02-content-model.md) | **Content Model & CMS** | Blog / TIE / Projects / Experience, Payload vs Strapi, access, field discipline, secure draft preview |
 | [03](docs/03-search-and-ai.md) | **Search, Sync & Ask AI** | Cloudflare AI Search, webhook → retry → dead-letter → nightly reconciliation, cost caps, injection defence |
 | [04](docs/04-resume-system.md) | **Resume Download System** | One-click flow, progressive security, immutable versioning, signed URLs, two-tier fallback, analytics |
-| [05](docs/05-security.md) | **Security & Access Control** | Threat model, Cloudflare Access, secrets ownership, IP hashing & salt rotation, headers, accepted risks |
+| [05](docs/05-security.md) | **Security & Access Control** | Threat model, Cloudflare Access, secrets ownership, HMAC pseudonyms/key epochs, static headers, accepted risks |
 | [06](docs/06-data-model.md) | **Data Model & RLS** | Full SQL schema, deny-by-default policies, storage rules, retention, migration discipline |
 | [07](docs/07-rate-limiting.md) | **Rate Limiting & Forms** | Cloudflare + Upstash layers, per-route limits, fail-open/fail-closed matrix, contact form protection, Turnstile |
 | [08](docs/08-resilience.md) | **Resilience & Fallbacks** | ISR as a shield, graceful degradation, error boundaries, outage drills |
 | [09](docs/09-observability.md) | **Observability & Dashboard** | PostHog, Sentry, Slack alert catalogue, private dashboard, weekly review ritual |
 | [10](docs/10-backups-and-portability.md) | **Backups & Portability** | Weekly `pg_dump`, media sync, JSON/MDX export, restore drills |
 | [11](docs/11-testing-and-ci.md) | **Testing & CI** | Workflows, unit/E2E scope, resume smoke test, pre-deploy manual checks |
-| [12](docs/12-accessibility.md) | **Accessibility** | WCAG 2.1 AA enforcement, axe in CI, keyboard specs, authoring rules |
+| [12](docs/12-accessibility.md) | **Accessibility** | WCAG 2.2 AA enforcement, axe in CI, keyboard specs, authoring rules |
 | [13](docs/13-seo-and-agent-readability.md) | **SEO & Agent Readability** | Core Web Vitals targets, JSON-LD, `robots.txt`, `llms.txt`, `humans.txt`, utility pages |
 | [14](docs/14-privacy-and-compliance.md) | **Privacy & Compliance** | Data inventory, no-cookie-banner rationale, retention, privacy policy, i18n out of scope |
 | [15](docs/15-roadmap-and-checklist.md) | **Roadmap & Checklist** | Five phases with build lists and non-negotiable production gates |
-| [16](docs/16-decision-log.md) | **Decision Log** | Decisions through #65 with reasoning, plus rejected options |
+| [16](docs/16-decision-log.md) | **Decision Log** | Decisions through #86 with status vocabulary, historical annotations and reasoning |
 | [17](docs/17-env-vars.md) | **Environment Variables** | Full secrets inventory per surface, generation, rotation calendar |
 | [18](docs/18-knowledge-base.md) | **Knowledge Base** | Separate repository, TIE boundary, future indexing |
 | [19](docs/19-design-reference.md) | **Design Reference** | justaditya.com/Hackyfolio as primary visual reference, micro-interaction catalogue, intro loader, `npx katbose`, compatibility analysis |
@@ -212,7 +213,7 @@ katbose-portfolio/
 | Phase | Focus | Ships when |
 | --- | --- | --- |
 | **1 — Foundation** | Layout, core pages, utility pages, SEO, deployment | RLS, secrets hygiene, contact protection, privacy policy, CI and OpenNext validation in place |
-| **2 — Content platform** | Payload, Blog, TIE, MDX, draft preview | Scoped preview hardened, Payload-schema proof passed, ISR fallback proven, restore drill passed |
+| **2 — Content platform** | Payload, Blog, TIE, canonical Lexical authoring, derived Markdown/MDX, draft preview | Spike B, CMS domain/Access, scoped preview, ISR fallback and restore drill pass |
 | **3 — AI search** | Index, Ask AI, sync pipeline | AI Search binding, reconciliation, cost caps and all four injection layers verified |
 | **4 — Resume security** | Private bucket, signed URLs, Turnstile | E2E download test passes, fail-open behaviour proven |
 | **5 — Analytics & operations** | Dashboard, retention, alerting | Access control, retention and alerting verified |
@@ -252,13 +253,14 @@ the production gates.
 
 ## Credits
 
-The visual design and the Home page's section-stack architecture follow
+The visual reference for Home anatomy and observed interaction details is
 [Hackyfolio](https://github.com/PythonHacker24/yo-hackyfolio) by
-[Aditya Patil](https://github.com/PythonHacker24), used with his express permission. Thanks, Aditya.
+[Aditya Patil](https://github.com/PythonHacker24), consulted with express permission. Thanks,
+Aditya. The project rule is inspiration only: no upstream file, code, prose or personal content is
+copied; Base UI and project-owned tokens/components remain normative.
 
-The upstream project carries no LICENSE file; permission was granted directly for use in this
-portfolio and does not make that code open-source. See
-[decision #63](docs/16-decision-log.md) for the scope. No content from
+The permission is scoped to this portfolio and does not make the source repository generally
+licensed. See [decision #63](docs/16-decision-log.md). No content from
 [justaditya.com](https://www.justaditya.com) appears here.
 
 ---

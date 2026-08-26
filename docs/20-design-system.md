@@ -26,12 +26,12 @@ Read 19 first. This document never restates a decision from 19; it only gives it
 2. **No hardcoded colour outside `theme.css`.** A raw hex in a component is a lint failure. This is
    what makes the AA contrast gate in [12-accessibility.md](12-accessibility.md) §12.3 enforceable
    "through design tokens rather than checked ad hoc".
-3. **Reimplementation, not copying.** Per 19 §19.1 the upstream Hackyfolio repository carries no
-   licence. Layout, spacing rhythm, type scale, palette direction, animation timings and section
-   anatomy are ideas and are reproduced freely. Component files, CSS files and the upstream
-   `portfolio.json` are not copied. The Phase 1 gate tests for this.
+3. **Reference precedence and no copying.** Express permission is recorded in decision #63, but
+   the project rule is inspiration only: observed facts inform anatomy; project tokens, Base UI,
+   WCAG 2.2 AA, performance budgets and architecture are normative. No upstream file, code, prose
+   or personal content is copied, and deliberate differences are documented.
 4. **Payload remains the content source of truth.** The section manifest orders sections and holds
-   only hero-level static copy (19 §19.5, friction 1). It is not a content file.
+   section type, stable ID, source selectors, limits and display flags only. It contains no prose.
 5. **Every visual decision has an accessibility consequence.** Contrast, focus, motion and zoom
    requirements from [12-accessibility.md](12-accessibility.md) are constraints on this system, not
    a later review step.
@@ -43,7 +43,7 @@ Read 19 first. This document never restates a decision from 19; it only gives it
 Two tiers, deliberately. A flat semantic-only set makes theming easy but hides palette
 inconsistency; a primitive-only set pushes colour decisions into components.
 
-```
+```text
 tier 1 — primitives   --gray-500, --gray-950                (raw values, theme-independent)
 tier 2 — semantic      --color-text-secondary, --color-focus (roles, remapped per theme)
 ```
@@ -88,8 +88,6 @@ and for non-text UI boundaries and state indicators (WCAG 1.4.11).
 
 | Semantic token | Light | Ratio vs `bg` | Dark | Ratio vs `bg` | Requirement |
 | --- | --- | --- | --- | --- | --- |
-| Semantic token | Light | Ratio | Dark | Ratio | Requirement |
-| --- | --- | --- | --- | --- | --- |
 | `--color-bg` | `--gray-0` | — | `--gray-1000` | — | ✔ both measured |
 | `--color-surface` | `--gray-0` | — | `--gray-1000` | — | ✔ borders define, not fills |
 | `--color-bg-subtle` | `--gray-50` | — | `--gray-950` | — | ours — see below |
@@ -112,9 +110,7 @@ halate for astigmatic readers; softening to `--gray-950`/`--gray-50` is a two-to
 cards are transparent with a border, the same way its light cards are white-on-white with a border.
 We keep one subtle step for the few places a border is the wrong affordance, chiefly code blocks.
 
-Two cautions that came out of the measurement:
-
-Two cautions that came out of the measurement:
+Two cautions came out of the measurement:
 
 - **`--gray-500` (`#6A7282`) sits at 4.84:1 — a 0.34 margin over AA.** The reference uses it for
   control and secondary label text at 12px. It passes, but it is the palette's thinnest margin, so
@@ -165,7 +161,7 @@ Notes:
 - Tabular numerals come from `font-variant-numeric`, not from switching family, so the clock and
   count-ups stay in DM Sans without width jitter.
 
-This closes open decision #57.
+Decision #57 is closed.
 
 ### 20.5.2 Scale
 
@@ -175,23 +171,28 @@ unitless so they survive zoom to 200% (12 §12.3).
 | Token | Size | Line height | Weight | Tracking | Role | Measured |
 | --- | --- | --- | --- | --- | --- | --- |
 | `--text-xs` | 0.75rem / 12px | 1.5 | 400–500 | `0` | controls, meta, tags | ✔ |
-| `--text-sm` | 0.875rem / 14px | 1.625 | 400 | `0` | **body** | ✔ 14 / 22.75 |
-| `--text-base` | 1rem / 16px | 1.6 | 400 | `0` | long-form prose (Blog, TIE) | ours |
-| `--text-lg` | 1.3125rem / 21px | 1.19 | 600 | `0` | card titles (h4) | ✔ 21 / 25 |
-| `--text-2xl` | 2rem / 32px | 1.19 | 600 | `0` | sub-headings (h3) | ✔ 32 / 38 |
-| `--text-3xl` | 3rem / 48px | 1.21 | 700 | `+0.029em` | section headings (h2) | ✔ 48 / 58, `+1.4px` |
-| `--text-4xl` | 4.5rem / 72px | 1.0 | 700 | `-0.025em` | hero name (h1) | ✔ 72 / 72, `-1.8px` |
+| `--text-sm` | 0.875rem / 14px | 1.625 | 400 | `0` | body and Home section headings | ✔ |
+| `--text-base` | 1rem / 16px | 1.6 | 400 | `0` | long-form prose; intro below 640px | project norm |
+| `--text-lg` | 1.125rem / 18px | 1.5 | 400 | `0` | intro from 640px | ✔ responsive |
+| `--text-xl` | 1.25rem / 20px | 1.5 | 400 | `0` | intro from 1024px | ✔ responsive |
+| `--text-2xl` | 2rem / 32px | 1.19 | 600 | `0` | internal page subheadings | project norm |
+| `--text-hero` | 3rem / 48px → 4.5rem / 72px at 640px | 1.0 | 700 | `-0.025em` | hero name | ✔ responsive |
 
-Two deliberate departures from the measurement:
+Home section headings are 14px, weight 700, uppercase through CSS, with deliberate tracking; they
+are not 48px display headings. Hero and intro are the only responsive type steps pinned from the
+source: hero 48→72px at 640px, intro 16→18px at 640px→20px at 1024px.
+
+One deliberate departure and one Home heading rule:
 
 - **Body stays 14px for parity, but long-form prose gets `--text-base` (16px).** The reference is a
-  single page of short blocks, where 14px reads fine. Your Blog is long-form MDX
-  ([02-content-model.md](02-content-model.md) §2.2), and 14px over several thousand words fights the
-  "excellent typography" principle. Chrome and cards match the reference at 14px; article bodies
+  single page of short blocks, where 14px reads fine. Payload Lexical is the Blog's canonical
+  authoring source; its derived long-form rendering still benefits from 16px
+  ([02-content-model.md](02-content-model.md) §2.2), because 14px over several thousand words fights
+  the "excellent typography" principle. Chrome and cards match the reference at 14px; article bodies
   step up.
-- **`--text-3xl` carries positive tracking (`+1.4px` measured).** That is the uppercase section
-  heading — letter-spacing opens up capitals, which is correct for uppercase and wrong for
-  lowercase. It is scoped to the uppercase treatment only.
+- **Home section headings use `--text-sm` (14px), weight 700 and deliberate positive tracking.**
+  Uppercase is applied through CSS; the heading token is not a display-size step and is not reused
+  for lowercase prose.
 
 Rules:
 
@@ -228,16 +229,15 @@ Layout tokens — the single-column stack from 19 §19.2:
 
 | Token | Value | Role |
 | --- | --- | --- |
-| `--measure` | 42rem / 672px | prose max width |
-| `--container` | 48rem / 768px | section content width incl. cards |
-| `--gutter` | `--space-5` mobile → `--space-8` ≥ md | horizontal page padding |
-| `--section-gap` | `--space-16` mobile → `--space-24` ≥ md | vertical rhythm between sections |
-| `--bottombar-h` | 56px | fixed bottom bar height |
-| `--bottombar-inset` | `--space-4` | gap from viewport edge |
+| `--measure` | 42rem / 672px | Home and prose maximum width |
+| `--container` | 42rem / 672px | Home section width |
+| `--gutter` | 12px below 640px → 16px at 640px+ | horizontal page padding |
+| `--section-gap` | 64px at every viewport | fixed vertical rhythm between Home sections |
+| `--bottombar-inset` | 24px + `env(safe-area-inset-bottom)` | gap from viewport edge |
 
-The page reserves `--bottombar-h + --bottombar-inset` of bottom padding plus
-`env(safe-area-inset-bottom)` so the fixed bar never covers the last line of content — including on
-iOS, and including at 200% zoom.
+The bottom bar has **no fixed height token**; its content and minimum touch targets determine height.
+The page reserves the measured bar height at runtime plus the 24px inset and safe area so it never
+covers content at 200% zoom. Cards use 24px padding below 640px and 32px at 640px+.
 
 ---
 
@@ -253,12 +253,12 @@ iOS, and including at 200% zoom.
 | `--shadow-sm` | `0 1px 3px rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1)` | pill buttons | ✔ |
 | `--shadow-md` | `0 4px 16px rgb(0 0 0 / 0.08)` | hover lift | ours |
 
-Measured component metrics, matched exactly:
+Component metrics, preserving measured geometry while applying the project accessibility boundary rule:
 
 | Surface | Spec |
 | --- | --- |
-| Pill button | `--radius-pill`, `1px` border `--color-border`, `8px 12px` padding, `--text-xs` at weight 500, min `139 × 34px`, `--shadow-sm`, transparent background |
-| Card | `--radius-md`, `1px` border `--color-border`, `--space-8` (32px) padding, no shadow |
+| Pill button | `--radius-pill`, `1px` border `--color-border-strong`, `8px 12px` padding, `--text-xs` at weight 500, min `139 × 34px`, `--shadow-sm`, transparent background |
+| Card | `--radius-md`, `1px` decorative border `--color-border`, 24px padding below 640px → 32px at 640px+, no shadow; any focusable card/control boundary uses `--color-border-strong` |
 | Link | `--color-link`, underlined, no border, no padding |
 
 The reference's cards carry **no shadow** — depth comes from the hairline border alone. That is the
@@ -277,16 +277,22 @@ reduced-motion override has exactly one place to apply.
 | Token | Value | Role |
 | --- | --- | --- |
 | `--dur-fast` | 120ms | colour/opacity state change |
-| `--dur-base` | 180ms | hover lift, underline slide |
-| `--dur-slow` | 240ms | collapse/expand, crossfade |
-| `--dur-reveal` | 320ms | scroll reveal |
+| `--dur-base` | 180ms | hover/underline state change |
+| `--dur-crossfade` | 350ms | human ↔ agent content crossfade |
+| `--dur-count` | 1800ms | count-up completion |
+| `--dur-reveal` | 900–1100ms | source-observed scroll reveal range |
 | `--ease-out` | `cubic-bezier(0.2, 0, 0, 1)` | entrances, expansion |
 | `--ease-in-out` | `cubic-bezier(0.4, 0, 0.2, 1)` | reversible transitions |
-| `--reveal-shift` | 16px | scroll-reveal translate distance (19 §19.3, row 1) |
-| `--intro-step` | 450ms | intro-loader per-language dwell (19 §19.4.1) |
-| `--dur-marquee` | 30s | tech-stack marquee, one full cycle, `linear infinite` — ✔ measured |
-| `--dur-shine` | 1.5s | bottom-bar edge shine, `ease-in-out`, plays **once** — ✔ measured |
-| `--delay-shine` | 450ms | shine start delay, so it reads as an entrance — ✔ measured |
+| `--reveal-shift` | 32px | reveal translate distance |
+| `--reveal-scale` | 0.985 | reveal initial scale |
+| `--reveal-blur` | 12px | reveal initial blur |
+| `--reveal-amount` | 0.15 | viewport intersection amount |
+| `--dur-marquee` | 30s | tech-stack marquee, one full cycle, `linear infinite` |
+| `--dur-shine` | 1.5s | bottom-bar edge shine, `ease-in-out`, once |
+| `--delay-shine` | 450ms | shine start delay |
+
+The intro sequence—including exit—must complete in ≤2 seconds; implementation may distribute that
+budget across greetings but must not derive an over-budget total from a per-language dwell token.
 
 Budget rules, inherited from 19 §19.3 and 13 §13.2:
 
@@ -294,8 +300,8 @@ Budget rules, inherited from 19 §19.3 and 13 §13.2:
   the `<Collapsible>` height animation, which is measured and runs on a contained element.
 - Framer Motion is imported through `LazyMotion` + `domAnimation`; the full library never ships.
 - Reveals run once (`viewport: { once: true }`). Nothing is scroll-linked.
-- Nothing animates during initial paint except the intro loader, which is bounded at ≤ 2s total
-  (4 × `--intro-step` + exit).
+- Nothing animates during initial paint except the intro loader; its total sequence, including
+  exit, is ≤2s.
 
 ### 20.8.1 The reduced-motion contract
 
@@ -336,7 +342,7 @@ only.
 | --- | --- |
 | `:focus-visible` | `outline: 2px solid var(--color-focus); outline-offset: 2px` |
 | `:focus` (mouse) | no ring — `:focus-visible` only |
-| Hover, cards/links | `translateY(-1px)` + `--shadow-md`, or underline slide; `--dur-base` |
+| Hover, cards/links | `translateY(-2px)` plus shadow or underline slide; `--dur-base` |
 | Active/pressed | `translateY(0)`, no shadow |
 | Disabled | `--color-text-tertiary`, `cursor: not-allowed`, plus text or `aria-disabled` — never colour alone |
 | Selection | `::selection` uses `--color-focus` at 18% alpha with `--color-text` foreground |
@@ -353,9 +359,9 @@ lands on `<main id="content">`. The bottom bar `<nav>` is the next tab stop (19 
 
 | Token | Min width | Notes |
 | --- | --- | --- |
-| `sm` | 640px | |
-| `md` | 768px | `--gutter` and `--section-gap` step up here |
-| `lg` | 1024px | |
+| `sm` | 640px | gutter, cards and hero/intro type step here |
+| `md` | 768px | no Home width or section-gap change |
+| `lg` | 1024px | intro reaches 20px |
 | `xl` | 1280px | |
 
 Mobile-first. The layout is a single column at every width; breakpoints adjust rhythm, type and the
@@ -382,7 +388,7 @@ Rules:
 - Brand marks are trademarks. They identify technologies factually in the tech-stack section; they
   are never used to imply endorsement.
 
-`simple-icons` is a new dependency and therefore needs a decision-log entry — open decision #58.
+`simple-icons` is approved by closed decision #58; its data is inlined at build time.
 
 ---
 
@@ -394,7 +400,7 @@ What comes from Base UI (`@base-ui/react`, v1.x), what we build, and what each m
 | --- | --- | --- |
 | Accordion — "Previously" roles, publication abstracts | Base UI `Accordion` | single-open; `<h3>` headers built in |
 | Collapsible — "View More" bodies | Base UI `Collapsible` | height measured; instant under reduced motion |
-| Switch — human ⇄ agent mode | Base UI `Switch` | mirrors `?view=agent` in the URL |
+| Switch — human ⇄ agent mode | Base UI `Switch` | links/transitions to canonical `/agent` |
 | Dialog — mobile menu, any overlay | Base UI `Dialog` | focus trap, Escape, focus restore for free (12 §12.3) |
 | Tabs — tech-stack categories | Base UI `Tabs` | only if grouped; otherwise `Collapsible` |
 | Scroll Area — code blocks, wide tables | Base UI `ScrollArea` | must stay keyboard-scrollable |
@@ -421,9 +427,9 @@ section anatomy, interaction detail and measured values. It is not a source of c
 | Hand-rolled height-measuring collapsible and accordion | Base UI `Collapsible` / `Accordion` | ARIA wiring, focus handling and Escape behaviour come free and are what the AA gate checks |
 | Animated theme toggler using the View Transitions API | `next-themes` toggle, plain CSS transition | needs a reduced-motion guard and an unsupported-browser path; not worth the surface (§20.8.1) |
 | `portfolio.json` as content source | Payload collections, manifest orders only | decision #1; avoids the two-sources drift in 19 §19.5 |
-| Essays as TypeScript modules | Payload Blog/TIE + MDX | [02-content-model.md](02-content-model.md) §2.2 |
+| Essays as TypeScript modules | Payload Blog/TIE with canonical Lexical; Markdown/MDX derived | [02-content-model.md](02-content-model.md) §2.2 |
 | `middleware.ts` | route handlers and Server Components | decision #64 — middleware is unvalidated on the OpenNext adapter |
-| Theme from a query parameter | `next-themes` only | decision #65 — query-varying output breaks ISR cache correctness |
+| Theme from a query parameter | `next-themes` only | decision #67—the post-hydration switch flashes; a render-time fix is not worth query-varying output |
 | Decorative image effects | omitted | outside the JS budget in 13 §13.2 |
 
 What genuinely transfers is the **architecture**, which is why §20.13 exists: the ordered manifest,
@@ -439,38 +445,44 @@ so a missing renderer is a type error. This is the shape it takes.
 
 ```ts
 // apps/web/features/home/sections.ts
-export type Block = string | { list: readonly string[] };
+import { z } from "zod";
 
-/** Static sections carry their own data; content sections declare a Payload fetcher. */
-export type SectionSpec =
-  | { type: "hero"; data: HeroData }
-  | { type: "experience"; title: string; source: "experience" }
-  | { type: "techStack"; title: string; data: TechStackData }
-  | { type: "story"; title: string; data: { body: readonly Block[] } }
-  | { type: "projectSpotlight"; title: string; source: "projects"; limit: 1 }
-  | { type: "thinking"; title: string; source: "blog"; limit: 3 }
-  | { type: "notes"; title: string; source: "tie"; limit: 3 }
-  | { type: "education"; title: string; data: EducationData }
-  | { type: "github"; title: string; data: { username: string } }
-  | { type: "contact"; title: string; data: ContactData };
+export const SectionSpecSchema = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("hero"), source: z.literal("profile") }),
+  z.object({ type: z.literal("experience"), source: z.literal("experience") }),
+  z.object({ type: z.literal("techStack"), source: z.literal("profile.skills") }),
+  z.object({ type: z.literal("story"), source: z.literal("profile.story") }),
+  z.object({ type: z.literal("projectSpotlight"), source: z.literal("projects"), limit: z.literal(1) }),
+  z.object({ type: z.literal("thinking"), source: z.literal("blog"), limit: z.number().int().min(1).max(6) }),
+  z.object({ type: z.literal("notes"), source: z.literal("tie"), limit: z.number().int().min(1).max(6) }),
+  z.object({ type: z.literal("education"), source: z.literal("profile.education") }),
+  z.object({ type: z.literal("contact"), source: z.literal("profile.contact") }),
+]);
+export type SectionSpec = z.infer<typeof SectionSpecSchema>;
+
+export function assertNever(value: never): never {
+  throw new Error(`Unregistered section: ${JSON.stringify(value)}`);
+}
 ```
 
 Contract rules:
 
-1. **Ordering is the manifest's only job.** Reordering the array reorders the page.
-2. **`source` means Payload.** A content section never inlines prose. Only `hero`, `techStack`,
-   `story`, `education` and `contact` hold literal copy, and only because that copy is
-   site-chrome rather than publishable content (19 §19.5, friction 1).
-3. **One renderer per `type`,** resolved through a registry whose switch is exhaustive over the
-   union — a new variant without a renderer fails `tsc`.
-4. **One generator, two views.** `generateMarkdown(manifest, data)` renders the same manifest and
-   the same fetched content as Markdown. It backs both `?view=agent` and `llms.txt`, so the two can
-   never drift (19 §19.2, 13 §13.6). The Phase 1 gate greps for hand-written duplicate content.
-5. **Every section degrades.** A section whose fetcher returns empty renders `<EmptyState>`; a
-   section whose fetcher throws on an uncached route renders `<CmsUnavailableFallback>`. A failing
-   section never takes down the page (08).
-6. **`github` fails calm.** The contributions graph is a public-endpoint fetch with a timeout; on
-   failure it renders an empty state, never an error (19 §19.5).
+1. **Ordering is the manifest's only content-independent job.** It contains section type, stable ID,
+   source selector, limits and display flags—never profile, story or education prose.
+2. **`source` means Payload.** The `Profile` global owns hero/profile/contact/social/skills, story
+   and education content. Collections own experience, projects, Blog and TIE. Lexical is canonical
+   for rich text; Markdown/MDX are derived.
+3. **Compile-time and runtime exhaustiveness are both required.** The registry switch ends in an
+   `assertNever`; manifest and CMS payloads pass closed Zod discriminated unions before dispatch.
+   Unknown rich-text nodes fail visibly in tests rather than being silently dropped. Strict
+   TypeScript applies and application code contains no `any`.
+4. **One route manifest, derived outputs.** The route manifest drives navigation, canonical
+   `/agent`, sitemap metadata and generated `/llms.txt`. The root `llms.txt` is only a planning
+   snapshot until the scaffold exists.
+5. **Every section degrades.** Empty data renders `<EmptyState>`; an uncached failure renders
+   `<CmsUnavailableFallback>` without taking down the page.
+6. **GitHub is deferred in Phase 1.** If deliberately enabled later, it is fetched server-side with
+   an explicit timeout, ISR cache and calm fallback—never by a client-side runtime fetch.
 
 ---
 
@@ -487,18 +499,16 @@ The live reference currently renders a longer stack than 19 §19.2 records. Mapp
 | `project` | **Adopt** — projectSpotlight | one featured case study + stats grid, links to `/projects` |
 | `thinking` (essays) | **Adopt** — thinking | maps to Blog; TIE gets its own `notes` section |
 | `education` | **Adopt** — education | |
-| `github` | **Adopt** — github | calm empty state required |
-| `recommendations` | **Decision required** | needs a new Payload collection and real quotes with consent |
-| `publications` | **Decision required** | needs a new Payload collection; keep only if there is real work to list |
-| `youtube` | **Decision required** | no channel in the current plan; embeds would add a third-party origin |
-| `podcast` | **Decision required** | same as above |
+| `github` | **Deferred in Phase 1** | Include only after a server-side fetch has timeout, ISR cache and calm fallback |
+| `recommendations` | **Deferred past Phase 1** | needs a Payload collection and consented real quotes |
+| `publications` | **Deferred past Phase 1** | needs a Payload collection and real work to list |
+| `youtube` | **Deferred past Phase 1** | runtime embeds/external media are prohibited |
+| `podcast` | **Deferred past Phase 1** | runtime embeds/external media are prohibited |
 | — | **Add** — notes (TIE) | the Blog/TIE split is load-bearing (02 §2.1) and has no reference equivalent |
 | — | **Add** — Ask AI entry point | Ask AI replaces search; the reference has no analogue |
 
-Proposed default for the four undecided: **defer all four past Phase 1.** Each either needs a new
-content collection or a new third-party embed, and neither belongs in a foundation phase whose gate
-is security, accessibility and performance. The manifest is ordered data, so adding a section later
-is a config change plus one renderer. Open decision #59.
+All five deferrals are closed decisions (#59 and #76). The manifest makes later addition cheap,
+but Phase 1 does not spend runtime, schema or privacy budget on content that is not required.
 
 ---
 
@@ -506,20 +516,19 @@ is a config change plus one renderer. Open decision #59.
 
 Parity is graded on measurables, not on "looks the same". Checked once the Home stack is built:
 
-- [ ] Single column throughout; content width equals `--container`, prose equals `--measure`
-- [ ] Vertical rhythm between sections equals `--section-gap` at both mobile and ≥ md
-- [ ] Section headings render at `--text-3xl`, weight 700, uppercase, `+0.029em` tracking
-- [ ] Hero name at `--text-4xl`, weight 700, `-0.025em`, line-height 1.0
-- [ ] Body copy at `--text-sm` (14px / 1.625); article bodies at `--text-base`
-- [ ] Cards: `--radius-md`, hairline border, `--space-8` padding, no shadow
-- [ ] Pill buttons: `--radius-pill`, min `139 × 34px`, `--shadow-sm`, transparent fill
-- [ ] Every text role renders in DM Sans; mono appears only in code blocks and the terminal card
-- [ ] Live clock shows `Asia/Kolkata`, tabular numerals, no width jitter across a full minute
-- [ ] Theme toggle sits top-right; bottom bar is a fixed pill containing nav, socials and mode toggle
-- [ ] Scroll reveal translates `--reveal-shift` with a blur→0 transition over `--dur-reveal`, once
-- [ ] Hover lift on cards/links equals 1px over `--dur-base`
-- [ ] Intro loader cycles four greetings at `--intro-step`, total ≤ 2s, once per session
-- [ ] Both themes resolve every semantic token; no component references a primitive or a raw hex
+- [ ] Single column; Home and prose max width are 672px
+- [ ] Gutters are 12px below 640px and 16px at 640px+; section gap is always 64px
+- [ ] Home section headings are 14px, weight 700, uppercase through CSS
+- [ ] Hero is 48px below 640px and 72px at 640px+; intro is 16→18→20px
+- [ ] Cards use 24→32px padding at 640px; controls use `--color-border-strong`
+- [ ] Four DM Sans weights (400/500/600/700) load; mono appears only in code and terminal card
+- [ ] Live clock shows `Asia/Kolkata`, tabular numerals and no width jitter
+- [ ] Bottom bar uses a 24px safe-area-aware inset and has no fixed height
+- [ ] Reveal starts at y=32px, scale=.985, blur=12px; 900–1100ms; viewport amount .15
+- [ ] Count-up completes in 1800ms; human↔agent crossfade completes in 350ms
+- [ ] Hover lift is 2px; intro sequence including exit is ≤2s and runs once per session
+- [ ] Both themes resolve semantic tokens; no component references a primitive or raw colour
+- [ ] Canonical `/agent` and generated `/llms.txt` come from the typed route manifest
 
 ---
 
@@ -536,13 +545,14 @@ design gates in 19 §19.7. They are additive, not a replacement.
 - [ ] **Reduced motion** — each of the twelve interactions verified against its documented fallback,
       not merely sped up (§20.8.1)
 - [ ] **CLS 0 with the intro loader mounted**, and 0 across a full minute of clock ticks
-- [ ] **Font budget** — three sans weights, one mono, Latin subset, self-hosted, `display: swap`
+- [ ] **Font budget** — four sans weights (400/500/600/700), one mono, required subsets only, self-hosted, `display: swap`
 - [ ] **Forced-colours pass** — focus ring and active states survive Windows High Contrast
 - [ ] **200% zoom** — no clipping, and the bottom bar never covers content (§20.6)
 - [ ] **Keyboard order** — skip link first, bottom-bar `<nav>` second, focus visible throughout
-- [ ] **Agent parity** — `?view=agent` and `llms.txt` both generated from the manifest; grep proves
-      no hand-written duplicate
-- [ ] **Licence hygiene** — no file in `apps/web` is a copy of an upstream Hackyfolio file
+- [ ] **Agent parity** — canonical `/agent` and generated `/llms.txt` derive from the typed route
+      manifest; grep proves no handwritten runtime duplicate
+- [ ] **Permission/architecture hygiene** — inspiration only; no upstream file or content is copied,
+      and Base UI remains the sole primitive library
 
 ---
 
@@ -556,7 +566,7 @@ Every decision this document depends on is closed and recorded in
 | 57 | DM Sans for every text role; JetBrains Mono for code and the terminal card only | §20.5.1 |
 | 58 | `simple-icons` inlined at build time; no runtime icon CDN | §20.11 |
 | 59 | `recommendations`, `publications`, `youtube`, `podcast` deferred past Phase 1 | §20.14 |
-| 60 | Dark palette is project-defined and contrast-verified, not measured | §20.4.2, §20.18 |
+| ~~60~~ | ~~Dark palette project-defined/not measured~~ — historical, superseded by #66 | §20.4.2, §20.18 |
 | ~~61~~ | ~~Upstream source is not used~~ — superseded on licensing by #63 | §20.2.3, §20.18.1 |
 | 62 | Reference author's content never enters the repository, fixtures included | §20.18.1 |
 | 63 | Permission granted, but scope of use is **inspiration only**; Base UI and our architecture stand | §20.2.3, §20.12, §20.18.1 |
@@ -565,31 +575,40 @@ Every decision this document depends on is closed and recorded in
 | 66 | Dark palette is exact parity: the ramp's endpoints swapped, pure black and pure white | §20.4.2 |
 | 67 | `?theme=` declined because it flashes post-hydration, not because of cache behaviour | §20.4.3 |
 
-Two of these are worth re-reading before the design pass rather than at review time: **#60**, because
-a dark-mode measurement would refine the palette and is cheap to run; and **#63**, because it is what
-keeps this document a specification rather than a description of someone else's site.
+The historical chain matters: #60 is superseded by #66, and #65's conclusion is retained with
+reasoning corrected by #67. Decisions #77–#81 are the current precedence, accessibility and asset
+rules for implementation.
 
 ---
 
 ## 20.18 Measurement provenance and its limits
 
-The values marked ✔ throughout this document come from a computed-style measurement of
-justaditya.com (light mode, desktop) run on 2026-08-26. Recorded so a future reader knows which
-numbers are observed and which are ours.
+The values marked ✔ throughout this document come from either a computed-style measurement of
+justaditya.com (light mode, desktop) run on 2026-08-26 or direct inspection of the upstream source
+on that date. The provenance is recorded so observed facts are not confused with project rules.
 
-**What was measured:** font families and per-role size/weight/line-height/tracking; the light
-palette; the five spacing steps; border radii and widths; the pill-button and card metrics; the
-`shadow-sm` value.
+**Computed-style measurement:** font families and per-role size/weight/line-height/tracking; the
+light palette; the five spacing steps; border radii and widths; the pill-button and card metrics;
+and the `shadow-sm` value.
 
-**What was *not* measured, and remains ours to specify:**
+**Source-inspected facts:** the dark theme's swapped black/white endpoints; hero and intro
+responsive type steps; CSS motion values for marquee and shine; and runtime reveal facts including
+timing range, viewport amount and run-once behavior. These responsive, motion and runtime facts are
+acknowledged as observations even though they were not available from the desktop computed-style
+capture alone.
 
-| Gap | Consequence |
+**Project-normative rules:** semantic token mapping, `--color-border-strong` for control boundaries,
+WCAG 2.2 AA contrast/focus/zoom requirements, reduced-motion behavior, the ≤2s total intro budget,
+performance budgets and every deliberate departure documented here. Observing an upstream value
+does not let it override project tokens, accessibility or architecture.
+
+| Remaining project-owned area | Consequence |
 | --- | --- |
-| ~~Dark palette~~ | ~~The run captured `mode: light` only.~~ **Closed by reading upstream source rather than re-measuring** — the theme is two variables, swapped. Parity is exact. Decision #66. |
-| Motion durations and easings | Partially closed. The CSS-driven timings are now known from upstream source — marquee cycle, shine duration and shine delay are in §20.8 and marked measured. Framer Motion's JS-driven timings (reveal, collapse, crossfade) are still not observable from styles, so those remain our specification per 19 §19.3. |
-| Scroll behaviour | Reveal thresholds, `once` semantics and marquee speed are runtime behaviour, not CSS. Ours. |
-| Responsive steps | Measured at desktop width only. `--gutter` and `--section-gap` breakpoint behaviour is ours. |
-| Focus treatment | Not captured. §20.9 is ours, and is stricter than most sites ship. |
+| Long-form typography and internal-page steps | `--text-base` prose and `--text-2xl` subheadings remain project norms. |
+| Adopted source-observed layout geometry | The 672px maximum width, 12→16px gutters at 640px, fixed 64px section gap, 24→32px card padding, 24px bottom inset and lack of a fixed bar height are observed upstream facts expressed through project tokens. |
+| Project-owned responsive safeguards | Safe-area reservation, runtime bar-height reservation, 200% zoom behavior, collision handling and accessibility boundaries are normative project additions. |
+| Unobserved motion | Collapse, human/agent crossfade and the intro's internal distribution remain project-defined within the normative motion/accessibility budgets. |
+| Focus treatment | §20.9 is project-owned and intentionally stricter than the reference. |
 
 ### 20.18.1 The boundary this document holds
 
@@ -599,13 +618,11 @@ reference. That is the whole basis on which §20.4–§20.7 are legitimate.
 
 Two things sit on the other side of that line and are out of scope here:
 
-1. **Source code — permission granted, architecture still governs.** As of decision
-   [#63](16-decision-log.md) the author has given express written permission to use the complete
-   upstream repository for this portfolio, so source may be read and ported. It is still not copied
-   in wholesale, because the upstream stack (shadcn/Radix, a JSON content file, Vercel) conflicts
-   with decisions #1, #37/#38 and the Base UI choice. Ported code is expected to read like our
-   stack. Note separately that scraping only ever yields compiled output, so the repository — not
-   the rendered site — is the source of any implementation detail worth reusing.
+1. **Source reference—permission recorded, project rules still govern.** Decision #63 records
+   express permission for this portfolio. The stricter implementation rule is inspiration only:
+   inspect layout, anatomy, behavior and observed facts, but copy no upstream file, code, prose or
+   personal content. Base UI remains the sole primitive library; Payload, OpenNext Workers and the
+   project design/accessibility/performance rules are normative.
 2. **Content.** Aditya's biography, roles, essays, publication and client recommendations are his
    personal information and his prose. None of it enters this project in any form, including as
    placeholder or fixture data. Fixtures are the `[Fixture]`-prefixed set defined in

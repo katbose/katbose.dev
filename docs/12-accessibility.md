@@ -6,7 +6,7 @@
 
 ## 12.1 Target
 
-**WCAG 2.1 Level AA, fully keyboard operable, enforced in CI.**
+**WCAG 2.2 Level AA, fully keyboard operable, enforced in CI.**
 
 Stating a target without a mechanism is how accessibility regresses. Every rule below is either
 automatically checked or is a concrete build-time requirement.
@@ -28,7 +28,7 @@ for (const path of PAGES) {
   test(`a11y: ${path} has no WCAG A/AA violations`, async ({ page }) => {
     await page.goto(path);
     const results = await new AxeBuilder({ page })
-      .withTags(["wcag2a", "wcag2aa", "wcag21aa"])
+      .withTags(["wcag2a", "wcag2aa", "wcag21aa", "wcag22aa"])
       .analyze();
     expect(results.violations).toEqual([]);
   });
@@ -103,9 +103,10 @@ Applied to every component, checked in review:
 - **Mobile menu** traps focus while open, closes on `Escape`, and returns focus to the trigger
 - **Form fields** have associated `<label>` elements; errors are linked via `aria-describedby`
   and announced
-- **Colour contrast** meets AA (4.5:1 body text, 3:1 large text) — enforced through design tokens
-  rather than checked ad hoc, for both the light and dark palette (toggle defaults to system
-  preference, [19-design-reference.md](19-design-reference.md))
+- **Colour contrast** meets WCAG 2.2 AA (4.5:1 body text, 3:1 large text); focus is not
+  obscured, pointer targets and drag alternatives meet applicable 2.2 criteria
+- **Control boundaries** use the contrast-verified strong-border token; decorative hairlines never
+  provide the only control/state boundary
 - **Colour is never the only signal** for state or meaning
 - **Images** have meaningful `alt` text; decorative images use `alt=""`
 - **`prefers-reduced-motion`** disables or reduces every Framer Motion animation

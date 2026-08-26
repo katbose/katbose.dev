@@ -121,7 +121,11 @@ A recruiter is never left on a blank page or a JSON error body.
 
 ## 8.4 Ask AI — resilience without a maintenance state
 
-Ask AI is required to be **always active**. There is no "search unavailable" UI.
+Ask AI is required to be **always visible and resilient, not always active**. Dependency failure,
+fail-closed limiting or capacity exhaustion keeps the page, input and examples in place while an
+honest inline unavailable, retry or capacity state explains that the backend cannot answer. There
+is no page-level maintenance state and the UI never implies that an unavailable backend is active
+(decision #86).
 
 - 2 retries with 500ms / 1000ms backoff, 8s timeout
 - Transport failures return **HTTP 200** with `{ success: false, message }`
@@ -160,7 +164,7 @@ error, and it keeps Sentry noise focused on genuine faults.
 
 ## 8.5 Error boundaries
 
-```
+```text
 app/not-found.tsx      → 404, links to Home / Blog / Ask AI
 app/error.tsx          → route-level boundary with a "Try again" reset button
 app/global-error.tsx   → root crash fallback, minimal and dependency-free

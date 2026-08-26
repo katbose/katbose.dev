@@ -58,7 +58,8 @@ Rules:
 
 ## 2.2 Blog feature set
 
-- MDX authoring
+- Payload Lexical authoring as the canonical rich-text source
+- Derived Markdown/MDX rendering and portable export
 - Reading time
 - Table of contents
 - Syntax highlighting with copy-code buttons
@@ -172,18 +173,22 @@ while the public still sees the published version.
 
 **Flow**
 
-```
+```text
 Payload admin → "Preview" button
   → GET katbose.dev/api/preview?secret=…&slug=…&collection=…
       → constant-time check of PREVIEW_URL_SECRET
       → enable Next.js Draft Mode and set a signed HTTP-only preview-scope cookie
          ({ collection, slug, issuedAt, expiresAt })
       → 307 redirect to the CLEAN url (/blog/my-post) — secret never appears again
-  → page verifies that its collection + slug match the unexpired cookie scope
-      → server-only request to CMS /api/internal/preview-document, signed with
+  → page Server Component verifies signature, collection, slug and `expiresAt` before any draft read
+      → expired/invalid scope calls a same-origin preview-exit Route Handler, which disables Draft
+         Mode, deletes both cookies and redirects to the clean published URL
+      → valid scope makes a server-only request to CMS /api/internal/preview-document, signed with
          PREVIEW_INTERNAL_SECRET and a short-lived HMAC timestamp
       → CMS verifies the request and uses Payload's Local API to read that one draft
-  → middleware clears Draft Mode and preview-scope cookies after 15 minutes
+
+No middleware is used. Cookie `maxAge` limits storage, while the Server Component's explicit expiry
+check is authoritative and prevents an expired cookie from authorizing a draft even before cleanup.
 ```
 
 The public Payload REST API never serves a draft. The generic public route does not receive a
@@ -201,7 +206,7 @@ guessable unpublished slugs.
 | Timing attack on the comparison | `crypto.timingSafeEqual`, never `===` |
 | Secret committed to Git | `.gitignore` + `gitleaks` on every push and PR |
 | Secret lingering in the address bar / shared links | Validate once, then redirect to a clean URL |
-| Draft session left open indefinitely | 15-minute TTL enforced in middleware |
+| Draft session left open indefinitely | Signed 15-minute scope checked at every draft-aware Server Component read boundary; expired scope exits through the same-origin preview-exit Route Handler |
 | Secret captured by monitoring tools | Redaction in Sentry `beforeSend` and PostHog `sanitize_properties` |
 | Preview URLs written to logs | Never log full request URLs on the preview route |
 | Public `?draft=true` request | Guest `read` access is constrained to `_status = published`; `readVersions` requires a Payload user |
@@ -249,29 +254,20 @@ export async function GET(req: NextRequest) {
 }
 ```
 
-### Expiry middleware
+### Expiry enforcement without middleware
 
 ```ts
-// apps/web/middleware.ts
-import { NextResponse, type NextRequest } from "next/server";
-
-const DRAFT_TTL_MS = 15 * 60 * 1000;
-
-export function middleware(req: NextRequest) {
-  const bypass = req.cookies.get("__prerender_bypass"); // Next.js internal draft cookie
-  const scope = verifyPreviewScope(req.cookies.get("__preview_scope")?.value);
-
-  if (bypass && (!scope || Date.now() > scope.expiresAt)) {
-    const res = NextResponse.next();
-    res.cookies.delete("__prerender_bypass");
-    res.cookies.delete("__preview_scope");
-    return res;
-  }
-  return NextResponse.next();
+// Server Component guard (shape)
+const scope = await getVerifiedPreviewScope();
+if (scope && Date.now() >= scope.expiresAt) {
+  redirect(`/api/preview/exit?returnTo=${encodeURIComponent(cleanPublishedPath)}`);
 }
-
-export const config = { matcher: ["/blog/:path*", "/tie/:path*"] };
 ```
+
+The same-origin `/api/preview/exit` Route Handler validates `returnTo` against an internal relative
+path allowlist, calls `(await draftMode()).disable()`, deletes `__preview_scope`, and redirects to
+the clean published route. Every draft-aware Server Component performs the expiry/scope check
+before the internal CMS call; cookie `maxAge` alone is never treated as authorization.
 
 ### Payload preview button
 
@@ -337,3 +333,21 @@ public ISR cache.
 - [ ] A valid preview renders its selected draft; another draft slug remains published or 404.
 - [ ] A tampered, expired or reused scope cookie cannot retrieve a draft.
 - [ ] The CMS rejects the internal preview endpoint without a valid, fresh HMAC signature.
+
+---
+
+## 2.11 Final ownership and validation lock
+
+- A Payload `Profile` global owns hero/profile/contact/social/skills fields plus story and education
+  prose. Collections own Projects, Experience, Blog and TIE. The Home manifest stores order, stable
+  IDs, section types, source selectors and display configuration only—never prose.
+- Lexical JSON is canonical rich text. Shared exhaustive Zod discriminated unions validate every
+  supported node/block before rendering or Markdown export; unknown nodes fail tests and are never
+  silently ignored. Strict TypeScript and no application `any` apply.
+- Slugs are normalized lowercase ASCII, length-bounded and checked against reserved routes;
+  traversal, separators, control characters and collisions are rejected. Published slug changes
+  require a redirect.
+- URL fields allow only `https:` URLs or explicit internal relative routes. Credentials, control
+  characters, protocol-relative URLs and unapproved schemes are rejected.
+- Media and rich-text field sizes are bounded. Raw HTML is disabled and link targets are validated
+  again at render/export boundaries.

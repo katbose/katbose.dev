@@ -6,8 +6,9 @@
 
 ## 14.1 Why this matters here
 
-The site stores **salted IP hashes, country, referrer, browser, device, contact submissions and
-AI queries**. Under GDPR, a hashed IP combined with other identifiers is still personal data.
+The site stores **HMAC IP pseudonyms with non-secret key epochs, country, referrer, browser, device,
+contact submissions and AI queries**. Under GDPR, a pseudonymized IP combined with other
+identifiers can still be personal data.
 Recruiters in the EU will visit this site, so the obligations are real even though it is a
 personal project.
 
@@ -40,7 +41,7 @@ the analysis above and would require updating this document and the privacy poli
 
 | Data | Where | Why | Retention |
 | --- | --- | --- | --- |
-| Salted IP hash | `download_logs`, `ai_query_logs`, Upstash keys | Rate limiting, abuse detection | 90 days |
+| HMAC IP pseudonym + epoch | `download_logs`, `ai_query_logs`, Upstash keys | Rate limiting, abuse detection | Daily purge at 90 days; epochs never correlated |
 | User-Agent hash, browser, device | `download_logs` | Download analytics | 90 days |
 | Country, referrer | `download_logs` | Analytics | 90 days |
 | Resume version served | `download_logs` | Which version a recruiter received | 90 days |
@@ -49,8 +50,8 @@ the analysis above and would require updating this document and the privacy poli
 | Product events | PostHog | Analytics | PostHog default |
 | Error reports | Sentry | Debugging | Sentry default |
 
-**Never stored:** raw IP addresses, full user-agent strings alongside an identifiable IP, session
-recordings, or any credential.
+**Never stored:** raw IP addresses, any IP-derived value on `contact_submissions`, full user-agent
+strings alongside an identifiable IP, session recordings, or any credential.
 
 ---
 
@@ -62,8 +63,9 @@ delete from ai_query_logs     where created_at < now() - interval '90 days';
 delete from dead_letter_queue where resolved and resolved_at < now() - interval '90 days';
 ```
 
-Runs on the same quarterly schedule as `IP_HASH_SALT` rotation
-([05-security.md](05-security.md)), so no rows survive that were hashed with a retired salt.
+Runs **daily** (or more frequently) and independently enforces the 90-day ceiling. Quarterly HMAC
+key rotation is a separate operation: old epochs may coexist until their rows age out, but epochs
+are never correlated or backfilled. Rotation must never delay deletion.
 
 ---
 
@@ -113,7 +115,7 @@ its own plan, not a quiet addition.
 - [ ] Privacy policy published and linked in the footer
 - [ ] PostHog confirmed running cookieless; session replay disabled
 - [ ] Retention purge scheduled and verified once
-- [ ] Salt rotation reminder in the calendar (quarterly)
+- [ ] HMAC pseudonym key/epoch rotation reminder in the calendar (quarterly; independent of purge)
 - [ ] No raw IPs anywhere in the schema or logs
 - [ ] Sentry and PostHog URL redaction confirmed for `?secret=`
 - [ ] Contact form notice present

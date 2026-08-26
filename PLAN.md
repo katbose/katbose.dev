@@ -1,12 +1,15 @@
 # katbose.dev — Portfolio Master Plan
 
-**Version:** 1.5
-**Status:** Approved for implementation
-**Last updated:** 2026-08-24
+**Version:** 1.6
+**Status:** Final architecture lock; approved for Phase 1 implementation
+**Last updated:** 2026-08-26
 
-This is the entry point for the design, architecture and operations of `katbose.dev`.
-v1.0 was the brainstorm. v1.1 closed 18 production-readiness gaps. v1.2 splits the result into a
-documentation set so each concern can be read, reviewed and updated on its own.
+This is the entry point for the design, architecture and operations of `katbose.dev`. Architecture
+and Phase 1 implementation choices are closed. Spike A's remote image check, Spike B and Spike C
+remain fail-stop execution gates for their dependent work; a failed gate creates a new decision
+rather than an undocumented workaround. The `katbose` package is published, but its monorepo
+integration remains Phase 1 work. v1.0 was the brainstorm; v1.1 closed production-readiness gaps;
+v1.2 split the specification; v1.6 is the final implementation lock.
 
 **Everything discussed lives in [`docs/`](docs/). This file is the index and the summary.**
 
@@ -20,18 +23,18 @@ documentation set so each concern can be read, reviewed and updated on its own.
 | 02 | [Content Model & CMS](docs/02-content-model.md) | Blog / TIE / Projects / Experience, Payload vs Strapi, collection access, field discipline, secure draft preview |
 | 03 | [Search, Sync & Ask AI](docs/03-search-and-ai.md) | Cloudflare AI Search, webhook → retry → dead-letter → nightly reconciliation, Ask AI availability, cost caps, prompt-injection defence |
 | 04 | [Resume Download System](docs/04-resume-system.md) | One-click flow, progressive security, immutable versioning, signed URLs, two-tier fallback, download analytics |
-| 05 | [Security & Access Control](docs/05-security.md) | Threat model, Cloudflare Access design, secrets ownership, IP hashing and salt rotation, headers, accepted risks |
+| 05 | [Security & Access Control](docs/05-security.md) | Threat model, Cloudflare Access design, secrets ownership, HMAC pseudonyms/key epochs, static headers, accepted risks |
 | 06 | [Data Model & RLS](docs/06-data-model.md) | Full SQL schema, deny-by-default policies, storage rules, retention, migration discipline |
 | 07 | [Rate Limiting & Forms](docs/07-rate-limiting.md) | Cloudflare + Upstash layers, per-route limits, fail-open/fail-closed matrix, contact form protection, Turnstile |
 | 08 | [Resilience & Fallbacks](docs/08-resilience.md) | ISR as a shield, graceful degradation, error boundaries, outage verification drills |
 | 09 | [Observability & Dashboard](docs/09-observability.md) | PostHog, Sentry, Slack alert catalogue, private dashboard widgets, weekly review ritual |
 | 10 | [Backups & Portability](docs/10-backups-and-portability.md) | Weekly `pg_dump`, media sync, JSON/MDX export, restore drills, recovery scenarios |
 | 11 | [Testing & CI](docs/11-testing-and-ci.md) | Workflows, unit/E2E scope, resume smoke test, pre-deploy manual checks |
-| 12 | [Accessibility](docs/12-accessibility.md) | WCAG 2.1 AA enforcement, axe in CI, keyboard specs, build-time and authoring rules |
+| 12 | [Accessibility](docs/12-accessibility.md) | WCAG 2.2 AA enforcement, axe in CI, keyboard specs, build-time and authoring rules |
 | 13 | [SEO & Agent Readability](docs/13-seo-and-agent-readability.md) | Core Web Vitals targets, JSON-LD, robots.txt, `llms.txt`, humans.txt, utility pages |
 | 14 | [Privacy & Compliance](docs/14-privacy-and-compliance.md) | Data inventory, no-cookie-banner rationale, retention, privacy policy outline, i18n out of scope |
 | 15 | [Roadmap & Checklist](docs/15-roadmap-and-checklist.md) | Five phases with build lists and non-negotiable production gates |
-| 16 | [Decision Log](docs/16-decision-log.md) | Decisions through #65 with reasoning, plus rejected options |
+| 16 | [Decision Log](docs/16-decision-log.md) | Decisions through #86 with status vocabulary, historical annotations and reasoning |
 | 17 | [Environment Variables](docs/17-env-vars.md) | Full secrets inventory per surface, generation, rotation calendar |
 | 18 | [Knowledge Base](docs/18-knowledge-base.md) | Separate repository, TIE boundary, future indexing |
 | 19 | [Design Reference](docs/19-design-reference.md) | justaditya.com/Hackyfolio as primary visual reference, micro-interaction catalogue, intro loader, `npx katbose`, compatibility analysis |
@@ -61,7 +64,7 @@ It is **not** a knowledge base — that lives in a [separate repository](docs/18
 
 - White-first, minimalistic UI with a light/dark toggle (defaults to system preference) — content first
 - Fast: < 1s initial load, excellent Core Web Vitals
-- Responsive, accessible (WCAG 2.1 AA), fully keyboard operable
+- Responsive, accessible (WCAG 2.2 AA), fully keyboard operable
 - Excellent typography
 - SEO optimized **and** agent-readable
 - TypeScript-first, strict, easy to maintain
@@ -97,7 +100,7 @@ See the [decision log](docs/16-decision-log.md) before reintroducing any of them
 
 ## Domains
 
-```
+```text
 katbose.dev            → Next.js public site (Cloudflare Workers via OpenNext)
 cms.katbose.dev        → Payload CMS (Render, production only) — /admin behind Cloudflare Access
 dashboard.katbose.dev  → Private analytics (Render, production only) — behind Cloudflare Access
@@ -111,7 +114,7 @@ database migrations and Cloudflare-runtime checks are performed locally before a
 
 ## Navigation & pages
 
-```
+```text
 Home · Projects · Experience · Blog · TIE · Resume · Ask AI · Contact
 ```
 
@@ -127,14 +130,14 @@ and an `npx katbose` terminal card.
 | Home | Hero, About, Featured Projects, Experience preview, Latest Blog, Latest TIE, Contact CTA |
 | Projects | Overview, screenshots, architecture, challenges, lessons learned, stack, GitHub, live demo |
 | Experience | Timeline |
-| Blog | Long-form MDX: reading time, TOC, syntax highlighting, copy-code, tags, related posts |
+| Blog | Long-form content authored in Payload Lexical; derived Markdown/MDX rendering provides reading time, TOC, syntax highlighting, copy-code, tags and related posts |
 | TIE | Short engineering-notebook entries, deliberately unpolished |
 | Resume | Experience, skills, education, certifications, last updated, View online + secured Download |
 | Ask AI | Natural-language semantic search with source citations |
 | Contact | Minimal form (Turnstile-protected, routed to Slack) plus a Cal.com link for scheduling a call |
 
-Plus utility pages: 404, error boundaries, `/privacy`, `/resume-unavailable`, `robots.txt`,
-`humans.txt`, `llms.txt`, `sitemap.xml`, `rss.xml`.
+Plus utility pages: 404, error boundaries, `/privacy`, `/resume-unavailable`, canonical `/agent`,
+`robots.txt`, `humans.txt`, generated `/llms.txt`, `sitemap.xml`, `rss.xml`.
 
 ---
 
@@ -151,15 +154,16 @@ Turnstile only on suspicion → 60s signed URL over a private bucket → logged.
 immutable and kept forever, with an `is_current` pointer in the database.
 → [docs/04](docs/04-resume-system.md)
 
-**3. Ask AI** — always visible, never a "unavailable" state. Protected by per-IP limits, a 50/day
-global cap, and four layers of injection/hallucination defence, the most important being a
-**citation gate**: an answer that cannot be grounded in retrieved sources is discarded, so the
-failure mode is "no answer" rather than "wrong answer attributed to me".
+**3. Ask AI** — always visible and resilient, not always active. Dependency failure, fail-closed
+limiting or the 50/day cap leaves the page/input usable with an inline retry or capacity message.
+The structured citation gate accepts an answer only when every model-emitted citation ID resolves
+to a retrieved, allowed, published chunk.
 → [docs/03](docs/03-search-and-ai.md)
 
-**4. Data protection** — every table is RLS deny-by-default and reachable only from server-side
-Worker or Render code with the service role key, which never enters a client bundle. IPs are stored
-as salted hashes with a quarterly rotation aligned to a 90-day purge.
+**4. Data protection** — client-role grants are revoked and restrictive RLS deny policies are
+verified by catalog and role tests. Privileged access remains server-only. IP-derived telemetry
+uses HMAC-SHA-256 pseudonyms from trusted Cloudflare metadata; daily 90-day purge is independent of
+quarterly key rotation, and epochs are never correlated.
 → [docs/05](docs/05-security.md) · [docs/06](docs/06-data-model.md)
 
 ---
@@ -169,7 +173,7 @@ as salted hashes with a quarterly rotation aligned to a 90-day purge.
 | Dependency | Behaviour when it fails |
 | --- | --- |
 | CMS (Render) | ISR serves last-good content; only uncached pages show a fallback |
-| Cloudflare AI Search | Retries, then an inline retry message — the feature stays on |
+| Cloudflare AI Search | Retry, then keep the page/input visible with an inline retry notice; never claim the backend is active when it is unavailable |
 | Supabase signed URL | Retry once, then `/resume-unavailable` with real next actions |
 | Upstash — resume | **Fail open** (recruiter experience wins) |
 | Upstash — Ask AI, contact | **Fail closed** (cost and spam protection win) |
@@ -183,7 +187,7 @@ as salted hashes with a quarterly rotation aligned to a 90-day purge.
 | Phase | Focus | Ships when |
 | --- | --- | --- |
 | 1 | Foundation — layout, core pages, utility pages, SEO, deployment | RLS, secrets hygiene, contact protection, privacy policy, CI and OpenNext runtime validation are in place |
-| 2 | Content platform — Payload, Blog, TIE, MDX, draft preview | Scoped preview hardened, Payload-schema proof passed, ISR fallback proven, restore drill passed |
+| 2 | Content platform — Payload, Blog, TIE, canonical Lexical authoring, derived Markdown/MDX, draft preview | Spike B, CMS domain/Access, scoped preview, ISR fallback and restore drill pass |
 | 3 | AI search — index, Ask AI, sync pipeline | Current AI Search binding, reconciliation, cost caps and all four injection layers verified |
 | 4 | Resume security — private bucket, signed URLs, Turnstile | E2E download test passes and fail-open behaviour is proven |
 | 5 | Analytics & operations — dashboard, retention, alerting | Access control, retention and alerting verified |
@@ -207,9 +211,10 @@ Full build lists and gates: [docs/15](docs/15-roadmap-and-checklist.md).
 
 | Cadence | Task |
 | --- | --- |
+| Daily | Purge telemetry older than 90 days |
 | Weekly | 10-minute review: alerts, DLQ depth, flagged AI queries, Sentry, resume funnel |
 | Monthly | Search Console, dependency updates, broken-link sweep |
-| Quarterly | Rotate `IP_HASH_SALT` + retention purge + restore drill + review accepted risks |
+| Quarterly | Rotate HMAC pseudonym key/epoch; restore drill; review accepted risks |
 | Yearly | Re-read this plan and retire anything no longer true |
 
 Any change of direction gets an entry in the [decision log](docs/16-decision-log.md) — decisions

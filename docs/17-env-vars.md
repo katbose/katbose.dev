@@ -10,7 +10,8 @@
    bundle.** It bypasses every RLS policy — leaking it compromises the entire data layer.
 2. Production values are set on the protected `main` deployment and the production Render
   services. Local development uses ignored `.env.local` files and local Supabase credentials.
-  `IP_HASH_SALT` must match between production Worker and Render surfaces.
+  `IP_PSEUDONYM_KEY` exists only on the web Worker that receives trusted Cloudflare request
+  metadata; Render does not compute visitor pseudonyms.
 3. `render.yaml` is committed with `sync: false` placeholders. Secret **values** are never
    committed.
 4. `.env.example` files are committed for every app with placeholders and one-line comments.
@@ -24,15 +25,15 @@ or confirm them only when their phase needs them:
 
 | Resource | Provision/confirm by | Needed for | Status (2026-08-24) |
 | --- | --- | --- | --- |
-| `katbose.dev` registration + Cloudflare DNS zone | Before Spike A's remote/domain pass and certainly before production deploy | Worker custom domain, trusted `cf-connecting-ip`, CMS/dashboard subdomains | Availability verified; purchase planned for 2026-08-27 |
-| Cloudflare Workers + Images + Turnstile + Access | Workers/Images for Spike A; Turnstile/Access before their Phase 1 gates | Web runtime, image transforms, bot checks and admin protection |
+| `katbose.dev` registration + Cloudflare DNS zone | Before Spike A's remote/domain pass and certainly before production deploy | Worker custom domain, trusted `CF-Connecting-IP`, CMS/dashboard subdomains | Domain ownership and DNS-zone status must be confirmed before the remote Spike A pass; no purchase or availability claim is recorded here |
+| Cloudflare Workers + Images + Turnstile + Access | Workers/Images for Spike A; Turnstile/Access before their Phase 1 gates | Web runtime, image transforms, bot checks and admin protection | Not confirmed here |
 | npm package `katbose` | Before shipping `packages/katbose-card` | `npx katbose` distribution | Created and published; user-confirmed 2026-08-24 |
-| Local Supabase CLI | Spike B | Free local Postgres/Storage/migration proof |
-| Production Supabase project | Before first protected production migration | Production Postgres and Storage |
-| Upstash, PostHog, Sentry and Slack workspace | While implementing their Phase 1 route/observability items | Rate limits, analytics, errors and alerts |
-| Render | Spike B / Phase 2 deployment | Payload CMS; dashboard waits until Phase 5 |
-| Cloudflare AI Search instance | Spike C / Phase 3 | Items API, cited chat and reconciliation |
-| Cal.com | **Confirmed:** `https://cal.com/katbose/meet` | Scheduling link on Home and Contact |
+| Local Supabase CLI | Spike B | Free local Postgres/Storage/migration proof | Not confirmed here |
+| Production Supabase project | Before first protected production migration | Production Postgres and Storage | Not confirmed here |
+| Upstash, PostHog, Sentry and Slack workspace | While implementing their Phase 1 route/observability items | Rate limits, analytics, errors and alerts | Not confirmed here |
+| Render | Spike B / Phase 2 deployment | Payload CMS; dashboard waits until Phase 5 | Not confirmed here |
+| Cloudflare AI Search instance | Spike C / Phase 3 | Items API, cited chat and reconciliation | Not confirmed here |
+| Cal.com | **Confirmed:** `https://cal.com/katbose/meet` | Scheduling link on Home and Contact | Confirmed |
 
 Local-only `ALLOW_DEV_SEED=true` enables the deterministic fixture seed
 ([02-content-model.md](02-content-model.md) §2.1.1). It must never be configured on Cloudflare or
@@ -45,15 +46,14 @@ Render.
 | Variable | Public? | Purpose | Rotation |
 | --- | --- | --- | --- |
 | `NEXT_PUBLIC_SITE_URL` | Yes | Canonical site URL | — |
-| `NEXT_PUBLIC_SUPABASE_URL` | Yes | Supabase project URL | On project change |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Yes | Anon key (RLS-gated, near-zero access by design) | On compromise |
 | `SUPABASE_URL` | No | Server-only Supabase client URL | On project change |
 | `SUPABASE_SERVICE_ROLE_KEY` | **No** | Server-only Worker writes: logs, submissions, signed URLs | On compromise, immediately |
 | `CMS_URL` | No | Payload API base, e.g. `https://cms.katbose.dev` | — |
 | `WEBHOOK_SHARED_SECRET` | **No** | Authenticates `content-sync` and `reconcile` calls | Quarterly |
 | `PREVIEW_URL_SECRET` | **No** | One-time Payload preview-link gate, 256-bit | Quarterly, or after any suspected exposure |
 | `PREVIEW_INTERNAL_SECRET` | **No** | Worker-to-CMS draft endpoint secret | Quarterly, or after any suspected exposure |
-| `IP_HASH_SALT` | **No** | Salt for SHA-256 IP hashing | **Quarterly, with the retention purge** |
+| `IP_PSEUDONYM_KEY` | **No** | Current HMAC-SHA-256 key for IP pseudonyms | Quarterly; independent of the daily 90-day purge |
+| `IP_PSEUDONYM_EPOCH` | **No** | Non-secret current key epoch stored beside each pseudonym | On each key rotation |
 | `UPSTASH_REDIS_REST_URL` | **No** | Rate limiting | On compromise |
 | `UPSTASH_REDIS_REST_TOKEN` | **No** | Rate limiting | On compromise |
 | `NEXT_PUBLIC_TURNSTILE_SITE_KEY` | Yes | Turnstile widget | — |
@@ -91,7 +91,6 @@ Supabase remains the media origin. No Cloudflare Images storage or upload token 
 | `PREVIEW_URL_SECRET` | Must match the web app — used to build the one-time preview link |
 | `PREVIEW_INTERNAL_SECRET` | Must match the web app — authenticates draft reads from the Worker |
 | `PUBLIC_SITE_URL` | Used in the Payload preview URL builder |
-| `IP_HASH_SALT` | Must match the web app within the environment |
 | `PAYLOAD_PUBLIC_SERVER_URL` | Payload's own base URL |
 | `SLACK_ALERTS_WEBHOOK_URL` | Alerts from CMS-side hooks |
 
@@ -119,8 +118,6 @@ services:
         sync: false
       - key: PREVIEW_INTERNAL_SECRET
         sync: false
-      - key: IP_HASH_SALT
-        sync: false
 ```
 
 ---
@@ -132,9 +129,10 @@ services:
 | `SUPABASE_DB_URL` | `weekly-backup.yml` (`pg_dump`) |
 | `NEXTJS_RECONCILE_ENDPOINT` | `nightly-reconciliation.yml` |
 | `WEBHOOK_SHARED_SECRET` | `nightly-reconciliation.yml` |
-| `CMS_URL` | `weekly-backup.yml` (content export) |
-| `CONTENT_BACKUP_REPO_TOKEN` | Pushing exports to the private backup repo |
-| `R2_*` (optional) | Off-GitHub backup mirror |
+| `CMS_URL` | `weekly-backup.yml` (all-page content export) |
+| `CONTENT_BACKUP_REPO_TOKEN` | Optional convenience push of portable exports to the private repo |
+| `R2_RCLONE_CONFIG` | Normative encrypted off-primary R2 backup target |
+| `BACKUP_AGE_RECIPIENT` | Encrypts every backup before upload; private identity is held off CI |
 
 ---
 
@@ -144,7 +142,7 @@ services:
 openssl rand -hex 32     # PREVIEW_URL_SECRET
 openssl rand -hex 32     # PREVIEW_INTERNAL_SECRET
 openssl rand -hex 32     # WEBHOOK_SHARED_SECRET
-openssl rand -hex 32     # IP_HASH_SALT
+openssl rand -hex 32     # IP_PSEUDONYM_KEY
 openssl rand -hex 32     # PAYLOAD_SECRET
 ```
 
@@ -158,18 +156,19 @@ token.
 
 | Cadence | Action |
 | --- | --- |
-| Quarterly | Rotate `IP_HASH_SALT` **together with** the 90-day retention purge |
+| Daily | Purge telemetry older than 90 days; this job is independent of key rotation |
+| Quarterly | Rotate `IP_PSEUDONYM_KEY`, increment `IP_PSEUDONYM_EPOCH`; never correlate epochs |
 | Quarterly | Rotate `PREVIEW_URL_SECRET`, `PREVIEW_INTERNAL_SECRET`, `WEBHOOK_SHARED_SECRET`, `SENTRY_AUTH_TOKEN` |
 | On compromise | Rotate the affected key immediately, then audit `download_logs` and `ai_query_logs` for abuse |
 | On vendor change | Remove retired variables from every surface and from this document |
 
-**Salt rotation order** (both surfaces must move together, or hashes stop matching):
+**Pseudonym-key rotation order:**
 
-1. Run the retention purge
-2. Generate the new salt
-3. Update it on the production Worker and on Render
-4. Redeploy both
-5. Spot-check that a download still logs and that rate limiting still counts
+1. Generate a new 256-bit key and increment the epoch.
+2. Update the production Worker secret/variable and redeploy atomically.
+3. Spot-check logging and short-window limiting under the new epoch.
+4. Leave old-epoch rows untouched until the independent daily 90-day purge removes them; never
+   correlate or backfill across epochs.
 
 ---
 

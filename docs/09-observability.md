@@ -165,5 +165,6 @@ Ten minutes, once a week:
 4. Sentry → unresolved issues
 5. PostHog → resume funnel and Ask AI usage trend
 
-Quarterly, add: rotate `IP_HASH_SALT`, run the retention purge, and confirm the latest backup
-restores ([10-backups-and-portability.md](10-backups-and-portability.md)).
+Quarterly, add: rotate `IP_PSEUDONYM_KEY`, increment `IP_PSEUDONYM_EPOCH`, verify no cross-epoch
+correlation, and confirm the latest backup restores. The independent daily job—not this ritual—
+enforces the 90-day telemetry purge ([10-backups-and-portability.md](10-backups-and-portability.md)).

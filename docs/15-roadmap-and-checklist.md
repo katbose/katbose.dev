@@ -30,21 +30,21 @@ commands in [11-testing-and-ci.md](11-testing-and-ci.md) §11.2.2 pass:
       round-trip; `timingSafeEqual` from `node:crypto`; `ImageResponse` PNG — all verified in
       `workerd`, not `next dev`)
 - [ ] After `katbose.dev` is on Cloudflare, prove Supabase media original → same-zone proxy →
-	`/cdn-cgi/image` transform/cache → `onerror=redirect` original fallback; a forced
-	transform failure still displays the image
+      `/cdn-cgi/image` transform/cache → `onerror=redirect` original fallback; a forced
+      transform failure still displays the image
       (*partial local proof 2026-08-25: custom loader emits `/cdn-cgi/image?url=/media/original/{key}`
       URLs incl. a `w=640` variant and the origin proxy serves immutable PNG bytes; the actual
       edge transform requires the registered zone)
 - [x] Prove a clean first visit follows emulated OS light/dark mode and the top-right toggle
-	persists an explicit override (Playwright `colorScheme` emulation + reload persistence)
+      persists an explicit override (Playwright `colorScheme` emulation + reload persistence)
 
 ### Spike B — before Phase 2 feature work
 
 - [ ] Run `test:spike:payload-schema` against local Supabase with `schemaName: "payload"` and
-	migration-only mode (`push: false`)
+      migration-only mode (`push: false`)
 - [ ] Seed one local fixture per content type, media image and dummy resume PDF
 - [ ] Complete create/draft/preview/publish/unpublish/upload, `pg_dump`, scratch restore and
-	schema-isolation checks
+      schema-isolation checks
 
 ### Spike C — before Phase 3 feature work
 
@@ -71,27 +71,28 @@ around silently.
 - [ ] Layout, navigation, footer, skip link, mobile menu with focus trap
 - [ ] Home section stack per the design reference ([19-design-reference.md](19-design-reference.md)): typed section manifest + registry renderer, bottom bar with human/agent toggle, micro-interaction catalogue with reduced-motion fallbacks
 - [ ] Intro loader (multilingual "Hello", ≤2s, once per session, skipped under reduced motion)
-- [x] `packages/katbose-card`: `katbose` package created and published to npm (user-confirmed 2026-08-24); keep the monorepo source and published package synchronized
+- [x] `katbose` npm package published (user-confirmed 2026-08-24)
+- [ ] Integrate `packages/katbose-card` into the pnpm monorepo and keep source aligned with releases
 - [ ] Pages: Home (hero, about, featured projects, experience preview, latest blog, latest TIE, contact CTA), Projects, Experience, Resume, Contact
 - [ ] Utility pages: `not-found.tsx`, `error.tsx`, `global-error.tsx`, `/privacy`, `/resume-unavailable`
-- [ ] `robots.txt`, `humans.txt`, `llms.txt`, `sitemap.xml`, `rss.xml`
+- [ ] Canonical `/agent`, plus `robots.txt`, `humans.txt`, generated `/llms.txt`, `sitemap.xml` and `rss.xml` from the typed route manifest
 - [ ] SEO baseline: metadata, Open Graph, JSON-LD (`Person`, `BreadcrumbList`, `WebSite`)
-- [ ] Security headers in `next.config.ts`
+- [ ] Static CSP and security headers in `next.config.ts`; no middleware/nonces; no runtime external media/CDN origins
 - [ ] Image CDN path: immutable Supabase originals, Cloudflare Images fixed variants, cache headers and transform-error fallback
 - [ ] Sentry + PostHog wired; Slack `#katbose-alerts` and `#contact-form` created
-- [ ] Public-table migrations pass against local Supabase; the protected `main` release workflow applies them to the one production project
+- [ ] Public-table migrations pass locally; the protected explicit migration workflow takes a backup and applies them before a migration-bearing commit reaches deployment-triggering `main`
 
 **Gate**
 
 - [ ] **Env var inventory documented; service role key confirmed absent from the client bundle**
-- [ ] **RLS enabled with deny-by-default on every table; resume bucket private**
+- [ ] **All current and default client-role grants on schemas, tables, sequences and functions revoked/controlled; RLS enabled/forced with restrictive denies on every application table; catalog + anon/authenticated CRUD tests pass; resume bucket private**
 - [ ] **Contact form protection live: Turnstile + honeypot + rate limit (fail closed) + Slack**
 - [ ] **Privacy policy published**
 - [ ] CI green: typecheck, lint, unit, OpenNext build, Workers-runtime E2E; gitleaks passing; branch protection on `main`
-- [ ] axe (WCAG AA) and keyboard E2E passing on every existing page
-- [ ] Design-reference gates pass ([19-design-reference.md](19-design-reference.md) §19.7): reduced-motion fallbacks, CLS = 0 with the intro loader, agent view + `llms.txt` generated from one manifest, bottom-bar keyboard specs, no copied Hackyfolio files
-- [ ] **Cloudflare Access on `/admin` verified not to block `/api` fetches (curl test)**
-- [ ] Deployed to Cloudflare Workers via OpenNext from `main`; `cms.katbose.dev` and `dashboard.katbose.dev` custom domains are proxied through Cloudflare Access, and both `*.onrender.com` hostnames return 404
+- [ ] axe (WCAG 2.2 AA) and keyboard E2E passing on every existing page
+- [ ] Design-reference gates pass ([19-design-reference.md](19-design-reference.md) §19.7): reduced-motion fallbacks, CLS = 0 with the intro loader, canonical `/agent` + generated `/llms.txt` from one route manifest, bottom-bar keyboard specs, no copied upstream files
+- [ ] Spike A registered-zone image transform/cache/original-fallback probe passes
+- [ ] Deployed to Cloudflare Workers via OpenNext from protected `main`
 - [ ] Lighthouse ≥ 95 on Performance, SEO and Accessibility
 
 ---
@@ -106,17 +107,18 @@ around silently.
 - [ ] Local-only idempotent seed supplies one `[Fixture]` Blog, TIE, Project, Experience, Media image and dummy Resume PDF; production guard tested
 - [ ] Collections: blog-posts, tie, projects, experience, media — with access control
 - [ ] CORS restricted; GraphQL playground disabled in production; single admin user
-- [ ] Blog + TIE rendering: MDX, reading time, TOC, syntax highlighting, copy-code, tags, related posts
+- [ ] Blog + TIE authoring uses canonical Payload Lexical; derived Markdown/MDX rendering provides reading time, TOC, syntax highlighting, copy-code, tags and related posts
 - [ ] Dynamic OG images; RSS and sitemap driven by CMS content
 - [ ] Draft-aware fetching (`revalidate: 0` for drafts)
 
 **Gate**
 
-- [ ] **Secure draft preview: strong secret, constant-time check, clean-URL redirect, 15-minute TTL, redaction in Sentry and PostHog**
+- [ ] **Secure draft preview: strong secret, equal-length constant-time check, clean-URL redirect, Server Component expiry enforcement, 15-minute TTL, redaction in Sentry and PostHog**
+- [ ] **CMS domain and Access gate:** `cms.katbose.dev/admin/*` challenges through Cloudflare Access, the public `/api/*` remains readable, and the disabled `*.onrender.com` hostname returns 404
 - [ ] **ISR fallback verified by taking the CMS offline** — cached pages still serve, uncached pages show the fallback component
-- [ ] **Weekly backup workflow running: `pg_dump` + media sync + JSON/MDX export to the private backup repo**
+- [ ] **Encrypted backup workflow running:** `pg_dump` + all-page content export + media/resume sync to private off-primary R2; GitHub artifact/repo copies are convenience only
 - [ ] **One restore drill completed into a scratch database**
-- [ ] Content export verified to produce readable MDX for every collection
+- [ ] Content export verified to produce readable derived MDX for every collection
 - [ ] axe + keyboard tests extended to blog and TIE pages
 
 ---
@@ -130,7 +132,7 @@ around silently.
 - [ ] Ask AI page: input, example queries, answers with citations, disclaimer, `aria-live` region
 - [ ] Webhook `content-sync` with 3 retries, shared secret (constant-time check), dead-letter queue and Slack alert
 - [ ] Nightly reconciliation workflow: DLQ retry (give up + alert at 5 attempts) + full sweep with gap-fill **and** stale purge
-- [ ] Rate limits: 5/hour per hashed IP + 50/day global cap (fail closed); no Turnstile; Cloudflare AI Search/Workers AI usage alerts configured
+- [ ] Rate limits: 5/hour per HMAC IP pseudonym + 50/day global cap (fail closed); no Turnstile; Cloudflare AI Search/Workers AI usage alerts configured
 - [ ] All four injection/hallucination layers: input validation, hardened system prompt, citation-required output gate, `ai_query_logs` with flagged panel
 
 **Gate**
@@ -138,7 +140,7 @@ around silently.
 - [ ] **Reconciliation verified end-to-end: break the index endpoint, confirm the DLQ row, the Slack alert, and recovery on the nightly run**
 - [ ] **Cost caps verified: the global cap returns the capacity message at query 51**
 - [ ] **AI Search verified under the current binding and Items API: upload, list, replace, search with citations, and delete by item ID**
-- [ ] **All four injection layers verified against known payloads; the output gate discards an answer with zero sources**
+- [ ] **All four injection layers verified; output is discarded for zero citation IDs or any invented, stale or disallowed ID not resolving to the retrieved published allow-set**
 - [ ] Fail-closed limiter behaviour proven for Ask AI: with an invalid Upstash token, Ask AI refuses while resume downloads still succeed
 - [ ] Ask AI page passes axe + keyboard tests; results announced via the `aria-live` region
 
@@ -149,10 +151,12 @@ around silently.
 **Build**
 
 - [ ] Private `resume` bucket in Supabase Storage
+- [ ] Payload upload validation: size, MIME, `%PDF-` signature, collision-safe immutable UUID path and cleanup
+- [ ] Serialized transactional `promote_resume_version` RPC preserves the old pointer until commit; its function fixes `search_path`, revokes `EXECUTE` from `PUBLIC`, `anon` and `authenticated`, and grants it only to `service_role`
 - [ ] `resume_versions` table with the `is_current` partial unique index
 - [ ] Signed URL route (60s TTL) with two-tier fallback (retry → `/resume-unavailable`)
 - [ ] `/resume-unavailable` page with View Resume Online + Contact actions
-- [ ] `download_logs` analytics — hashed identifiers only, never raw IPs
+- [ ] `download_logs` analytics — HMAC pseudonym and key epoch only, never raw IPs
 - [ ] Progressive Turnstile escalation per the suspicion signals in [04-resume-system.md](04-resume-system.md)
 
 **Gate**
@@ -160,8 +164,8 @@ around silently.
 - [ ] **E2E download test passes: never a 5xx, always a signed-URL redirect or the fallback page**
 - [ ] **Fail-open behaviour proven: with Upstash unreachable, downloads still succeed**
 - [ ] **Direct bucket object URL returns 400/403**
-- [ ] Version swap verified under a live signed URL — the URL resolves to the exact version it was minted for
-- [ ] Turnstile appears only on suspicion, never for a first-time visitor
+- [ ] Concurrent promotion/rollback verified: readers see the old or new complete pointer; upload/RPC failures clean the new object and preserve old current
+- [ ] Turnstile challenge completes by POST with a signed intent; token never appears in a URL and only trusted `request.cf` bot data influences escalation
 
 ---
 
@@ -170,7 +174,7 @@ around silently.
 **Build**
 
 - [ ] `dashboard.katbose.dev` behind Cloudflare Access with the widget groups from [09-observability.md](09-observability.md)
-- [ ] Retention purge script scheduled quarterly, aligned with salt rotation
+- [ ] Daily retention purge scheduled independently of quarterly HMAC key rotation
 - [ ] Full Slack alert catalogue wired ([09-observability.md](09-observability.md) §9.5)
 - [ ] Weekly review ritual documented and calendarised
 
@@ -179,7 +183,7 @@ around silently.
 - [ ] **Cloudflare Access verified over the entire dashboard subdomain**
 - [ ] **Retention purge verified once against real rows**
 - [ ] **Every alert in the catalogue test-fired at least once**
-- [ ] Salt rotation dry-run completed: rotate, redeploy both surfaces, spot-check that downloads still log and rate limiting still counts
+- [ ] HMAC pseudonym rotation dry-run completed: rotate Worker key, increment epoch, redeploy, confirm logging/limiting, and verify no cross-epoch correlation
 
 ---
 
@@ -187,7 +191,8 @@ around silently.
 
 | Cadence | Task |
 | --- | --- |
+| Daily | Purge telemetry older than 90 days |
 | Weekly | 10-minute review: alerts, DLQ depth, flagged AI queries, Sentry, resume funnel |
 | Monthly | Search Console, dependency updates, broken-link sweep |
-| Quarterly | Rotate `IP_HASH_SALT`; run retention purge; restore drill; review accepted risks |
+| Quarterly | Rotate HMAC pseudonym key/epoch; restore drill; review accepted risks |
 | Yearly | Re-read this plan end to end and retire anything that is no longer true |

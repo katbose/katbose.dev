@@ -21,14 +21,14 @@ someone behaves abnormally.
 
 ## 4.2 Flow
 
-```
+```text
 User clicks "Download Resume"
         │
         ▼
 GET /api/resume/download            (Next.js route handler, OpenNext Worker)
         │
         ├─ Cloudflare edge rules already applied (WAF + coarse rate limit)
-        ├─ Rate limit: 5/hour, 20/day per hashed IP        [FAIL OPEN]
+        ├─ Rate limit: 5/hour, 20/day per HMAC IP pseudonym [FAIL OPEN]
         ├─ User-Agent sanity checks
         ├─ Cloudflare bot signals
         │
@@ -53,7 +53,7 @@ Benefits of this shape:
 
 ## 4.3 Progressive security
 
-```
+```text
 Normal usage      → immediate download, no challenge, no delay
 Heavy usage       → Turnstile challenge
 Extreme abuse     → temporary block
@@ -70,9 +70,9 @@ handler. Any one of these signals triggers the Turnstile challenge:
 
 | Signal | Threshold |
 | --- | --- |
-| Downloads from one hashed IP in the last hour | ≥ 3 |
+| Downloads from one HMAC IP pseudonym in the last hour | ≥ 3 |
 | User-Agent | Missing, or matches a known script pattern (`curl`, `wget`, `python-requests`, empty) |
-| Cloudflare bot score header (when available) | Below Cloudflare's "likely automated" threshold |
+| Trusted Cloudflare bot-management score (when available) | `request.cf.botManagement.score` below Cloudflare's "likely automated" threshold |
 
 When a signal fires, the route returns a lightweight challenge page that renders the Turnstile
 widget and re-submits the download request with a token. The token is always verified
@@ -86,7 +86,7 @@ client-side "success" callback proves nothing.
 Old resumes stay in Supabase forever. A PDF is a few KB against a 10 GB free tier, so retention
 costs nothing and removes an entire class of bugs.
 
-```
+```text
 resume/  (private bucket)
 └── versions/
     ├── resume-2026-08-07.pdf     ← is_current
@@ -107,16 +107,20 @@ create unique index one_current_resume on resume_versions (is_current) where is_
 The partial unique index guarantees at most one current row — the database enforces the invariant,
 not application code.
 
-**Update workflow**
+**Atomic promotion workflow**
 
-1. Upload `versions/resume-YYYY-MM-DD.pdf`. Never overwrite an existing path.
-2. `update resume_versions set is_current = false where is_current;`
-3. `insert into resume_versions (storage_path, is_current) values ('versions/resume-YYYY-MM-DD.pdf', true);`
+1. Reject files over the configured limit; require MIME `application/pdf`; verify the bytes begin
+   with the PDF signature `%PDF-` before any durable write.
+2. Upload to a collision-safe immutable key such as `versions/{uuid}.pdf` with overwrite disabled.
+3. Call one database RPC that takes a transaction-scoped advisory lock, inserts the new version,
+   clears the old pointer and sets the new pointer in one transaction. The partial unique index is
+   the final invariant.
+4. If upload succeeds but the RPC fails, delete the newly uploaded object; the transaction rollback
+   preserves the old current pointer. Always remove the Payload temporary file in `finally`.
 
-**Why this answers the stale-URL question:** a signed URL points at a specific immutable path, so
-a URL issued seconds before a swap still resolves to exactly the version it was minted for — never
-a truncated or half-replaced file. It expires 60 seconds later regardless. Because every request
-re-reads `is_current`, new visitors always get the newest version.
+A signed URL points at a specific immutable path, so a URL issued before promotion still resolves
+to exactly its original version. Concurrent promotions serialize at the RPC; readers observe the
+old or new complete pointer, never zero current rows or a half-promoted state.
 
 `download_logs.storage_path` records which version each person received.
 
@@ -152,27 +156,45 @@ The `afterChange` hook does the real work, reusing the **Supabase service role c
 already holds** — no new credentials, no separate storage adapter for Payload to manage:
 
 ```ts
-// apps/cms/src/hooks/promote-resume-upload.ts
-import { createClient } from "@supabase/supabase-js";
+// apps/cms/src/hooks/promote-resume-upload.ts (shape)
+import { randomUUID } from "node:crypto";
 import fs from "node:fs/promises";
 
-const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+const MAX_RESUME_BYTES = 5 * 1024 * 1024;
 
-export async function promoteResumeUpload({ doc }: { doc: { filepath: string } }) {
-  const versionedPath = `versions/resume-${new Date().toISOString().slice(0, 10)}.pdf`;
-  const fileBuffer = await fs.readFile(doc.filepath);
+export async function promoteResumeUpload({ doc }: { doc: ResumeUploadDoc }) {
+  const path = `versions/${randomUUID()}.pdf`;
+  let uploaded = false;
+  try {
+    const file = await fs.readFile(doc.filepath);
+    if (file.byteLength > MAX_RESUME_BYTES) throw new Error("Resume PDF exceeds 5 MB");
+    if (doc.mimeType !== "application/pdf" || file.subarray(0, 5).toString() !== "%PDF-") {
+      throw new Error("Resume upload is not a valid PDF");
+    }
 
-  const { error: uploadError } = await supabase.storage
-    .from("resume")
-    .upload(versionedPath, fileBuffer, { contentType: "application/pdf" });
-  if (uploadError) throw new Error(`Resume upload to private bucket failed: ${uploadError.message}`);
+    const upload = await supabase.storage.from("resume").upload(path, file, {
+      contentType: "application/pdf",
+      upsert: false,
+    });
+    if (upload.error) throw upload.error;
+    uploaded = true;
 
-  await supabase.from("resume_versions").update({ is_current: false }).eq("is_current", true);
-  await supabase.from("resume_versions").insert({ storage_path: versionedPath, is_current: true });
-
-  await fs.unlink(doc.filepath); // don't rely on Render's ephemeral disk for anything long-term
+    const promotion = await supabase.rpc("promote_resume_version", { new_storage_path: path });
+    if (promotion.error) throw promotion.error; // transaction rollback keeps the old pointer
+  } catch (error) {
+    if (uploaded) await supabase.storage.from("resume").remove([path]);
+    throw error;
+  } finally {
+    await fs.rm(doc.filepath, { force: true });
+  }
 }
 ```
+
+`promote_resume_version` takes a transaction-scoped advisory lock, inserts the new row, clears the
+old `is_current` value and promotes the new row in one transaction. Concurrent calls serialize;
+the partial unique index remains the final invariant. The function fixes `search_path`, revokes
+`EXECUTE` from `PUBLIC`, `anon` and `authenticated`, and grants `EXECUTE` only to `service_role`;
+the canonical SQL is in [06-data-model.md](06-data-model.md) §6.2.
 
 **Why this shape:** the private `resume` bucket stays exactly as private as before — Payload's
 own `media` collection (public, for blog/project images) is untouched and never sees the PDF.
@@ -190,7 +212,7 @@ hook is the only thing that writes to it outside of a manual migration.
 import { NextResponse, type NextRequest } from "next/server";
 import { serviceClient } from "@/lib/supabase/service";
 import { checkRateLimit } from "@/lib/rate-limit/check";
-import { hashIp, getIp } from "@/lib/security/hash-ip";
+import { getTrustedCloudflareIp, pseudonymizeIp } from "@/lib/security/ip-pseudonym";
 import { verifyTurnstileToken } from "@/lib/security/turnstile";
 import { getRecentDownloadCount } from "@/lib/rate-limit/recent-count";
 
@@ -198,15 +220,15 @@ const SIGNED_URL_TTL = 60;
 const SCRIPT_UA_PATTERNS = [/curl/i, /wget/i, /python-requests/i];
 const CF_BOT_SCORE_THRESHOLD = 30; // below this, Cloudflare considers the request likely automated
 
-async function isSuspicious(req: NextRequest, ipHash: string) {
+async function isSuspicious(req: NextRequest, ipPseudonym: string | null) {
   const ua = req.headers.get("user-agent") ?? "";
-  const botScore = Number(req.headers.get("cf-bot-score"));
-  const recentCount = await getRecentDownloadCount(ipHash); // downloads in the last hour
+  const botScore = getTrustedCloudflareBotScore(req); // trusted request.cf.botManagement only
+  const recentCount = ipPseudonym ? await getRecentDownloadCount(ipPseudonym) : 0;
   return (
     recentCount >= 3 ||
     !ua ||
     SCRIPT_UA_PATTERNS.some((p) => p.test(ua)) ||
-    (!Number.isNaN(botScore) && botScore < CF_BOT_SCORE_THRESHOLD)
+    (botScore !== null && botScore < CF_BOT_SCORE_THRESHOLD)
   );
 }
 
@@ -223,22 +245,21 @@ async function mintSignedUrl(path: string) {
 }
 
 export async function GET(req: NextRequest) {
-  const ip = getIp(req);
-  const ipHash = hashIp(ip);
+  const trustedIp = getTrustedCloudflareIp(req); // Worker CF-Connecting-IP header only
+  const ipPseudonym = trustedIp
+    ? pseudonymizeIp(trustedIp, process.env.IP_PSEUDONYM_KEY!)
+    : null;
+  const ipEpoch = trustedIp ? process.env.IP_PSEUDONYM_EPOCH! : null;
 
-  // Recruiter experience wins: if the limiter is unreachable, let the download through.
-  const { allowed } = await checkRateLimit("resume", ipHash, "open");
+  // Recruiter experience wins: if the limiter is unreachable or trusted IP is absent, proceed.
+  const { allowed } = await checkRateLimit("resume", ipPseudonym, "open");
   if (!allowed) return NextResponse.redirect(new URL("/resume?limited=1", req.url));
 
-  // Escalation sits here — between the rate limit and the version lookup (§4.3.1).
-  if (await isSuspicious(req, ipHash)) {
-    const token = req.nextUrl.searchParams.get("turnstileToken");
-    const verified = token ? await verifyTurnstileToken(token, ip) : false;
-    if (!verified) {
-      // Renders the Turnstile widget and re-submits this same request with the token —
-      // same minimal pattern as the /resume-unavailable page in §4.6.
-      return NextResponse.redirect(new URL("/resume/verify", req.url));
-    }
+  // Escalation sits here—between rate limit and version lookup (§4.3.1).
+  if (await isSuspicious(req, ipPseudonym)) {
+    // Never put a Turnstile token in a URL. Render /resume/verify with a short-lived signed intent;
+    // its form POSTs token + intent to /api/resume/download/verify.
+    return NextResponse.redirect(new URL(`/resume/verify?intent=${createResumeIntent()}`, req.url));
   }
 
   const supabase = serviceClient();
@@ -249,21 +270,37 @@ export async function GET(req: NextRequest) {
     .single();
 
   if (!current) {
-    await logDownload({ ipHash, success: false, error: "no-current-version" });
+    await logDownload({
+      ipPseudonym,
+      ipEpoch,
+      success: false,
+      error: "no-current-version",
+    });
     return NextResponse.redirect(new URL("/resume-unavailable", req.url));
   }
 
   try {
     const url = await mintSignedUrl(current.storage_path);
-    await logDownload({ ipHash, success: true, storagePath: current.storage_path });
+    await logDownload({
+      ipPseudonym,
+      ipEpoch,
+      success: true,
+      storagePath: current.storage_path,
+    });
     return NextResponse.redirect(url);
   } catch (first) {
     try {
       const url = await mintSignedUrl(current.storage_path); // tier 1: one retry
-      await logDownload({ ipHash, success: true, storagePath: current.storage_path, retried: true });
+      await logDownload({
+        ipPseudonym,
+        ipEpoch,
+        success: true,
+        storagePath: current.storage_path,
+        retried: true,
+      });
       return NextResponse.redirect(url);
     } catch (second) {
-      await logDownload({ ipHash, success: false, error: String(second) });
+      await logDownload({ ipPseudonym, ipEpoch, success: false, error: String(second) });
       return NextResponse.redirect(new URL("/resume-unavailable", req.url)); // tier 2
     }
   }
@@ -325,13 +362,13 @@ Every attempt, successful or not, writes a `download_logs` row:
 | `referrer` | Where the visitor came from |
 | `browser`, `device` | Parsed from User-Agent |
 | `user_agent_hash` | Hashed, not raw |
-| `ip_hash` | Salted SHA-256, never a raw IP |
+| `ip_pseudonym`, `ip_epoch` | HMAC-SHA-256 pseudonym and non-secret key epoch; never a raw IP |
 | `turnstile_triggered` | Whether a challenge was shown |
 | `success` | Outcome |
 | `error_message` | Populated on failure |
 
-Retention: 90 days, purged in step with salt rotation
-([05-security.md](05-security.md), [14-privacy-and-compliance.md](14-privacy-and-compliance.md)).
+Retention: a daily purge enforces 90 days independently of quarterly key rotation. Old epochs may
+coexist until purged and are never correlated.
 
 ---
 
@@ -354,3 +391,18 @@ casual re-sharing of the live URL.
 The resume flow is the single most important thing on the site, so it gets a dedicated E2E smoke
 test asserting it never returns a 5xx and always ends in either a signed-URL redirect or the
 fallback page. See [11-testing-and-ci.md](11-testing-and-ci.md).
+
+### 4.10 Final request-integrity rules
+
+- The production Worker reads the client IP only from the trusted, Cloudflare-overwritten
+  `CF-Connecting-IP` request header. It never uses `request.cf` for IPs and accepts no
+  `x-forwarded-*` or other forwarding-header fallback. Trusted bot score may come separately from
+  `request.cf.botManagement`; client-supplied `cf-*` or bot-score headers are ignored. Local tests
+  inject explicit metadata.
+- The first ordinary download may begin with GET, but a challenged download completes only through
+  `POST /api/resume/download/verify`. The POST body carries the Turnstile token and a short-lived,
+  single-purpose signed intent; the token never appears in a query string. Server-side `siteverify`
+  must pass before `finalizeResumeDownload()` reads the pointer or mints a URL.
+- Upload and promotion tests cover oversize files, wrong MIME, false `.pdf` names, invalid `%PDF-`
+  signatures, key collisions, upload/RPC cleanup, concurrent promotions and preservation of the old
+  pointer on every failure.

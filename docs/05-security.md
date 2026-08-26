@@ -12,8 +12,8 @@
 | Contact inbox | Spam floods | Turnstile + honeypot + rate limit (fail closed) |
 | Ask AI endpoint | Cost drain, prompt injection | Per-IP + global caps, injection screen, citation gate |
 | CMS admin | Unauthorised content changes | Payload auth + Cloudflare Access |
-| Logs & submissions | Data exposure via anon key | RLS deny-by-default, service-role-only access |
-| Visitor IPs | Privacy exposure | Salted hashes, 90-day retention, salt rotation |
+| Logs & submissions | Data exposure via client roles | Revoked current/default schema, table, sequence and function grants + forced RLS + restrictive role-scoped deny policies + catalog/CRUD tests |
+| Visitor IPs | Privacy exposure | HMAC-SHA-256 pseudonyms, daily 90-day purge, independent key epochs |
 | Unpublished drafts | Leak via preview URL | Strong secret, clean redirect, 15-min TTL, redaction |
 | Secrets | Leak via Git or client bundle | gitleaks CI, strict `NEXT_PUBLIC_` discipline |
 
@@ -96,7 +96,7 @@ Three secret surfaces, each with a clear owner. The full inventory lives in
 
 | Surface | Store | Holds |
 | --- | --- | --- |
-| Cloudflare Workers (web) | Worker secret bindings on the production deployment | Supabase **service role** key, Supabase URL, PostHog key, Sentry DSN, Upstash URL/token, `PREVIEW_URL_SECRET`, `PREVIEW_INTERNAL_SECRET`, `WEBHOOK_SHARED_SECRET`, `IP_HASH_SALT`, Slack webhooks and Turnstile keys |
+| Cloudflare Workers (web) | Worker secret bindings on the production deployment | Supabase **service role** key, Supabase URL, PostHog key, Sentry DSN, Upstash URL/token, `PREVIEW_URL_SECRET`, `PREVIEW_INTERNAL_SECRET`, `WEBHOOK_SHARED_SECRET`, `IP_PSEUDONYM_KEY`/`IP_PSEUDONYM_EPOCH`, Slack webhooks and Turnstile keys |
 | Render (cms, dashboard — production only) | `render.yaml` `sync: false` + Render dashboard | Payload secret, Supabase **service role** key, `SUPABASE_URL`, DB URL, `WEBHOOK_SHARED_SECRET`, `PREVIEW_URL_SECRET`, `PREVIEW_INTERNAL_SECRET`, `PUBLIC_SITE_URL` |
 | Supabase | Production project settings | DB URL, anon key, service role key |
 
@@ -108,11 +108,11 @@ Three secret surfaces, each with a clear owner. The full inventory lives in
 2. `render.yaml` is committed; secret *values* never are.
 3. Every variable is documented with owner, surface, environment and rotation policy.
 4. `gitleaks` runs on every push and pull request.
-5. Local values live only in ignored `.env.local` files; production values live only in Cloudflare,
-   Render and the production Supabase project. `IP_HASH_SALT` must match between production web
-   and Render surfaces.
+5. Local values live only in ignored `.env.local` files; production values live only in
+   Cloudflare, Render and Supabase. Only the web Worker holds `IP_PSEUDONYM_KEY`, because only it
+   receives trusted visitor request metadata.
 
-```
+```gitignore
 # .gitignore
 .env
 .env.local
@@ -134,60 +134,38 @@ jobs:
 
 ---
 
-## 5.4 IP hashing and salt management
+## 5.4 IP pseudonyms, trusted address source and key epochs
 
-Raw IP addresses are never stored. Everything that needs to identify a repeat visitor —
-rate limiting, download logs, AI query logs — uses a salted SHA-256 hash.
+Raw IP addresses are never stored. Download logs, AI query logs and rate-limit keys use
+`HMAC-SHA-256(IP_PSEUDONYM_KEY, canonicalIp)` plus a non-secret key epoch. In the production
+Worker, `canonicalIp` comes **only** from the trusted, Cloudflare-overwritten
+`CF-Connecting-IP` request header. `request.cf` is not the IP source, and no `x-forwarded-*` or
+other forwarding-header fallback is accepted. Trusted bot-management signals may separately come
+from `request.cf.botManagement`. Local tests inject an explicit test address through a server-only
+helper. If `CF-Connecting-IP` is absent, privacy logging omits the pseudonym and security-sensitive
+limiters fail according to their documented route policy.
 
 ```ts
-// apps/web/lib/security/hash-ip.ts
-import { createHash } from "node:crypto";
-import type { NextRequest } from "next/server";
+import { createHmac, timingSafeEqual } from "node:crypto";
 
-export function getIp(req: NextRequest) {
-  return (
-    req.headers.get("cf-connecting-ip") ??
-    req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
-    "unknown"
-  );
+export function pseudonymizeIp(ip: string, key: string): string {
+  return createHmac("sha256", key).update(ip).digest("hex");
 }
 
-export function hashIp(ip: string) {
-  return createHash("sha256").update(ip + process.env.IP_HASH_SALT).digest("hex");
+export function equalLengthSecretMatches(candidate: string | null, expected: string): boolean {
+  const left = Buffer.from(candidate ?? "", "utf8");
+  const right = Buffer.from(expected, "utf8");
+  if (left.length !== right.length) return false;
+  return timingSafeEqual(left, right);
 }
 ```
 
-**Why `cf-connecting-ip` is trustworthy here:** an earlier draft of this document warned that the
-header is spoofable when an app is reachable both through Cloudflare and directly — for example,
-Vercel's always-on `*.vercel.app` URL bypasses Cloudflare entirely, so a direct request could set
-the header itself. Hosting the public site as a **Cloudflare Worker via OpenNext** instead
-([01-architecture.md](01-architecture.md) §1.2) removes that bypass: there is no non-Cloudflare
-origin to hit, so every request is terminated at Cloudflare's edge, which sets `cf-connecting-ip` from the real TCP connection and
-overwrites any client-supplied value of the same name. **Verification item:** confirm empirically
-that a request carrying a forged `cf-connecting-ip` header is not reflected in the computed hash.
-
-**Why a salt:** an unsalted hash of an IPv4 address is trivially reversible — the whole address
-space fits in a rainbow table. The salt is what makes the hash non-reversible in practice.
-
-**Where it lives:** generated once with `openssl rand -hex 32`, stored as `IP_HASH_SALT` on both
-the web Worker and Render. The value must be **identical across both surfaces** so
-hashes computed by the rate limiter and by the logger refer to the same person.
-
-**Rotation:** every 90 days, performed at the same moment logs older than 90 days are purged.
-
-```
-Day 0    Salt A active
-Day 90   purge logs > 90 days  →  rotate to Salt B  →  update Cloudflare Worker + Render secrets
-Day 180  purge  →  rotate to Salt C
-```
-
-Rotating and purging together means old-salt and new-salt hashes never coexist inside an active
-comparison window. A manual quarterly calendar task is sufficient for this threat model —
-automating rotation would add more moving parts than it removes.
-
-Rotation also briefly resets rate-limit continuity: counters keyed by old-salt hashes restart
-from zero after the swap. This is accepted — the windows are short (hours, not days) and a
-quarterly reset is harmless at this traffic level.
+`IP_PSEUDONYM_KEY` is a random 256-bit secret; `IP_PSEUDONYM_EPOCH` identifies the active key.
+Rotate quarterly or after compromise. Rotation and retention are intentionally independent: a
+daily purge deletes telemetry older than 90 days, including old epochs. Rows from old and new
+epochs may coexist until expiry, but code must never correlate, translate or backfill identifiers
+across epochs. A rotation resets short rate-limit continuity; that bounded effect is accepted.
+Production tests prove forged forwarding headers do not affect the pseudonym.
 
 ---
 
@@ -207,18 +185,19 @@ Render's outbound requests must be verified as unblocked during Phase 3 setup.
   trusts unvalidated input.
 - Schemas live in `packages/shared` so the client and server validate identically.
 - All Supabase access goes through the client library's parameterised queries — no string-built SQL.
-- Rendered Markdown/MDX from the CMS is sanitised; raw HTML embedding is disabled.
+- Markdown/MDX generated from canonical Payload Lexical is sanitised before rendering; raw HTML embedding is disabled.
 - External redirects are never taken from user input — the only redirect targets are the Supabase
   signed URL and internal paths.
 
 ---
 
-## 5.7 Security headers
+## 5.7 Static security headers
 
-Set in `next.config.ts` / middleware:
+Set one static allowlist in `next.config.ts`; middleware and request-specific nonces are not used.
+The CSP permits self plus only the exact PostHog, Sentry, Turnstile and approved Supabase/same-zone
+media endpoints required by implemented features. No runtime font, icon or external media CDN is
+allowed. Any new origin requires a decision plus privacy/performance review.
 
-- `Content-Security-Policy` — restricted to self plus PostHog, Sentry, Cloudflare Turnstile and
-  Supabase Storage origins
 - `Strict-Transport-Security` with a long `max-age`
 - `X-Content-Type-Options: nosniff`
 - `Referrer-Policy: strict-origin-when-cross-origin`
@@ -238,4 +217,4 @@ Recorded here so they are conscious decisions rather than oversights.
 | **Render free-tier cold starts (30–60s)** | Accepted. Single admin user; ISR insulates readers and reconciliation insulates the index. |
 | **Resume rate limiting fails open** | Deliberate. Recruiter experience outranks abuse risk; Cloudflare edge rules remain as a coarse backstop. |
 | **Preview secret appears once in a URL** | Accepted, mitigated by clean-URL redirect, 15-minute TTL, redaction in monitoring, and no URL logging. |
-| **Hashed IPs are still personal data** | Accepted and handled — 90-day retention, rotating salt, disclosed in the privacy policy. |
+| **HMAC IP pseudonyms are still personal data** | Accepted and handled—daily 90-day purge, uncorrelated key epochs, disclosed in the privacy policy. |

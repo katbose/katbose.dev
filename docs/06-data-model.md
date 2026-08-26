@@ -6,19 +6,38 @@
 
 ## 6.1 The rule
 
-**Every table that stores logs, PII or submissions is deny-by-default.**
-
-All reads and writes happen server-side with the service role key. The anon key gets **zero**
-table access. Enabling RLS without policies is not enough — an explicit deny policy makes the
-intent unambiguous and survives someone later adding a permissive policy by accident.
-
-This is the single most common Supabase production incident: a table with RLS disabled, an anon
-key shipped to the browser, and every contact submission and hashed IP readable by anyone.
+**Every application table is deny-by-default for `anon` and `authenticated`.** PostgreSQL combines
+permissive policies with `OR`; therefore a permissive policy added later can bypass a permissive
+`false` policy. Each migration must revoke schema/table/sequence/function privileges, add a
+role-scoped **restrictive** deny policy, and control default privileges so future objects cannot
+silently inherit client grants. Server-only service-role clients remain the sole data path.
 
 ```sql
+revoke all on schema public from anon, authenticated;
+revoke all on all tables in schema public from anon, authenticated;
+revoke all on all sequences in schema public from anon, authenticated;
+revoke execute on all functions in schema public from PUBLIC, anon, authenticated;
+
+-- Run for every role that can own/create public-schema objects (normally `postgres`).
+alter default privileges for role postgres in schema public
+  revoke all on tables from anon, authenticated;
+alter default privileges for role postgres in schema public
+  revoke all on sequences from anon, authenticated;
+alter default privileges for role postgres in schema public
+  revoke execute on functions from PUBLIC, anon, authenticated;
+
 alter table <table> enable row level security;
-create policy "deny_all_anon" on <table> for all using (false) with check (false);
+alter table <table> force row level security;
+revoke all on table <table> from anon, authenticated;
+create policy "deny_client_roles"
+  on <table> as restrictive for all to anon, authenticated
+  using (false) with check (false);
 ```
+
+Migration tests query `pg_policy`/`pg_policies`, table/sequence/function ACL catalogs and default-ACL
+catalogs, then attempt `SELECT`, `INSERT`, `UPDATE` and `DELETE` as both `anon` and `authenticated`;
+every attempt must fail. Catalog tests also reject any unexpected permissive policy or current or
+default grant. The service-role path is covered separately and its key never enters a client bundle.
 
 ---
 
@@ -35,13 +54,18 @@ create table contact_submissions (
   name text not null,
   email text not null,
   message text not null,
-  ip_hash text,
   created_at timestamptz default now()
 );
 
 alter table contact_submissions enable row level security;
-create policy "deny_all_anon" on contact_submissions for all using (false) with check (false);
+alter table contact_submissions force row level security;
+revoke all on table contact_submissions from anon, authenticated;
+create policy "deny_client_roles" on contact_submissions as restrictive
+  for all to anon, authenticated using (false) with check (false);
 ```
+
+Contact submissions deliberately store no IP pseudonym; form abuse control is enforced before the
+insert and correspondence contains only the fields needed to reply.
 
 ### `download_logs`
 
@@ -54,7 +78,8 @@ create table download_logs (
   browser text,
   device text,
   user_agent_hash text,
-  ip_hash text,
+  ip_pseudonym text,
+  ip_epoch text,
   turnstile_triggered boolean default false,
   success boolean not null,
   error_message text,
@@ -63,7 +88,10 @@ create table download_logs (
 create index download_logs_created_at_idx on download_logs (created_at desc);
 
 alter table download_logs enable row level security;
-create policy "deny_all_anon" on download_logs for all using (false) with check (false);
+alter table download_logs force row level security;
+revoke all on table download_logs from anon, authenticated;
+create policy "deny_client_roles" on download_logs as restrictive
+  for all to anon, authenticated using (false) with check (false);
 ```
 
 ### `resume_versions`
@@ -79,8 +107,48 @@ create table resume_versions (
 create unique index one_current_resume on resume_versions (is_current) where is_current;
 
 alter table resume_versions enable row level security;
-create policy "deny_all_anon" on resume_versions for all using (false) with check (false);
+alter table resume_versions force row level security;
+revoke all on table resume_versions from anon, authenticated;
+create policy "deny_client_roles" on resume_versions as restrictive
+  for all to anon, authenticated using (false) with check (false);
 ```
+
+The promotion RPC is one serialized transaction and has a closed execution boundary:
+
+```sql
+create or replace function public.promote_resume_version(new_storage_path text)
+returns uuid
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  new_id uuid;
+begin
+  perform pg_catalog.pg_advisory_xact_lock(
+    pg_catalog.hashtextextended('public.promote_resume_version', 0)
+  );
+
+  insert into public.resume_versions (storage_path, is_current)
+  values (new_storage_path, false)
+  returning id into new_id;
+
+  update public.resume_versions set is_current = false where is_current;
+  update public.resume_versions set is_current = true where id = new_id;
+  return new_id;
+end;
+$$;
+
+revoke execute on function public.promote_resume_version(text)
+  from PUBLIC, anon, authenticated;
+grant execute on function public.promote_resume_version(text)
+  to service_role;
+```
+
+The transaction-scoped advisory lock serializes concurrent promotions. Until commit, readers keep
+seeing the old current row; after commit they see the new one. The fixed empty `search_path` and
+schema-qualified references prevent object-shadowing, and only `service_role` can invoke the
+function.
 
 ### `dead_letter_queue`
 
@@ -100,7 +168,10 @@ create table dead_letter_queue (
 create index dlq_unresolved_idx on dead_letter_queue (resolved, attempts) where not resolved;
 
 alter table dead_letter_queue enable row level security;
-create policy "deny_all_anon" on dead_letter_queue for all using (false) with check (false);
+alter table dead_letter_queue force row level security;
+revoke all on table dead_letter_queue from anon, authenticated;
+create policy "deny_client_roles" on dead_letter_queue as restrictive
+  for all to anon, authenticated using (false) with check (false);
 ```
 
 ### `ai_query_logs`
@@ -113,13 +184,17 @@ create table ai_query_logs (
   answered boolean,
   reason text,
   sources jsonb,
-  ip_hash text,
+  ip_pseudonym text,
+  ip_epoch text,
   created_at timestamptz default now()
 );
 create index ai_query_logs_flagged_idx on ai_query_logs (flagged, created_at desc);
 
 alter table ai_query_logs enable row level security;
-create policy "deny_all_anon" on ai_query_logs for all using (false) with check (false);
+alter table ai_query_logs force row level security;
+revoke all on table ai_query_logs from anon, authenticated;
+create policy "deny_client_roles" on ai_query_logs as restrictive
+  for all to anon, authenticated using (false) with check (false);
 ```
 
 ### Payload tables
@@ -149,7 +224,7 @@ short-lived signed responses and does not inherit this cache policy.
 
 ## 6.4 Client boundaries
 
-```
+```text
 Browser ──► never talks to Supabase directly for anything privileged
         └─► Next.js route handler ──► service role client (server-only module)
                                   └─► Supabase
@@ -157,25 +232,26 @@ Browser ──► never talks to Supabase directly for anything privileged
 
 - `lib/supabase/service.ts` is marked server-only and is the **only** module that reads
   `SUPABASE_SERVICE_ROLE_KEY`.
-- If the client ever needs Supabase directly (currently it does not, since Payload serves content),
-  it may use the anon key **only** against tables with an explicit permissive read policy.
+- Browser and Client Component code never initializes Supabase and receives no anon key. Adding
+  direct browser access or a permissive client-role policy would require a new decision and
+  security review; it is not an implementation option under decision #73.
 
 ---
 
 ## 6.5 Retention & purge
 
 ```sql
--- scripts/retention-purge.sql — scheduled, runs alongside salt rotation
+-- scripts/retention-purge.sql — scheduled daily; independent of key rotation
 delete from download_logs   where created_at < now() - interval '90 days';
 delete from ai_query_logs   where created_at < now() - interval '90 days';
 delete from dead_letter_queue where resolved and resolved_at < now() - interval '90 days';
 ```
 
-`contact_submissions` are kept until manually cleared — they are correspondence, not telemetry,
-and are disclosed as such in the privacy policy.
+A daily job enforces the 90-day ceiling independently of quarterly key rotation. Old and new HMAC
+epochs can coexist until their rows expire; application code never correlates epochs.
 
-Purging on the same schedule as salt rotation keeps the two consistent: after a rotation there are
-no surviving rows hashed with the retired salt.
+`contact_submissions` are kept until manually cleared—they are correspondence, not telemetry, and
+contain no IP pseudonym.
 
 ---
 
@@ -183,8 +259,13 @@ no surviving rows hashed with the retired salt.
 
 - Migrations are plain, numbered `.sql` files in `supabase/migrations/` — no click-ops in the
   Supabase UI for schema changes.
-- Every new table gets `enable row level security` **and** a deny policy in the same migration.
-  A table without them does not pass review.
+- Every migration controls current and default privileges for every role that can create objects:
+  revoke client access to the `public` schema and all tables/sequences/functions, then use
+  `ALTER DEFAULT PRIVILEGES` so future tables, sequences and functions cannot silently gain
+  `anon`/`authenticated` grants or `PUBLIC` function execution. Every new table also enables and
+  forces RLS and adds a role-scoped restrictive deny policy in the same migration. Catalog
+  assertions (including default ACLs) plus CRUD attempts as both client roles are mandatory; any
+  unexpected permissive policy or current/default grant fails CI.
 - Run against local Supabase first, including the relevant tests. Before production, take the
   scheduled backup, then apply the committed migration to the one production project.
 

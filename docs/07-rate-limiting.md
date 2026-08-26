@@ -16,7 +16,7 @@ cron, and hitting the primary database on every single request check. Upstash do
 a few lines, and its free tier (10k commands/day) is far beyond a portfolio's volume.
 
 **Why not Cloudflare alone:** the free tier's rules cannot cleanly express combined tiers such as
-"5/hour **and** 20/day, per hashed IP, with a separate global daily cap" without Workers.
+"5/hour **and** 20/day, per HMAC IP pseudonym, with a separate global daily cap" without Workers.
 
 Using both means the edge absorbs floods while the app enforces the actual policy.
 
@@ -26,9 +26,9 @@ Using both means the edge absorbs floods while the app enforces the actual polic
 
 | Route | Limit | Failure mode | Rationale |
 | --- | --- | --- | --- |
-| `/api/resume/download` | 5/hour, 20/day per hashed IP | **Fail open** | A recruiter must never be blocked because Upstash had a bad minute; Cloudflare still guards the edge |
-| `/api/ask-ai` | 5/hour per hashed IP **+ 50/day global** | **Fail closed** | Protects LLM spend and the free tier; tight enough that no Turnstile escalation is needed ([03-search-and-ai.md](03-search-and-ai.md) §3.8) |
-| `/api/contact` | 3/hour, 10/day per hashed IP | **Fail closed** | Spam protection outweighs brief inconvenience; Turnstile still passes real users |
+| `/api/resume/download` | 5/hour, 20/day per HMAC IP pseudonym | **Fail open** | A recruiter must never be blocked because Upstash had a bad minute; Cloudflare still guards the edge |
+| `/api/ask-ai` | 5/hour per HMAC IP pseudonym **+ 50/day global** | **Fail closed** | Protects LLM spend and the free tier; tight enough that no Turnstile escalation is needed ([03-search-and-ai.md](03-search-and-ai.md) §3.8) |
+| `/api/contact` | 3/hour, 10/day per HMAC IP pseudonym | **Fail closed** | Spam protection outweighs brief inconvenience; Turnstile still passes real users |
 
 Cloudflare edge rules complement these, e.g. ~30 req/min per IP on `/api/resume/download` and
 ~10 req/min per IP on `/api/ask-ai`.
@@ -125,14 +125,14 @@ The counter is also a clean usage metric for the dashboard.
 The contact form has no "normal usage" baseline to compare against, so **Turnstile is always on**
 here — unlike the resume route, where it only escalates.
 
-```
+```text
 Client: Turnstile widget (invisible) + hidden honeypot field
    │
    ▼
 POST /api/contact
    1. verify Turnstile token server-side
    2. honeypot filled? → silently accept-and-discard, log as bot
-   3. rate limit 3/hour + 10/day per hashed IP        [FAIL CLOSED]
+   3. rate limit 3/hour + 10/day per HMAC IP pseudonym [FAIL CLOSED]
    4. Zod validation — required fields, max lengths, email shape
    5. insert into contact_submissions (service role, RLS-protected)
    6. POST to Slack #contact-form webhook
@@ -192,7 +192,7 @@ does not require a consent banner.
 | Route | When shown |
 | --- | --- |
 | Contact form | Always (invisible widget) |
-| Resume download | Only on suspicion — heavy usage from one hashed IP, bad User-Agent, Cloudflare bot signals ([04-resume-system.md](04-resume-system.md) §4.3.1) |
+| Resume download | Only on suspicion — heavy usage from one HMAC IP pseudonym, bad User-Agent, Cloudflare bot signals ([04-resume-system.md](04-resume-system.md) §4.3.1) |
 
 Ask AI deliberately has **no** Turnstile escalation — the 5/hour per-IP limit, 50/day global
 cap, fail-closed limiter and Cloudflare billing alerts are the controls for that route; see

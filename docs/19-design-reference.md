@@ -8,37 +8,16 @@
 
 | Source | Role | What is taken |
 | --- | --- | --- |
-| [justaditya.com](https://www.justaditya.com) (open-sourced as [Hackyfolio](https://github.com/PythonHacker24/yo-hackyfolio)) | **Primary reference (~99%)** | Overall look, single-column section-stack layout, section system, micro-interactions, human/agent mode toggle |
-| [abhijithjinnu.in](https://www.abhijithjinnu.in) | Two nuances only | The multilingual "Hello" intro loader, and the `npx katbose` terminal card |
+| [justaditya.com](https://www.justaditya.com) and its [Hackyfolio source repository](https://github.com/PythonHacker24/yo-hackyfolio) | **Primary anatomy reference** | Single-column section stack, section anatomy and observed micro-interactions |
+| [abhijithjinnu.in](https://www.abhijithjinnu.in) | Two nuances only | The multilingual "Hello" intro loader and the `npx katbose` terminal-card idea |
 
-**Legal position — read before copying anything:** the Hackyfolio repository has **no LICENSE
-file**. "Public on GitHub" is not a license grant; default copyright applies. The rule for this
-project is therefore: **study the patterns, reimplement the code**. Section schemas, animation
-timings and layout ideas are not copyrightable and are safe to reproduce; copying component files
-verbatim is not. Every component in `apps/web` is written fresh against our own types, our own
-design tokens and Base UI primitives. If the upstream repo later gains a permissive license, this
-constraint can be revisited via the decision log.
-
-**Updated 2026-08-26 — permission granted (decision [#63](16-decision-log.md)).** The paragraph above
-described the position while the repository's licence status was the only signal available. It has
-since been resolved directly: the author confirmed he cannot add a LICENSE file but granted express
-permission, by dated WhatsApp message, to use the complete repository for building this portfolio.
-Permission from the copyright holder is the grant; a LICENSE file would have been the publicly
-verifiable form of the same thing.
-
-What this changes: upstream source may be **read and ported**. What it does not change:
-
-- The grant is scoped to building this portfolio. It does not make the upstream code open-source, so
-  republishing it as a template or relicensing it needs separate agreement.
-- The author's own content stays out entirely — biography, essays, publication and client
-  recommendations, including as fixture data (decision #62).
-- Wholesale adoption is still declined, now on **architectural** grounds alone: the upstream stack
-  (shadcn/Radix, a hand-edited JSON content file, Vercel) conflicts with decisions #1, #37/#38 and
-  the Base UI choice. Source is ported into this architecture, not dropped into it.
-- The author is credited in the README.
-
-The Phase 1 gate therefore shifts from "no upstream file is present" to "no upstream file is present
-**unported**" — adapted code is expected to read like our stack.
+The author granted express permission to use the repository for this portfolio (decision #63), but
+this project applies a narrower **inspiration-only** rule: inspect anatomy and observable facts;
+copy no upstream file, code, prose or personal content. Base UI is the sole primitive library.
+Project architecture, tokens, WCAG 2.2 AA and performance budgets are normative; observed source
+facts inform anatomy, and every deliberate difference is documented. The author is credited in the
+README. Permission is scoped to this portfolio and does not make the source repository generally
+licensed or authorize republication.
 
 ---
 
@@ -68,7 +47,7 @@ a **presentation pattern**, with one deliberate change:
 | --- | --- | --- |
 | Content source of truth | `app/data/portfolio.json`, hand-edited | **Payload CMS** (decision #1) — projects, experience, blog, TIE are collections, not JSON |
 | Section ordering | Same JSON file | `apps/web/features/home/home.config.ts` — a typed, ordered manifest of section entries |
-| Section data | Inline in the JSON | Static sections (hero, contact) inline in the config; content sections declare a fetcher that reads Payload with ISR |
+| Section data | Manifest metadata only | `Profile` global and collections supply all prose, including hero, story and education |
 | Renderer | `registry.tsx` switch over a `Section` union | Same pattern: a discriminated union + exhaustive switch, so a missing case is a type error |
 
 This keeps Hackyfolio's best property — add/reorder/remove sections without touching component
@@ -80,18 +59,16 @@ code — without introducing a second content source that would drift from the C
 Hackyfolio renders the same data as plain Markdown behind a toggle in the bottom bar. This slots
 directly into the existing agent-readability goal ([13-seo-and-agent-readability.md](13-seo-and-agent-readability.md)):
 
-- A `generateMarkdown` module renders the same section manifest + fetched CMS data as Markdown —
-  one source, two views, no drift (same guarantee the nightly reconciliation gives the search
-  index: derived data, never a second source of truth).
-- The same generator output backs `llms.txt` (or an extended `/agent` view linked from it), so
-  the file can never go stale relative to the page — closing the "keep it current" caveat in
-  docs/13 §13.6.
-- The toggle lives in the bottom bar, mirroring Hackyfolio's placement.
+- `generateMarkdown` renders the same validated manifest + Payload data at canonical `/agent`—one
+  source, two presentations, no drift.
+- The typed route manifest also generates `/llms.txt`, navigation and sitemap metadata. The
+  repository-root `llms.txt` remains a planning snapshot only until scaffold generation exists.
+- The bottom-bar control links/transitions to `/agent`; a query-string view is not canonical.
 
 ### Stack confirmation
 
-Hackyfolio's stack is nearly identical to what was already decided, which is what makes the 99%
-target realistic:
+The reference is structurally close to the chosen stack, but parity is never a percentage target:
+observed facts inform anatomy while project constraints remain normative.
 
 | Hackyfolio uses | katbose plan | Verdict |
 | --- | --- | --- |
@@ -161,16 +138,16 @@ Every interaction below ships with a `prefers-reduced-motion` fallback (mandator
 
 | # | Interaction | Where | Implementation sketch | Reduced-motion fallback |
 | --- | --- | --- | --- | --- |
-| 1 | **Scroll reveal** — section drifts up ~16px while sharpening from a soft blur into focus | Every section | One shared `<Reveal>` wrapper (framer-motion `whileInView`, `filter: blur → 0`, once-only) | Render static, no transform/filter |
-| 2 | **Count-up stats** — numbers roll from 0 when scrolled into view | Project stats grid | `useInView` + rAF counter, parses numeric part, keeps suffix (`K`, `%`) | Show final value immediately |
+| 1 | **Scroll reveal** — y 32px, scale .985 and blur 12px resolve to rest | Every section | Shared `<Reveal>`; 900–1100ms, `viewport: { once: true, amount: 0.15 }` | Render static, no transform/filter |
+| 2 | **Count-up stats** — numbers roll from 0 over 1800ms when scrolled into view | Project stats grid | `useInView` + rAF counter, parses numeric part, keeps suffix (`K`, `%`) | Show final value immediately |
 | 3 | **Expanding tech stack** — an auto-scrolling marquee of skill icons that expands into categorised groups | Tech stack section | CSS marquee (duplicated track) + `AnimatePresence` expand; pause on hover | Static wrapped grid, no marquee |
 | 4 | **Collapsible "View More"** — cards clamp long bodies and unfold smoothly | Experience, story, publications | Shared `<Collapsible>` measuring content height, animating `height` | Instant open/close, no animation |
 | 5 | **"Previously" accordion** — past roles as compact rows that expand one at a time | Experience | Single-open accordion on Base UI primitives + `AnimatePresence` | Instant expand |
 | 6 | **Live local time** — hero shows a ticking clock in Asia/Kolkata | Hero | 1s interval, `Intl.DateTimeFormat` with fixed `Asia/Kolkata` zone; renders after hydration to avoid mismatch | Unchanged (not motion) |
 | 7 | **Hero pronunciation line** — `/…/ • noun` dictionary-entry styling | Hero | Static markup | Unchanged |
 | 8 | **Bottom bar** — fixed pill with nav, socials, mode toggle, subtle edge-shine sweep | Global | CSS keyframe shine; Hackyfolio itself disables it under reduced motion — keep that | Shine off (opacity 0) |
-| 9 | **Hover lift on cards/links** — small translate + shadow/underline slide | All cards, essay links | Tailwind transitions, `transform-gpu`, ~150–200ms ease-out | No transform; keep focus-visible styles |
-| 10 | **Human ⇄ agent crossfade** — content swaps to Markdown view with a fade | Mode toggle | `AnimatePresence` crossfade, state in URL (`?view=agent`) so it is shareable and crawlable | Instant swap |
+| 9 | **Hover lift on cards/links** — 2px translate plus shadow/underline slide | All cards, essay links | Transform/underline transition, ~150–200ms ease-out | No transform; keep focus-visible styles |
+| 10 | **Human ⇄ agent crossfade** — 350ms transition to the canonical agent view | Mode toggle | Link/state transition to `/agent`; `/agent` remains directly shareable and crawlable | Instant swap |
 | 11 | **Smooth in-page anchor scrolling** | Bottom bar nav | `scroll-behavior: smooth` via CSS only | Browser disables automatically with reduced motion |
 | 12 | **Theme toggle** — two-state light ⇄ dark switch with a smooth colour-scheme transition | Top-right | `next-themes` (`defaultTheme="system"`) + CSS `transition: background-color, color` scoped to the toggle | Instant swap, no colour transition |
 
@@ -194,8 +171,9 @@ page.
 
 **Spec**
 
-- Sequence: `Hello` → `నమస్కారం` (Telugu) → `नमस्ते` (Hindi) → `Bonjour` (French), ~450ms each,
-  then the overlay slides up. Total ≤ 2s. Languages are configurable in one array.
+- Sequence: `Hello` → `నమస్కారం` (Telugu) → `नमस्ते` (Hindi) → `Bonjour` (French). The complete
+  greeting sequence **including exit** is timed as one ≤2-second budget; it is not four 450ms dwells
+  plus an unbounded exit. Languages are configurable in one array.
 - **Once per session:** a `sessionStorage` flag skips it on subsequent navigations. It never
   plays on internal route changes — only a hard landing.
 - **Reduced motion:** skipped entirely (`prefers-reduced-motion` shows the page immediately).
@@ -241,9 +219,9 @@ untouched. The table maps each Hackyfolio concept to its home in this architectu
 | --- | --- | --- |
 | `portfolio.json` | Payload collections + typed `home.config.ts` manifest | [02](02-content-model.md), [06](06-data-model.md) |
 | `SectionRenderer` registry | Same pattern in `apps/web/features/home/` | [01](01-architecture.md) §1.6 layout |
-| `Reveal`, `CountUp`, `Collapsible`, `RichText`, `SectionShell` | Reimplemented in `components/common/` (shared) and `features/home/` | §19.1 license rule, [12](12-accessibility.md) |
-| Agent-mode Markdown generator | Feeds both the `?view=agent` toggle and `llms.txt` | [13](13-seo-and-agent-readability.md) |
-| GitHub contributions graph | Client-fetch of the public contributions endpoint, ISR-cached server-side instead if it needs a token | [08](08-resilience.md) — must fail to a calm empty state |
+| `Reveal`, `CountUp`, `Collapsible`, `RichText`, `SectionShell` | Project-owned components in `components/common/` and `features/home/` | §19.1 inspiration-only rule, [12](12-accessibility.md) |
+| Agent Markdown generator | Feeds canonical `/agent`; the typed route manifest also generates `/llms.txt` | [13](13-seo-and-agent-readability.md) |
+| GitHub contributions graph | Deferred in Phase 1; if enabled later, server fetch only with timeout, ISR cache and calm fallback | [08](08-resilience.md) |
 | Bottom bar navigation | Replaces a traditional header as primary nav — must still satisfy skip-link, focus-visible and keyboard specs | [12](12-accessibility.md) |
 | One long page | Home page only; dedicated routes stay | [PLAN.md](../PLAN.md) navigation table |
 | framer-motion everywhere | Allowed, with the §19.3 budget rules; "minimal usage" in PLAN.md is reinterpreted as "minimal *bytes and main-thread cost*, not minimal delight" | [13](13-seo-and-agent-readability.md) §13.2 |
@@ -252,8 +230,8 @@ Points of friction found and resolved:
 
 1. **Two sources of truth risk.** Hackyfolio's whole pitch is "edit one JSON file". Ours is
    "edit the CMS". Adopting the JSON file verbatim would recreate the drift problem docs/03
-   solves for search. Resolution: the manifest orders sections; **content always comes from
-   Payload**. The manifest contains no prose beyond the hero.
+   solves for search. Resolution: the manifest orders/configures sections; **all profile, story,
+   education and collection prose comes from Payload**.
 2. **Bottom bar vs accessibility gates.** A fixed bottom pill as sole navigation is unusual for
    screen readers. Resolution: it is a `<nav>` landmark, first tab stop after the skip link, and
    the keyboard E2E specs in [11](11-testing-and-ci.md) §11.4 are extended to cover it.
@@ -274,7 +252,7 @@ Points of friction found and resolved:
 | `@react-three/fiber` + `drei` (3D) | Breaks the third-party JS budget and the <1s load target for decorative value | [13](13-seo-and-agent-readability.md) §13.2 |
 | QR-code share widget | Nice-to-have; adds a dependency for marginal value. Post-launch candidate | — |
 | Vercel deploy path in Hackyfolio docs | We deploy to Cloudflare Workers via OpenNext from `main` | Decisions #37/#38 |
-| Copying component files | No license in the upstream repo | §19.1 |
+| Copying upstream files or content | Inspiration-only project rule; Base UI and project-owned code/tokens are normative | §19.1 |
 
 Dark mode and Cal.com scheduling were reconsidered from this table — both are adopted, in a
 lighter form than Hackyfolio ships. See the two subsections under §19.2 above.
@@ -287,10 +265,10 @@ These fold into the existing Phase 1 gate ([15-roadmap-and-checklist.md](15-road
 
 - [ ] All §19.3 interactions disabled correctly under `prefers-reduced-motion` (axe + manual pass)
 - [ ] Lighthouse ≥ 95 measured with the intro loader and all interactions enabled; CLS = 0
-- [ ] Agent view and `llms.txt` are both generated from the section manifest — grep proves no hand-written duplicate content
+- [ ] Canonical `/agent` and generated `/llms.txt` derive from the typed route manifest—grep proves no handwritten runtime duplicate
 - [ ] Bottom-bar navigation passes the keyboard E2E specs (skip link first, focus visible, Escape behaviour on any expanded state)
 - [ ] `katbose` published to npm (done 2026-08-24); `npx katbose` prints the card in a cold cache under 3s
-- [ ] No file in `apps/web` is a copy of an upstream Hackyfolio file (license rule)
+- [ ] No file in `apps/web` is a copy of an upstream Hackyfolio file (architecture/quality/inspiration-only rule)
 - [ ] Light and dark tokens both pass AA contrast (4.5:1 body / 3:1 large); `color-scheme` set so native controls flip too
 - [ ] Top-right theme toggle defaults to system preference on a clean first visit, switches light ⇄ dark, persists a manual choice across reload, and causes no flash of the wrong theme
 - [ ] `NEXT_PUBLIC_CAL_LINK` renders as a plain link on Home and `/contact`, distinct from the message form

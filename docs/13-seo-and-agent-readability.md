@@ -19,7 +19,10 @@
 ## 13.2 Performance practices (from the start, not retrofitted)
 
 - **Static / ISR rendering** for all content pages — visitors almost never wait on the CMS
-- **Server Components by default**; client components only where interactivity requires them
+- **Server Components by default:** pages, layouts, CMS fetches, metadata, schema mapping, `/agent`
+  and Markdown generation stay server-side. Client Components are leaf islands only for theme,
+  intro, clock, bottom-bar state, forms, Turnstile and bounded motion; they receive validated
+  serializable props and never import server-only clients or secrets.
 - **`next/image`** everywhere, with explicit dimensions to prevent layout shift; a custom loader
   uses Cloudflare Images for responsive transforms over immutable Supabase-CDN originals
   ([01-architecture.md](01-architecture.md) §1.4.1)
@@ -32,8 +35,10 @@
   outside the flow
 - **Cache headers** on static assets; ISR revalidation windows tuned per content type
   (posts 1h, indexes 30m)
-- **Third-party budget:** PostHog, Sentry and Turnstile only. Each addition must justify its
-  bytes.
+- **Third-party budget:** PostHog, Sentry and Turnstile only. No runtime external font, icon or
+  media CDN; fonts/assets are self-hosted or build-time inlined, and content media uses the approved
+  same-zone Cloudflare transform/proxy over immutable Supabase originals. Plain outbound links do
+  not load third-party runtime content.
 
 ### Image delivery budget
 
@@ -86,7 +91,7 @@ it is Phase 1 work rather than a later polish item.
 
 ## 13.5 robots.txt
 
-```
+```text
 User-agent: *
 Allow: /
 Disallow: /api/
@@ -110,23 +115,26 @@ to be found and cited, including by the tools recruiters increasingly use.
 
 ---
 
-## 13.6 llms.txt
+## 13.6 Canonical agent view and generated `llms.txt`
 
-A curated, agent-readable index of the site — the emerging convention for making a site
-consumable by language models without crawling every page.
+`/agent` is the canonical crawlable Markdown representation of public portfolio content. A typed
+route manifest drives navigation, `/agent`, sitemap metadata and the generated `/llms.txt` Route
+Handler; no handwritten runtime duplicate is allowed. Until the scaffold exists, repository-root
+`llms.txt` is explicitly a checked-in planning snapshot and must match this sample:
 
-```
+```text
 # Kat Bose — katbose.dev
 
-> Portfolio, technical blog, and engineering notes of Kat Bose.
+> Checked-in planning snapshot. Once the web scaffold exists, `/llms.txt` is generated from the typed route manifest; `/agent` is the canonical agent-readable view.
 
 ## Pages
+- [Agent view](https://katbose.dev/agent): Canonical plain-Markdown representation of public portfolio content
 - [Projects](https://katbose.dev/projects): Project case studies with architecture, challenges and lessons learned
 - [Experience](https://katbose.dev/experience): Professional timeline
 - [Blog](https://katbose.dev/blog): Long-form technical articles
 - [TIE](https://katbose.dev/tie): Short engineering notes (Things I Explore)
 - [Resume](https://katbose.dev/resume): Full resume, viewable online
-- [Ask AI](https://katbose.dev/ask-ai): Semantic search over all site content
+- [Ask AI](https://katbose.dev/ask-ai): Semantic search over public site content with validated citations
 
 ## Contact
 - [Contact form](https://katbose.dev/contact)
@@ -135,13 +143,14 @@ consumable by language models without crawling every page.
 - GitHub: https://github.com/katbose
 ```
 
-Keep it current when navigation changes — a stale `llms.txt` is worse than none.
+The generation test fails if a public route lacks agent metadata or if the checked-in planning
+snapshot differs from this sample before scaffold replacement.
 
 ---
 
 ## 13.7 humans.txt
 
-```
+```text
 /* TEAM */
 Developer: Kat Bose
 Contact: im@katbose.dev

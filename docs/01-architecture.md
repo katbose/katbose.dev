@@ -6,7 +6,7 @@
 
 ## 1.1 System overview
 
-```
+```text
                               ┌──────────────────────────────┐
                               │        Cloudflare            │
                               │  DNS · WAF · Rate Limiting   │
@@ -21,7 +21,7 @@
 │OpenNext Worker │                 │  Render           │                │ Render            │
 └───────┬────────┘                 └─────────┬─────────┘                └─────────┬─────────┘
         │                                    │                                    │
-        │  anon key / own API routes         │  service role key                  │  service role key
+        │  server-only service role          │  service role key                  │  service role key
         └────────────────────────────────────┼────────────────────────────────────┘
                                              │
                                   ┌──────────▼───────────┐
@@ -58,14 +58,12 @@ non-Cloudflare origin to bypass (unlike Vercel's always-on `*.vercel.app` URL), 
 makes `cf-connecting-ip` trustworthy for hashing and rate limiting
 ([05-security.md](05-security.md) §5.4) without extra verification.
 
-**Validate early (Phase 1, before layout work starts):** the public app runs as an OpenNext
-adapter Worker, not in the local Node.js development runtime. Use `opennextjs-cloudflare preview`
-in local integration tests and confirm ISR / on-demand revalidation, Draft Mode cookies,
-Node-compatible crypto, dynamic OG image generation and the image CDN path work in `workerd`.
-The exact pass/fail probe is in [15-roadmap-and-checklist.md](15-roadmap-and-checklist.md)
-§"Validation spikes". Documentation does not mark the spike complete; it must execute once the
-web scaffold and Cloudflare account exist. Vercel remains the documented fallback if this
-production-runtime validation fails.
+**Runtime lock:** the public app is an OpenNext Cloudflare Worker, not the local Node.js runtime;
+Vercel is not a fallback. The local Spike A runtime probes passed in `workerd` on 2026-08-25. The
+registered-zone Supabase-original → same-zone proxy → `/cdn-cgi/image` transform/cache → original
+fallback check remains a fail-stop gate before image delivery is called production-ready. Spike B
+and Spike C similarly stop Phase 2 and Phase 3 if their contracts fail. Exact contracts live in
+[15-roadmap-and-checklist.md](15-roadmap-and-checklist.md).
 
 ---
 
@@ -80,7 +78,8 @@ Splitting it onto Render gives:
 - A persistent process suited to the admin panel and background hooks
 - Independent deploy cadence — CMS changes do not redeploy the public site
 - A clean security boundary: the Supabase **service role key lives only in server-side Worker or
-  Render secret bindings**
+  Render secret bindings**. Privileged Supabase operations from the public Worker use that
+  server-only service-role client; browser code and anon-key clients have no privileged path.
 
 Costs of the split, all accepted and mitigated:
 
@@ -98,7 +97,7 @@ Costs of the split, all accepted and mitigated:
 Payload does **not** get its own database. It connects to the same Supabase Postgres instance
 using a dedicated `payload` schema:
 
-```
+```text
 Supabase Postgres
 ├── public   → contact_submissions, download_logs, resume_versions,
 │              dead_letter_queue, ai_query_logs
@@ -118,7 +117,7 @@ database-boundary decision before building content features.
 
 Media has one source of truth and two cache/optimization layers:
 
-```
+```text
 Payload upload
   → versioned object in the public Supabase `media` bucket
   → Supabase Storage CDN (original)
@@ -165,8 +164,8 @@ Rules:
   backup; then apply the committed migration to the one production project.
 - `.env.local` is local-only. Production secrets live only in Cloudflare and Render. There is no
   shared `dev`/`prod` secret inventory.
-- `IP_HASH_SALT` must be identical across the production web Worker and Render services so hashes
-  are comparable.
+- `IP_PSEUDONYM_KEY` and `IP_PSEUDONYM_EPOCH` exist only on the production web Worker. Render
+  never computes visitor pseudonyms, and epochs are never correlated.
 - No external health-check or keep-warm traffic is used for Render. Monitor its free-tier hour and
   bandwidth usage; the dashboard remains deferred until Phase 5.
 
@@ -176,7 +175,7 @@ Rules:
 
 Monorepo, pnpm workspaces:
 
-```
+```text
 katbose-portfolio/
 ├── apps/
 │   ├── web/                  # Next.js public site → Cloudflare Workers via OpenNext
@@ -196,7 +195,7 @@ katbose-portfolio/
 
 `apps/web` internals:
 
-```
+```text
 app/
   (site)/                     # public routes
   api/                        # route handlers
@@ -216,7 +215,7 @@ lib/
   search/                     # Cloudflare AI Search client
   analytics/                  # PostHog wrappers
   rate-limit/                 # Upstash limiters + failure modes
-  security/                   # hashIp, turnstile verify, injection screen
+  security/                   # IP pseudonym, Turnstile verify, injection screen
   preview/                    # draft-mode helpers
   monitoring/                 # Sentry + PostHog config with redaction
 hooks/
@@ -232,7 +231,7 @@ like rate-limit values) lives in `packages/shared` so the CMS and web app cannot
 
 **Public content read**
 
-```
+```text
 Visitor → Cloudflare edge → Next.js (ISR cache hit) → HTML
                         └─ on revalidate → cms.katbose.dev/api/... → Payload → Postgres
 ```
@@ -241,7 +240,7 @@ Content pages are statically rendered with ISR. A visitor request almost never b
 
 **Privileged operation (resume download, contact, Ask AI)**
 
-```
+```text
 Visitor → Cloudflare (WAF + edge rate limit) → Next.js route handler (OpenNext Worker)
         → Upstash rate limit → Turnstile (if escalated) → Supabase / Cloudflare AI Search
         → log to Postgres → response
@@ -256,7 +255,7 @@ directly from the browser, and the client never holds a service role key.
 
 - White, minimalistic UI; content first
 - < 1s initial load; excellent Core Web Vitals
-- Responsive, WCAG 2.1 AA, fully keyboard operable
+- Responsive, WCAG 2.2 AA, fully keyboard operable
 - Excellent typography
 - SEO optimized **and** agent-readable
 - TypeScript-first, strict mode, no `any` in application code
@@ -264,3 +263,25 @@ directly from the browser, and the client never holds a service role key.
 - Extensible, but no speculative abstraction
 - Recruiter experience beats data collection — no login, no mandatory email, no forced sign-in
 - Prefer boring, well-understood technology over novelty
+
+---
+
+## 1.9 Final implementation boundaries
+
+- **Baseline:** Node.js 22 LTS, Corepack-managed pnpm 10, strict TypeScript, no application `any`,
+  exact package versions and committed lockfile. Native Windows is supported; WSL2 from a short
+  Linux path is the fallback for OpenNext symlink/path/command-length failures.
+- **Workers Builds:** repository root is the build root; install is
+  `corepack enable && pnpm install --frozen-lockfile`; build is `pnpm --filter web build`; bindings
+  live in `apps/web/wrangler.jsonc`. Workers Builds never runs migrations.
+- **Migrations:** a protected explicit GitHub workflow owns production Supabase migrations and must
+  complete before a migration-bearing commit reaches deployment-triggering `main`.
+- **Phase ownership:** Phase 1 owns the web/runtime and Spike A remote image gate; CMS domain/Access
+  and Payload belong to Phase 2; AI Search to Phase 3; resume security to Phase 4; dashboard
+  domain/Access to Phase 5. The npm package is published but monorepo integration is pending.
+- **Rendering boundary:** Server Components own pages, content fetches, metadata, `/agent` and
+  derived Markdown. Client Components are leaf islands for theme, intro, clock, bottom bar, forms,
+  Turnstile and bounded motion, receiving validated serializable props only.
+- **Asset boundary:** no runtime external font, icon or media CDN. Fonts/assets are self-hosted or
+  build-time inlined; content media uses only the approved Supabase-original → same-zone Cloudflare
+  proxy/transform/fallback path.

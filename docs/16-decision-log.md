@@ -2,8 +2,17 @@
 
 [← Back to PLAN.md](../PLAN.md)
 
-Every entry is a decision that is **closed**. Reopening one requires a new entry with a reason,
-not a quiet change of direction.
+Entries are immutable historical records. The canonical status field uses exactly this vocabulary:
+
+- **Current normative** — the current decision; implementation may proceed.
+- **Historical—superseded** — a preserved historical decision replaced by a numbered later entry.
+- **Current—reason corrected** — the conclusion remains current, but later evidence corrected its reasoning.
+- **Decided—validation pending** — the decision is made, but dependent work stops until its named validation passes.
+- **Deferred—closed for current phase** — deliberately excluded from the current phase; reconsideration requires a later decision.
+
+`clarifies`, `corrects` and `supersedes` are relationship annotations, not status values. Never
+rewrite historical wording to make it look current. Annotate the old entry and add a new numbered
+entry with the reason. Revising a current normative decision always requires a new entry.
 
 ---
 
@@ -218,3 +227,62 @@ resolved one open question and corrected one badly-reasoned entry.
 | --- | --- | --- | --- |
 | 66 | Dark palette (supersedes #60) | **Exact parity: pure black background, pure white text. Both themes are the two ends of the same ramp, swapped** | Upstream defines only two theme variables — background and foreground — flipping white/black in light to black/white in dark. There is no dark gray ramp to match; per-element greys come from Tailwind utilities. So parity is reachable precisely, and #60's "not measured, not claimed" position is no longer needed. Our mapping becomes `--color-bg: --gray-1000` / `--color-text: --gray-0` in dark, the mirror of light. Verified on true black: text 21.00:1, secondary 14.25:1, tertiary 8.27:1, focusable boundaries 4.34:1 — all pass. **Accepted tradeoff:** pure black with pure white text maximises contrast but can cause halation for readers with astigmatism, and smearing on some OLED panels. Matching the reference is chosen deliberately; softening to `--gray-950`/`--gray-50` (20.10:1) is a two-token change if it reads badly in review. **Also confirmed:** `--font-sans` resolves to a DM Sans variable, independently validating #57. |
 | 67 | `?theme=` query parameter — corrected reasoning for #65 | **Still not adopted, but the ISR argument in #65 was wrong** | #65 claimed a query-driven theme would poison the ISR cache. Having read the implementation, that is false: it is a client component reading `useSearchParams` inside `useEffect` and calling `setTheme` after hydration. Server-rendered HTML never varies, so nothing is cached wrongly. The real objection is different and narrower: because the switch happens *after* hydration, a visitor arriving on `?theme=dark` with a light system preference sees light paint first and then flip. That is precisely the flash of the wrong theme that #46/#51 rule out. Making it flash-free means resolving the parameter during render, which *would* vary output per query string — so the cache concern belongs to the fixed version, not to theirs. The feature (shareable theme-pinned links) is judged not worth either cost. `?view=agent` is unaffected: it is a genuine content variant with its own cache key, not a post-hydration client override. |
+
+---
+
+## 16.18 Final implementation lock (2026-08-26)
+
+Architecture and Phase 1 choices are closed. Spike A's remote image pass, Spike B and Spike C are
+**validation gates**: failure stops dependent work and creates a new decision; it does not silently
+change architecture.
+
+| # | Status | Decision | Reasoning |
+| --- | --- | --- | --- |
+| 68 | **Current normative** | *Relationship: clarifies #55.* **Runtime/package baseline:** Node.js 22 LTS, Corepack-managed pnpm 10, strict TypeScript and pinned exact package versions/lockfile. Native Windows is supported; if OpenNext hits symlink, path-length or `cmd.exe` limits, use WSL2 from a short Linux path. | The npm-only Spike A workaround was probe-specific. The committed monorepo has one package manager and a documented Windows fallback rather than two lockfiles. |
+| 69 | **Current normative** | *Relationship: clarifies #43.* **Payload owns content:** a `Profile` global owns hero/profile/contact/social/skills data; Payload collections own projects, experience, Blog and TIE; story and education prose also come from Payload. Lexical is the canonical rich-text representation. The Home manifest contains order, section type, stable IDs and display configuration only. | The manifest must never become a second prose database. Markdown/MDX are derived exports/renderings, not authoring truth. |
+| 70 | **Current normative** | *Relationship: supersedes the expiry mechanics in #40/#64 examples.* **Preview expiry without middleware:** the page Server Component verifies signed scope and `expiresAt` before a draft read; an expired scope invokes a same-origin exit Route Handler that disables Draft Mode, deletes preview cookies and redirects to the clean published URL. | Cookie `maxAge` is storage hygiene, not authorization. This preserves the 15-minute fail-closed TTL without adding an unvalidated middleware surface. |
+| 71 | **Current normative** | **Agent routes:** `/agent` is the canonical crawlable human-readable Markdown view. A typed route manifest drives navigation, `/agent`, sitemap/robots metadata and generated `/llms.txt`. The repository-root `llms.txt` is a checked-in planning snapshot only until the scaffold exists and must match docs/13's sample. | One manifest prevents route drift. A query-string mode may redirect to `/agent` for compatibility but is not canonical. |
+| 72 | **Current normative** | *Relationship: corrects #29.* **IP pseudonyms:** use HMAC-SHA-256 with a secret `IP_PSEUDONYM_KEY` and stored epoch, sourcing IPs only from the trusted, Cloudflare-overwritten `CF-Connecting-IP` request header in the production Worker. Purge telemetry daily at 90 days; rotate keys quarterly or on compromise. Old epochs may coexist until purged and are never correlated. | A keyed HMAC is stronger than `SHA-256(IP + salt)`. Retention must not wait for rotation. Equal-length `timingSafeEqual` is the shared secret-comparison helper. |
+| 73 | **Current normative** | *Relationship: corrects #30.* **Client-role database denial:** revoke current schema/table/sequence/function grants from `anon` and `authenticated`, control default table/sequence/function privileges, enable/force RLS, and add role-scoped restrictive deny policies. CI inspects current/default ACL and RLS catalogs and attempts every CRUD operation as both roles. | PostgreSQL permissive policies combine with `OR`; a permissive false policy cannot protect against a later permissive allow policy. |
+| 74 | **Current normative** | *Relationship: clarifies #64.* **Static security headers:** CSP and other headers are a static allowlist in `next.config.ts`; no middleware and no request-specific nonce dependency. Runtime external media/CDNs are not permitted. | A static CSP fits the current fixed origin set and avoids an unvalidated runtime surface. Any origin addition requires a decision and privacy/performance review. |
+| 75 | **Current normative** | *Relationship: clarifies #52.* **Workers Builds ownership:** repository root is the build root; install is `corepack enable && pnpm install --frozen-lockfile`; build is `pnpm --filter web build`; `apps/web/wrangler.jsonc` owns Worker bindings. Workers Builds deploys pushes to protected `main` and never runs database migrations. A protected, explicit GitHub production-migration workflow owns committed Supabase migrations and must complete before merging a migration-bearing release. | This removes the root-directory ambiguity and prevents web deployment from implicitly owning data changes. |
+| 76 | **Current normative** | **Phase ownership:** Phase 1 owns web scaffold, public routes, design system, route manifest, baseline security/CI and remote Spike A image proof. Phase 2 owns Payload, CMS domain/Access gates, content, preview and Spike B. Phase 3 owns AI Search and Spike C. Phase 4 owns resume storage/download security. Phase 5 owns dashboard domain/Access, analytics operations and retention verification. The npm package is published; monorepo integration remains Phase 1. | Provisioning and gates belong to the phase that can actually exercise them. |
+| 77 | **Current normative** | *Relationship: clarifies #42/#54/#63.* **Reference precedence:** observed source facts inform anatomy and measurements; project tokens, Base UI, WCAG 2.2 AA, performance budgets and architecture are normative. Deliberate differences are documented. Permission is inspiration-only for this project: no upstream file or content is copied, and Base UI remains the sole primitive library. | A visual reference cannot override project constraints or become an implementation dependency. |
+| 78 | **Current normative** | **Server/Client boundary:** pages, layouts, content fetches, metadata, agent Markdown and schema mapping are Server Components/modules by default. Client Components are leaf islands only for theme, intro, clock, bottom bar state, forms, Turnstile and bounded motion; they receive serializable validated props and never import server-only clients or secrets. | This minimizes JavaScript and makes secret boundaries reviewable. |
+| 79 | **Current normative** | **Exhaustive registries plus runtime schemas:** every manifest section and rich-text block is a discriminated union with an exhaustive `never` check; external/CMS data is parsed by exhaustive Zod schemas before registry dispatch. Strict TypeScript and no `any` apply to application code. | Compile-time exhaustiveness does not validate network data; both layers are required. |
+| 80 | **Current normative** | *Relationship: supersedes #24's version target.* **Accessibility target is WCAG 2.2 AA.** Axe, keyboard, focus, zoom, reduced-motion and manual screen-reader gates apply to every phase. | The newer AA target is normative across docs, CI and design tokens. |
+| 81 | **Current normative** | *Relationship: clarifies #58.* **No runtime external media/CDNs:** fonts, UI assets and brand marks are self-hosted/build-time inlined. Content media uses immutable Supabase originals through the approved same-zone Cloudflare transform/proxy path; no browser fetches an icon/font/image CDN. | This bounds CSP, privacy, availability and performance. Plain outbound links such as Cal.com are navigation, not embedded runtime media. |
+| 82 | **Current normative** | **Boundary validation:** shared Zod schemas allow only `https:` URLs (plus explicit internal relative routes), normalize and reserve slugs, reject traversal/control characters, cap field sizes, and parse a closed Lexical node/block union. Renderers ignore no unknown node silently; schema changes fail tests until explicitly supported. | URL, slug and rich-text validation are security and portability requirements, not CMS-editor convenience. |
+| 83 | **Current normative** | *Relationship: corrects #35.* **Atomic resume promotion:** validate size, MIME and `%PDF-` signature; upload to a UUID collision-safe immutable path with overwrite disabled; call a serialized transactional RPC that preserves the old pointer until the new row is committed. The function fixes `search_path`, revokes `EXECUTE` from `PUBLIC`, `anon` and `authenticated`, and grants it only to `service_role`. Delete the new object on RPC failure and always remove temporary uploads. | Two independent updates can expose zero current rows and race concurrent uploads. The database transaction and partial unique index own promotion. |
+| 84 | **Current normative** | *Relationship: clarifies #25.* **Structured citation IDs:** assign opaque request-local IDs to retrieved allowed chunks; require model structured output containing those IDs; render only when every emitted ID resolves to the retrieved published allow-set and at least one valid citation exists. | Source-array presence alone does not prove the model cited an allowed retrieved chunk. |
+| 85 | **Current normative** | *Relationship: supersedes #15/#23 destination priority.* **Encrypted off-primary backup:** encrypted database dumps, all paginated content exports, media and resume versions go to private off-primary R2 as the normative durable target. GitHub artifacts/private-repo exports are convenience and portable copies. Restore drills must work without the primary vendor. | A backup stored only with the CI/source provider is not sufficient fault-domain separation. |
+
+### Historical annotations (text above remains historical)
+
+- **#3** is superseded by #32, then #38; its Vercel web-hosting text is historical.
+- **#17** is superseded by #37; the one protected `main` plus local-development model is current.
+- **#29** is corrected by #72; salted SHA-256 and purge-aligned rotation are not current.
+- **#30** is corrected by #73; permissive policies combine with `OR`, so revoked grants plus
+  restrictive role-scoped denies and catalog/role tests are current.
+- **#32** is superseded by #38; Workers via OpenNext remains closed, not a fallback choice.
+- **#35** is corrected by #83; Payload remains the authenticated entry point, but promotion is a
+  validated, cleanup-safe, serialized transactional RPC.
+- **#42** and **#54** are clarified by #77: observed facts inform anatomy; project constraints are
+  normative, and no upstream file/content is copied.
+- **#55** is clarified by #68: npm was a Spike A workaround; pnpm is the committed baseline, with
+  WSL2 as the Windows fallback.
+- **#60** is superseded by **#66**; #66's source-backed black/white mapping and accessibility
+  tradeoff are the current reasoning.
+- **#61** is superseded on permission by #63 and clarified by #77; inspiration-only/no-copying and
+  Base UI are current. Historical ecosystem characterizations are not implementation guidance.
+- **#65** keeps its conclusion but its reasoning is corrected by **#67**; the rejected query-theme
+  behavior flashes after hydration rather than poisoning current ISR output.
+
+### 16.18.1 Availability clarification
+
+| # | Status | Decision | Reasoning |
+| --- | --- | --- | --- |
+| 86 | **Current normative** | *Relationship: corrects #27.* **Ask AI is always visible and resilient, not always active:** the page/input remain present during dependency failure, fail-closed limiting and capacity exhaustion, with honest inline retry/capacity states. | Availability of the interface must not falsely claim availability of the backend. Structured citation failure likewise returns no answer without hiding the search surface. |
+
+**Additional historical annotation:** #27's “always active” wording is corrected by #86. In #67,
+the historical `?view=agent` aside is superseded by #71: `/agent` is canonical.
