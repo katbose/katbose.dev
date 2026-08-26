@@ -88,19 +88,31 @@ and for non-text UI boundaries and state indicators (WCAG 1.4.11).
 
 | Semantic token | Light | Ratio vs `bg` | Dark | Ratio vs `bg` | Requirement |
 | --- | --- | --- | --- | --- | --- |
-| `--color-bg` | `--gray-0` | — | `--gray-950` | — | — |
-| `--color-bg-subtle` | `--gray-50` | — | `--gray-900` | — | — |
-| `--color-surface` | `--gray-0` | — | `--gray-900` | — | — |
-| `--color-text` | `--gray-1000` | **21.00** | `--gray-50` | **19.27** | ≥ 4.5 ✔ |
-| `--color-text-secondary` | `--gray-600` | **7.56** | `--gray-300` | **13.66** | ≥ 4.5 ✔ |
-| `--color-text-tertiary` | `--gray-500` | **4.84** | `--gray-400` | **7.93** | ≥ 4.5 ✔ |
-| `--color-link` | `--gray-600` + underline | **7.56** | `--gray-300` + underline | **13.66** | ≥ 4.5 ✔ |
-| `--color-focus` | `--gray-1000` | **21.00** | `--gray-50` | **19.27** | ≥ 3 ✔ |
-| `--color-border` | `--gray-200` | 1.24 | `--gray-800` | 1.37 | decorative only |
-| `--color-border-strong` | `--gray-500` | **4.84** | `--gray-500` | **4.16** | ≥ 3 ✔ |
+| Semantic token | Light | Ratio | Dark | Ratio | Requirement |
+| --- | --- | --- | --- | --- | --- |
+| `--color-bg` | `--gray-0` | — | `--gray-1000` | — | ✔ both measured |
+| `--color-surface` | `--gray-0` | — | `--gray-1000` | — | ✔ borders define, not fills |
+| `--color-bg-subtle` | `--gray-50` | — | `--gray-950` | — | ours — see below |
+| `--color-text` | `--gray-1000` | **21.00** | `--gray-0` | **21.00** | ≥ 4.5 ✔ |
+| `--color-text-secondary` | `--gray-600` | **7.56** | `--gray-300` | **14.25** | ≥ 4.5 ✔ |
+| `--color-text-tertiary` | `--gray-500` | **4.84** | `--gray-400` | **8.27** | ≥ 4.5 ✔ |
+| `--color-link` | `--gray-600` + underline | **7.56** | `--gray-300` + underline | **14.25** | ≥ 4.5 ✔ |
+| `--color-focus` | `--gray-1000` | **21.00** | `--gray-0` | **21.00** | ≥ 3 ✔ |
+| `--color-border` | `--gray-200` | 1.24 | `--gray-800` | 1.43 | decorative only |
+| `--color-border-strong` | `--gray-500` | **4.84** | `--gray-500` | **4.34** | ≥ 3 ✔ |
 
-Secondary and tertiary text on `--color-bg-subtle` are also verified in dark: **12.04** and **6.99**.
-This is the pairing 12 §12.5 calls out as the most likely real-world failure.
+**The two themes are the same ramp with its endpoints swapped** — white on black becomes black on
+white. That is exactly what the reference does: it defines only a background and a foreground
+variable and flips them, with per-element greys coming from utilities rather than tokens. Decision
+[#66](16-decision-log.md) records the parity and the tradeoff (pure black maximises contrast but can
+halate for astigmatic readers; softening to `--gray-950`/`--gray-50` is a two-token change worth
+20.10:1 if review says it reads badly).
+
+`--color-bg-subtle` in dark is **ours, not parity**. The reference has no dark surface fill at all —
+cards are transparent with a border, the same way its light cards are white-on-white with a border.
+We keep one subtle step for the few places a border is the wrong affordance, chiefly code blocks.
+
+Two cautions that came out of the measurement:
 
 Two cautions that came out of the measurement:
 
@@ -272,6 +284,9 @@ reduced-motion override has exactly one place to apply.
 | `--ease-in-out` | `cubic-bezier(0.4, 0, 0.2, 1)` | reversible transitions |
 | `--reveal-shift` | 16px | scroll-reveal translate distance (19 §19.3, row 1) |
 | `--intro-step` | 450ms | intro-loader per-language dwell (19 §19.4.1) |
+| `--dur-marquee` | 30s | tech-stack marquee, one full cycle, `linear infinite` — ✔ measured |
+| `--dur-shine` | 1.5s | bottom-bar edge shine, `ease-in-out`, plays **once** — ✔ measured |
+| `--delay-shine` | 450ms | shine start delay, so it reads as an entrance — ✔ measured |
 
 Budget rules, inherited from 19 §19.3 and 13 §13.2:
 
@@ -302,6 +317,16 @@ The global rule is a safety net, not the implementation. Each of the twelve inte
 than just duration — the intro loader is skipped entirely, the marquee becomes a static wrapped
 grid, count-ups render their final value, and the bottom-bar shine is set to `opacity: 0`. A
 duration override alone would leave a marquee mid-scroll and a stat frozen at zero.
+
+The reference confirms this approach for the shine specifically: its own stylesheet disables that
+animation and zeroes its opacity under `prefers-reduced-motion`, exactly as 19 §19.3 row 8
+predicted. Worth noting as the one place upstream already meets our bar.
+
+**Not adopted: hiding scrollbars.** Upstream carries a scrollbar-hiding utility. Applied to the
+decorative marquee track that is harmless, and we do the same. Applied to genuinely scrollable
+content it removes the only visual cue that more content exists, which conflicts with 12 §12.3's
+requirement that code blocks stay keyboard-scrollable *and* discoverable. Scoped to the marquee
+only.
 
 ---
 
@@ -536,7 +561,9 @@ Every decision this document depends on is closed and recorded in
 | 62 | Reference author's content never enters the repository, fixtures included | §20.18.1 |
 | 63 | Permission granted, but scope of use is **inspiration only**; Base UI and our architecture stand | §20.2.3, §20.12, §20.18.1 |
 | 64 | No Next.js middleware — route handlers and Server Components instead | §20.13 |
-| 65 | Theme never resolves from a query parameter; `next-themes` only | §20.4.3, §20.9 |
+| ~~65~~ | ~~Theme never resolves from a query parameter~~ — conclusion stands, reasoning corrected by #67 | §20.4.3 |
+| 66 | Dark palette is exact parity: the ramp's endpoints swapped, pure black and pure white | §20.4.2 |
+| 67 | `?theme=` declined because it flashes post-hydration, not because of cache behaviour | §20.4.3 |
 
 Two of these are worth re-reading before the design pass rather than at review time: **#60**, because
 a dark-mode measurement would refine the palette and is cheap to run; and **#63**, because it is what
@@ -558,8 +585,8 @@ palette; the five spacing steps; border radii and widths; the pill-button and ca
 
 | Gap | Consequence |
 | --- | --- |
-| Dark palette | The run captured `mode: light` only. §20.4.2's dark column is contrast-verified but is our mapping, not parity. Open decision #60. |
-| Motion durations and easings | Computed styles do not expose Framer Motion's JS-driven timings. §20.8 remains our specification, derived from the interaction catalogue in 19 §19.3. |
+| ~~Dark palette~~ | ~~The run captured `mode: light` only.~~ **Closed by reading upstream source rather than re-measuring** — the theme is two variables, swapped. Parity is exact. Decision #66. |
+| Motion durations and easings | Partially closed. The CSS-driven timings are now known from upstream source — marquee cycle, shine duration and shine delay are in §20.8 and marked measured. Framer Motion's JS-driven timings (reveal, collapse, crossfade) are still not observable from styles, so those remain our specification per 19 §19.3. |
 | Scroll behaviour | Reveal thresholds, `once` semantics and marquee speed are runtime behaviour, not CSS. Ours. |
 | Responsive steps | Measured at desktop width only. `--gutter` and `--section-gap` breakpoint behaviour is ours. |
 | Focus treatment | Not captured. §20.9 is ours, and is stricter than most sites ship. |
