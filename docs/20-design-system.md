@@ -504,17 +504,23 @@ design gates in 19 §19.7. They are additive, not a replacement.
 
 ---
 
-## 20.17 Open decisions
+## 20.17 Decisions this document depends on
 
-These three block nothing in §20.3–§20.13 but must be closed before the affected component is
-built. Each needs an entry appended to [16-decision-log.md](16-decision-log.md).
+Every decision this document depends on is closed and recorded in
+[16-decision-log.md](16-decision-log.md) §16.14. Nothing here is pending.
 
-| # | Question | Proposed default | Blocks |
-| --- | --- | --- | --- |
-| ~~57~~ | ~~Typeface pairing~~ | **Closed: DM Sans (OFL 1.1) + JetBrains Mono for code only** — measured, §20.5.1 | — |
-| 58 | Brand-mark source | `simple-icons`, build-time inline, self-hosted; no runtime CDN | techStack section |
-| 59 | Scope of `recommendations`, `publications`, `youtube`, `podcast` | defer all four past Phase 1 | those four sections only |
-| 60 | Dark-palette parity | our Tailwind-gray dark mapping (§20.4.2), verified but **not** measured | dark theme sign-off |
+| # | Decision | Where it applies |
+| --- | --- | --- |
+| 57 | DM Sans for every text role; JetBrains Mono for code and the terminal card only | §20.5.1 |
+| 58 | `simple-icons` inlined at build time; no runtime icon CDN | §20.11 |
+| 59 | `recommendations`, `publications`, `youtube`, `podcast` deferred past Phase 1 | §20.14 |
+| 60 | Dark palette is project-defined and contrast-verified, not measured | §20.4.2, §20.18 |
+| 61 | Upstream source is not used; parity comes from measurement and reimplementation | §20.2.3, §20.18.1 |
+| 62 | Reference author's content never enters the repository, fixtures included | §20.18.1 |
+
+Two of these are worth re-reading before the design pass rather than at review time: **#60**, because
+a dark-mode measurement would refine the palette and is cheap to run; and **#61**, because it is the
+constraint the Phase 1 licence gate actually tests.
 
 ---
 

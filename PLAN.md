@@ -31,7 +31,7 @@ documentation set so each concern can be read, reviewed and updated on its own.
 | 13 | [SEO & Agent Readability](docs/13-seo-and-agent-readability.md) | Core Web Vitals targets, JSON-LD, robots.txt, `llms.txt`, humans.txt, utility pages |
 | 14 | [Privacy & Compliance](docs/14-privacy-and-compliance.md) | Data inventory, no-cookie-banner rationale, retention, privacy policy outline, i18n out of scope |
 | 15 | [Roadmap & Checklist](docs/15-roadmap-and-checklist.md) | Five phases with build lists and non-negotiable production gates |
-| 16 | [Decision Log](docs/16-decision-log.md) | Decisions through #54 with reasoning, plus rejected options |
+| 16 | [Decision Log](docs/16-decision-log.md) | Decisions through #62 with reasoning, plus rejected options |
 | 17 | [Environment Variables](docs/17-env-vars.md) | Full secrets inventory per surface, generation, rotation calendar |
 | 18 | [Knowledge Base](docs/18-knowledge-base.md) | Separate repository, TIE boundary, future indexing |
 | 19 | [Design Reference](docs/19-design-reference.md) | justaditya.com/Hackyfolio as primary visual reference, micro-interaction catalogue, intro loader, `npx katbose`, compatibility analysis |

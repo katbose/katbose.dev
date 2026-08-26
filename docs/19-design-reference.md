@@ -19,6 +19,14 @@ verbatim is not. Every component in `apps/web` is written fresh against our own 
 design tokens and Base UI primitives. If the upstream repo later gains a permissive license, this
 constraint can be revisited via the decision log.
 
+**Re-verified 2026-08-26** (decision [#61](16-decision-log.md)): still no LICENSE file, and GitHub
+reports no licence. The `open-source` topic tag and the site's "Open source" link are descriptions,
+not grants. The upstream README *does* invite template use — clone, edit `portfolio.json`, deploy —
+which covers using it as intended, but not lifting components into a different codebase. Measured
+rendered values (typeface, palette, metrics) are facts and are adopted in
+[20-design-system.md](20-design-system.md); source files are not. Separately, the author's own
+content is out of scope entirely (decision #62).
+
 ---
 
 ## 19.2 What is adopted from Hackyfolio
@@ -77,8 +85,8 @@ target realistic:
 | Next.js (App Router), TypeScript | Same | ✔ aligned |
 | Tailwind CSS 4 | Tailwind (version pinned at scaffold time) | ✔ aligned |
 | framer-motion 12 | Framer Motion, "minimal usage" | ✔ see §19.5 — budget clarified |
-| Hackyfolio typography and light/dark palette | Same compact typography and matching color direction, recreated in our own tokens | ✔ visual target; exact font license verified at implementation |
-| lucide-react icons | No icon lib chosen yet | ✔ adopt lucide-react |
+| Hackyfolio typography and light/dark palette | DM Sans and the Tailwind `gray` ramp, measured and recreated in project-owned tokens (decisions #57, #60) | ✔ resolved — [20](20-design-system.md) §20.4, §20.5 |
+| lucide-react icons | lucide-react for UI icons; brand marks come from build-time `simple-icons` (decision #58) | ✔ resolved — [20](20-design-system.md) §20.11 |
 | next-themes (dark/light) | Adopted directly — see below | ✔ same toggle UX as justaditya.com |
 | @vercel/analytics | **Retired** (decision #5) — PostHog | ✖ do not copy |
 | @react-three/fiber + drei | Not in plan; JS budget is strict | ✖ see §19.6 |
