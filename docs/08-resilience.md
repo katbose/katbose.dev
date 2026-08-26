@@ -14,6 +14,7 @@ turn a third-party hiccup into a broken page.
 | Dependency | Failure behaviour |
 | --- | --- |
 | Payload / Render (CMS) | ISR serves last-good content; only a never-cached page shows a fallback component |
+| Payload site identity assets | Last-good metadata/Home output remains cached; otherwise bundled profile/favicon defaults render |
 | Cloudflare AI Search | 2 retries with backoff, then an inline retry message — the feature stays visibly on |
 | Supabase signed URLs | 5s timeout → one retry → `/resume-unavailable` with real next actions |
 | Upstash | Fail open (resume) / fail closed (Ask AI, contact), plus a Slack alert |

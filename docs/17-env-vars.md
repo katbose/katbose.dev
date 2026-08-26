@@ -49,7 +49,7 @@ Render.
 | `SUPABASE_URL` | No | Server-only Supabase client URL | On project change |
 | `SUPABASE_SERVICE_ROLE_KEY` | **No** | Server-only Worker writes: logs, submissions, signed URLs | On compromise, immediately |
 | `CMS_URL` | No | Payload API base, e.g. `https://cms.katbose.dev` | — |
-| `WEBHOOK_SHARED_SECRET` | **No** | Authenticates `content-sync` and `reconcile` calls | Quarterly |
+| `WEBHOOK_SHARED_SECRET` | **No** | Authenticates `content-sync`, `reconcile` and Payload-triggered site revalidation calls | Quarterly |
 | `PREVIEW_URL_SECRET` | **No** | One-time Payload preview-link gate, 256-bit | Quarterly, or after any suspected exposure |
 | `PREVIEW_INTERNAL_SECRET` | **No** | Worker-to-CMS draft endpoint secret | Quarterly, or after any suspected exposure |
 | `IP_PSEUDONYM_KEY` | **No** | Current HMAC-SHA-256 key for IP pseudonyms | Quarterly; independent of the daily 90-day purge |

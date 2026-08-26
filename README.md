@@ -200,7 +200,7 @@ katbose-portfolio/
 | [13](docs/13-seo-and-agent-readability.md) | **SEO & Agent Readability** | Core Web Vitals targets, JSON-LD, `robots.txt`, `llms.txt`, `humans.txt`, utility pages |
 | [14](docs/14-privacy-and-compliance.md) | **Privacy & Compliance** | Data inventory, no-cookie-banner rationale, retention, privacy policy, i18n out of scope |
 | [15](docs/15-roadmap-and-checklist.md) | **Roadmap & Checklist** | Five phases with build lists and non-negotiable production gates |
-| [16](docs/16-decision-log.md) | **Decision Log** | Decisions through #86 with status vocabulary, historical annotations and reasoning |
+| [16](docs/16-decision-log.md) | **Decision Log** | Decisions through #87 with status vocabulary, historical annotations and reasoning |
 | [17](docs/17-env-vars.md) | **Environment Variables** | Full secrets inventory per surface, generation, rotation calendar |
 | [18](docs/18-knowledge-base.md) | **Knowledge Base** | Separate repository, TIE boundary, future indexing |
 | [19](docs/19-design-reference.md) | **Design Reference** | justaditya.com/Hackyfolio as primary visual reference, micro-interaction catalogue, intro loader, `npx katbose`, compatibility analysis |
@@ -213,7 +213,7 @@ katbose-portfolio/
 | Phase | Focus | Ships when |
 | --- | --- | --- |
 | **1 — Foundation** | Layout, core pages, utility pages, SEO, deployment | RLS, secrets hygiene, contact protection, privacy policy, CI and OpenNext validation in place |
-| **2 — Content platform** | Payload, Blog, TIE, canonical Lexical authoring, derived Markdown/MDX, draft preview | Spike B, CMS domain/Access, scoped preview, ISR fallback and restore drill pass |
+| **2 — Content platform** | Payload, Blog, TIE, Profile/SiteSettings identity uploads, canonical Lexical authoring, derived Markdown/MDX, draft preview | Spike B, CMS domain/Access, scoped preview, identity-asset replacement, ISR fallback and restore drill pass |
 | **3 — AI search** | Index, Ask AI, sync pipeline | AI Search binding, reconciliation, cost caps and all four injection layers verified |
 | **4 — Resume security** | Private bucket, signed URLs, Turnstile | E2E download test passes, fail-open behaviour proven |
 | **5 — Analytics & operations** | Dashboard, retention, alerting | Access control, retention and alerting verified |

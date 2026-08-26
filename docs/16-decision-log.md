@@ -286,3 +286,11 @@ change architecture.
 
 **Additional historical annotation:** #27's “always active” wording is corrected by #86. In #67,
 the historical `?view=agent` aside is superseded by #71: `/agent` is canonical.
+
+---
+
+## 16.19 Additive site-identity assets (2026-08-26)
+
+| # | Status | Decision | Reasoning |
+| --- | --- | --- | --- |
+| 87 | **Current normative** | *Relationship: clarifies #50/#69/#76/#81.* **Payload-managed profile portrait and favicon:** the `Profile` global owns a required `profileImage` upload relation plus meaningful `profileImageAlt`; a `SiteSettings` global owns the favicon upload relation. Both use validated, immutable objects in the existing public `media` bucket and the approved same-zone delivery path. Phase 1 owns the portrait slot, reserved geometry, metadata integration and bundled project-owned fallbacks; Phase 2 owns the Payload fields, upload validation, storage hooks and signed revalidation. | This adds editor-controlled identity assets without a new vendor, browser Supabase access or runtime external CDN. Profile uploads allow signature-verified PNG/JPEG/WebP within the size/dimension contract; favicon uploads are signature-verified square PNG only, with SVG rejected. New immutable keys provide cache busting, while last-good ISR/metadata and bundled defaults prevent CMS failure or an unset relation from producing a broken portrait or browser icon. Neither upstream asset is copied. |

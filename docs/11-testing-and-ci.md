@@ -104,7 +104,7 @@ These commands are added with the initial scaffold. A written design is not a pa
 | Spike | Command | Pass condition |
 | --- | --- | --- |
 | OpenNext/Workers + images | `pnpm --filter web test:spike:workers` | Starts `opennextjs-cloudflare preview`; proves ISR stale/revalidate behavior, Draft Mode cookie round-trip/expiry, `timingSafeEqual` in `workerd`, dynamic OG PNG response, top-right theme system default + manual persistence, transformed image cache hit, and original-image fallback |
-| Payload + `payload` schema | `pnpm test:spike:payload-schema` | Starts local Supabase; runs Payload migrations with `push: false` and `schemaName: "payload"`; seeds fixtures; proves draft/publish/unpublish, media and resume uploads; dumps both schemas; restores into a fresh scratch DB; confirms Payload never creates/changes `public` tables |
+| Payload + `payload` schema | `pnpm test:spike:payload-schema` | Starts local Supabase; runs Payload migrations with `push: false` and `schemaName: "payload"`; seeds fixtures; proves draft/publish/unpublish, profile/favicon media and resume uploads, Profile/SiteSettings replacement + signed revalidation; dumps both schemas; restores into a fresh scratch DB; confirms Payload never creates/changes `public` tables |
 | AI Search | `pnpm --filter web test:spike:ai-search` | Uses the remote `AI_SEARCH` binding to upload, list, replace, `chatCompletions` with cited chunks, resolve key → item ID, delete, and reconcile; then confirms usage alerts/caps are configured |
 
 The custom image loader and original proxy are unit/integration tested locally, but the actual
@@ -134,6 +134,8 @@ that must not regress silently:
 //     zero, invented, stale or disallowed IDs discard the answer
 // resume route — no is_current row → redirect to /resume-unavailable
 // media loader — transform error/quota → original Supabase-CDN response, never a broken image
+// identity assets — reject bad magic bytes/type/size/dimensions and SVG favicon; replacement gets
+//     a new immutable key, complete favicon variants and the correct signed revalidation targets
 // seed guard — seed:dev throws when NODE_ENV=production or ALLOW_DEV_SEED is not true
 ```
 
@@ -172,8 +174,9 @@ Additional specs:
 - Navigation: every nav item resolves to a 200
 - Ask AI: with the backend forced to fail, the input and page remain fully usable and an inline
   notice appears
-- Fixture rendering: the seeded Blog, TIE, Project, Experience, Media and dummy Resume exercise
-  every component without contacting production services
+- Fixture rendering: the seeded Blog, TIE, Project, Experience, synthetic Profile portrait,
+  synthetic Favicon and dummy Resume exercise every component without contacting production
+  services; missing identity relations render bundled defaults with no CLS
 - Theme: clean contexts emulate light and dark OS preferences; the top-right toggle overrides to
   the opposite theme and persists across reload
 
@@ -191,6 +194,8 @@ after any infrastructure change:
 - [ ] `pnpm preview` passes the production-like OpenNext/Workers smoke tests, not only `pnpm dev`
 - [ ] Resume bucket is private; a direct object URL returns 400/403
 - [ ] Preview link works, and the same link fails after 15 minutes
+- [ ] Profile portrait/fallback has fixed dimensions and correct alt text; favicon replacement emits
+      a new same-origin immutable URL and all declared PNG variants
 - [ ] Slack alert fires from a deliberately broken sync
 - [ ] Restore drill from the newest backup ([10-backups-and-portability.md](10-backups-and-portability.md))
 
@@ -246,4 +251,5 @@ each variable — see [17-env-vars.md](17-env-vars.md). Real values never enter 
 - **Backups:** all pagination is exhausted, counts/checksums match, ciphertext reaches off-primary R2
   and a scratch restore succeeds without primary-provider access.
 - **Design/accessibility:** WCAG 2.2 AA, four font weights, strong control borders, pinned responsive
-  dimensions/timings, reduced motion, no runtime media CDN and ≤2-second intro.
+  dimensions/timings, reduced motion, no runtime media CDN and ≤2-second intro; profile/fallback
+  portrait geometry and alt text remain stable, and favicon variants are same-origin and immutable.

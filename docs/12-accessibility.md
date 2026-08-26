@@ -108,7 +108,9 @@ Applied to every component, checked in review:
 - **Control boundaries** use the contrast-verified strong-border token; decorative hairlines never
   provide the only control/state boundary
 - **Colour is never the only signal** for state or meaning
-- **Images** have meaningful `alt` text; decorative images use `alt=""`
+- **Images** have meaningful `alt` text; decorative images use `alt=""`. The homepage portrait
+  has fixed width/height, a reserved 1:1 box and the Payload-provided identity description; its
+  bundled fallback uses the same accessible name and geometry
 - **`prefers-reduced-motion`** disables or reduces every Framer Motion animation
 - **Zoom to 200%** does not break layout or hide content
 - **Code blocks** are keyboard-scrollable and copy buttons are reachable and labelled
@@ -120,6 +122,9 @@ Applied to every component, checked in review:
 Accessibility is not only a code concern — the CMS can introduce violations:
 
 - Alt text is a **required field** on media uploads
+- `Profile.profileImageAlt` must identify the portrait meaningfully (for example, “Portrait of Kat
+  Bose”), not repeat “image”, a filename or surrounding hero text. Favicon media has no DOM alt
+  attribute, but its Payload record retains an administrative label.
 - Headings inside articles follow a logical order; the editor does not skip levels for styling
 - Link text is descriptive — never "click here" or a bare URL
 - Tables include header cells
@@ -131,7 +136,8 @@ Accessibility is not only a code concern — the CMS can introduce violations:
 Automation catches roughly half of real accessibility problems. Once per phase:
 
 - [ ] Navigate the entire site with the keyboard only, no mouse
-- [ ] Screen-reader pass over Home, a blog post, Resume and Ask AI (NVDA or VoiceOver)
+- [ ] Screen-reader pass over Home, a blog post, Resume and Ask AI (NVDA or VoiceOver); confirm the
+      portrait is announced once with its Payload alt text and the fallback does not duplicate it
 - [ ] Zoom to 200% and confirm nothing is clipped or unreachable
 - [ ] Force `prefers-reduced-motion` and confirm animations stop
 - [ ] Check contrast in both the light and dark (system-preference) palette — light grey on white or dark is the most likely failure

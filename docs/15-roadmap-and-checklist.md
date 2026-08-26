@@ -42,9 +42,10 @@ commands in [11-testing-and-ci.md](11-testing-and-ci.md) §11.2.2 pass:
 
 - [ ] Run `test:spike:payload-schema` against local Supabase with `schemaName: "payload"` and
       migration-only mode (`push: false`)
-- [ ] Seed one local fixture per content type, media image and dummy resume PDF
-- [ ] Complete create/draft/preview/publish/unpublish/upload, `pg_dump`, scratch restore and
-      schema-isolation checks
+- [ ] Seed one local fixture per content type, synthetic profile portrait, synthetic favicon and
+      dummy resume PDF
+- [ ] Complete create/draft/preview/publish/unpublish/upload, Profile/SiteSettings asset replacement,
+      signed revalidation, `pg_dump`, scratch restore and schema-isolation checks
 
 ### Spike C — before Phase 3 feature work
 
@@ -70,13 +71,16 @@ around silently.
 - [ ] Theme control is a two-state light ⇄ dark toggle in the top-right; clean first visit resolves from the OS preference
 - [ ] Layout, navigation, footer, skip link, mobile menu with focus trap
 - [ ] Home section stack per the design reference ([19-design-reference.md](19-design-reference.md)): typed section manifest + registry renderer, bottom bar with human/agent toggle, micro-interaction catalogue with reduced-motion fallbacks
+- [ ] Hero profile-portrait slot with reserved 1:1 geometry plus project-owned portrait and favicon
+      fallbacks; asset props use the future Payload schemas without requiring the Phase 2 CMS
 - [ ] Intro loader (multilingual "Hello", ≤2s, once per session, skipped under reduced motion)
 - [x] `katbose` npm package published (user-confirmed 2026-08-24)
 - [ ] Integrate `packages/katbose-card` into the pnpm monorepo and keep source aligned with releases
 - [ ] Pages: Home (hero, about, featured projects, experience preview, latest blog, latest TIE, contact CTA), Projects, Experience, Resume, Contact
 - [ ] Utility pages: `not-found.tsx`, `error.tsx`, `global-error.tsx`, `/privacy`, `/resume-unavailable`
 - [ ] Canonical `/agent`, plus `robots.txt`, `humans.txt`, generated `/llms.txt`, `sitemap.xml` and `rss.xml` from the typed route manifest
-- [ ] SEO baseline: metadata, Open Graph, JSON-LD (`Person`, `BreadcrumbList`, `WebSite`)
+- [ ] SEO baseline: metadata, Open Graph, JSON-LD (`Person`, `BreadcrumbList`, `WebSite`) and a
+      deterministic bundled favicon until Phase 2 activates Payload `SiteSettings`
 - [ ] Static CSP and security headers in `next.config.ts`; no middleware/nonces; no runtime external media/CDN origins
 - [ ] Image CDN path: immutable Supabase originals, Cloudflare Images fixed variants, cache headers and transform-error fallback
 - [ ] Sentry + PostHog wired; Slack `#katbose-alerts` and `#contact-form` created
@@ -90,7 +94,7 @@ around silently.
 - [ ] **Privacy policy published**
 - [ ] CI green: typecheck, lint, unit, OpenNext build, Workers-runtime E2E; gitleaks passing; branch protection on `main`
 - [ ] axe (WCAG 2.2 AA) and keyboard E2E passing on every existing page
-- [ ] Design-reference gates pass ([19-design-reference.md](19-design-reference.md) §19.7): reduced-motion fallbacks, CLS = 0 with the intro loader, canonical `/agent` + generated `/llms.txt` from one route manifest, bottom-bar keyboard specs, no copied upstream files
+- [ ] Design-reference gates pass ([19-design-reference.md](19-design-reference.md) §19.7): reduced-motion fallbacks, CLS = 0 with the intro loader and profile fallback, canonical `/agent` + generated `/llms.txt` from one route manifest, bottom-bar keyboard specs, no copied upstream files
 - [ ] Spike A registered-zone image transform/cache/original-fallback probe passes
 - [ ] Deployed to Cloudflare Workers via OpenNext from protected `main`
 - [ ] Lighthouse ≥ 95 on Performance, SEO and Accessibility
@@ -104,8 +108,13 @@ around silently.
 - [ ] Payload on Render via `render.yaml`, pointed at the Supabase `payload` schema
 - [ ] **Validate the Payload Postgres adapter against Supabase with a non-default schema before building on it**
 - [ ] Payload migrations, draft/publish flows, media upload, `pg_dump` and scratch restore prove the `payload` schema boundary
-- [ ] Local-only idempotent seed supplies one `[Fixture]` Blog, TIE, Project, Experience, Media image and dummy Resume PDF; production guard tested
+- [ ] Local-only idempotent seed supplies one `[Fixture]` Blog, TIE, Project and Experience, plus
+      synthetic profile/favicon media and a dummy Resume PDF; production guard tested
 - [ ] Collections: blog-posts, tie, projects, experience, media — with access control
+- [ ] Globals: `Profile` owns the profile portrait + required alt text; `SiteSettings` owns the
+      favicon; both use authenticated writes, published reads and upload relations to `media`
+- [ ] Identity upload hooks enforce signature/MIME/size/dimension rules, immutable UUID keys,
+      generated favicon variants and signed Home/metadata revalidation
 - [ ] CORS restricted; GraphQL playground disabled in production; single admin user
 - [ ] Blog + TIE authoring uses canonical Payload Lexical; derived Markdown/MDX rendering provides reading time, TOC, syntax highlighting, copy-code, tags and related posts
 - [ ] Dynamic OG images; RSS and sitemap driven by CMS content
@@ -116,6 +125,9 @@ around silently.
 - [ ] **Secure draft preview: strong secret, equal-length constant-time check, clean-URL redirect, Server Component expiry enforcement, 15-minute TTL, redaction in Sentry and PostHog**
 - [ ] **CMS domain and Access gate:** `cms.katbose.dev/admin/*` challenges through Cloudflare Access, the public `/api/*` remains readable, and the disabled `*.onrender.com` hostname returns 404
 - [ ] **ISR fallback verified by taking the CMS offline** — cached pages still serve, uncached pages show the fallback component
+- [ ] **Identity assets verified:** replacing the profile portrait and favicon creates new immutable
+      URLs, revalidates Home/metadata, preserves alt/variant metadata and falls back cleanly when
+      the CMS or relation is unavailable
 - [ ] **Encrypted backup workflow running:** `pg_dump` + all-page content export + media/resume sync to private off-primary R2; GitHub artifact/repo copies are convenience only
 - [ ] **One restore drill completed into a scratch database**
 - [ ] Content export verified to produce readable derived MDX for every collection

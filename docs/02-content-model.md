@@ -38,7 +38,8 @@ experience, blog and TIE content will be entered independently through Payload l
 | TIE (`fixture-tie`) | Short body, date, tag and related link |
 | Project (`fixture-project`) | Overview, screenshot, architecture, challenges, lessons, tech stack, GitHub and demo links |
 | Experience (`fixture-experience`) | Company, role, location, start/end dates, current flag and bullet highlights |
-| Media (`fixture-media`) | One local image with alt text, width, height and immutable object key |
+| Profile media (`fixture-profile.png`) | Synthetic square portrait with alt text, dimensions and an immutable object key |
+| Favicon media (`fixture-favicon.png`) | Synthetic square 512×512 PNG with validated signature and an immutable object key |
 | Resume (`fixture-resume.pdf`) | One obviously fake PDF uploaded through the Payload `resume-uploads` workflow to prove private Storage, version switching and download fallback |
 
 Rules:
@@ -52,7 +53,36 @@ Rules:
 - The seed is idempotent: rerunning it upserts the same fixtures, and `seed:clear` removes only
   `fixture-*` data.
 - Real content is entered later through Payload. In particular, the real resume replaces the
-  dummy PDF through the same CMS workflow; no personal data is committed to Git.
+  dummy PDF through the same CMS workflow; Kat's portrait and favicon replace their synthetic
+  fixtures through the identity-asset fields below. No personal data is committed to Git.
+
+### 2.1.2 Payload-managed site identity assets
+
+Two Payload globals own identity assets; the Home manifest never stores their URLs:
+
+| Global | Field | Contract |
+| --- | --- | --- |
+| `Profile` | `profileImage` | Required upload relation to `media`; signature-verified PNG, JPEG or WebP; maximum 2 MiB; minimum 512×512; focal point/crop enabled |
+| `Profile` | `profileImageAlt` | Required meaningful text describing Kat's portrait; never inferred from the filename |
+| `SiteSettings` | `favicon` | Required upload relation to `media`; signature-verified square PNG only; maximum 512 KiB; minimum 512×512; SVG and renamed non-images rejected |
+
+Implementation rules:
+
+- Only authenticated Payload admins may update either global. Public reads expose only the
+  published relation and safe media metadata; browser code never receives a CMS credential or
+  initializes Supabase.
+- Upload hooks verify MIME, magic bytes, dimensions and limits before persistence. Objects use
+  collision-safe immutable UUID keys with overwrite disabled; replacing an asset creates a new key.
+- The favicon upload generates immutable 32, 48, 180, 192 and 512 pixel PNG variants at publish
+  time. Next.js metadata references their same-origin paths; no runtime icon or image CDN is added.
+- A signed Payload `afterChange` event revalidates Home for `Profile` changes and root metadata/icon
+  output for `SiteSettings` changes. Identity assets set `skipSearchSync: true` and never enter AI
+  Search, agent Markdown or `llms.txt`.
+- Phase 1 ships a project-owned default portrait and favicon with reserved dimensions. Last-good
+  ISR/metadata wins during CMS failure; if no published relation exists, the bundled defaults render
+  instead of a broken image or missing browser icon.
+- The portrait uses the approved same-zone responsive media path. Favicon metadata uses immutable
+  same-origin variant URLs so a replacement naturally bypasses aggressive browser caches.
 
 ---
 
@@ -138,7 +168,8 @@ export const BlogPosts: CollectionConfig = {
 
 Apply the same guest-published / authenticated-all `access` block to `tie`, `projects`,
 `experience` and `media`. `readVersions` is explicitly authenticated-only for every
-version-enabled collection.
+version-enabled collection. The `Profile` and `SiteSettings` globals allow published public reads
+but authenticated-admin updates only; neither accepts a browser-provided storage URL or object key.
 
 **Hardening checklist for the CMS**
 
@@ -338,9 +369,11 @@ public ISR cache.
 
 ## 2.11 Final ownership and validation lock
 
-- A Payload `Profile` global owns hero/profile/contact/social/skills fields plus story and education
-  prose. Collections own Projects, Experience, Blog and TIE. The Home manifest stores order, stable
-  IDs, section types, source selectors and display configuration only—never prose.
+- A Payload `Profile` global owns hero/profile/contact/social/skills fields, the profile-image
+  relation and its required alt text, plus story and education prose. A `SiteSettings` global owns
+  the favicon relation. Collections own Projects, Experience, Blog and TIE. The Home manifest
+  stores order, stable IDs, section types, source selectors and display configuration only—never
+  prose or asset URLs.
 - Lexical JSON is canonical rich text. Shared exhaustive Zod discriminated unions validate every
   supported node/block before rendering or Markdown export; unknown nodes fail tests and are never
   silently ignored. Strict TypeScript and no application `any` apply.

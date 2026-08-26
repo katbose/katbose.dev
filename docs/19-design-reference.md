@@ -54,6 +54,20 @@ This keeps Hackyfolio's best property — add/reorder/remove sections without to
 code — without introducing a second content source that would drift from the CMS
 ([02-content-model.md](02-content-model.md) field discipline still governs all content shapes).
 
+### Hero portrait and site icon (decision #87)
+
+The live reference places a profile portrait in the hero identity area. That anatomy is adopted,
+but neither its image nor unmeasured dimensions are copied. Kat's portrait is uploaded through the
+Payload `Profile` global and rendered by a project-owned `<ProfilePortrait>` component. A separate
+Payload `SiteSettings` global owns the favicon; favicon placement is a project requirement rather
+than a visual fact inferred from page content.
+
+Both fields relate to the existing `media` collection and follow the immutable Supabase-original →
+same-zone Cloudflare delivery path. Phase 1 ships project-owned fallback assets and reserves the
+portrait's dimensions; Phase 2 supplies the actual Payload controls and signed revalidation. The
+browser never contacts Payload or Supabase directly, and Aditya's portrait/favicon never enters
+this repository.
+
 ### Agent mode (human/agent toggle)
 
 Hackyfolio renders the same data as plain Markdown behind a toggle in the bottom bar. This slots
@@ -265,6 +279,8 @@ These fold into the existing Phase 1 gate ([15-roadmap-and-checklist.md](15-road
 
 - [ ] All §19.3 interactions disabled correctly under `prefers-reduced-motion` (axe + manual pass)
 - [ ] Lighthouse ≥ 95 measured with the intro loader and all interactions enabled; CLS = 0
+- [ ] Hero portrait reserves 80→96px 1:1 geometry, uses Kat's Payload alt text or the bundled
+      fallback, and never references the upstream portrait; favicon metadata has the same no-copy rule
 - [ ] Canonical `/agent` and generated `/llms.txt` derive from the typed route manifest—grep proves no handwritten runtime duplicate
 - [ ] Bottom-bar navigation passes the keyboard E2E specs (skip link first, focus visible, Escape behaviour on any expanded state)
 - [ ] `katbose` published to npm (done 2026-08-24); `npx katbose` prints the card in a cold cache under 3s

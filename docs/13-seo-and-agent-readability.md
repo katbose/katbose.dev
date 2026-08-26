@@ -47,6 +47,10 @@
 - Configure only 320, 640, 960, 1280 and 1920 pixel widths, `format=auto`, quality 80 and
   `fit=scale-down`; uncontrolled arbitrary widths can burn the 5,000 free unique transforms.
 - Every image declares `sizes`, width/height (or a stable aspect ratio) and meaningful alt text.
+  The homepage portrait reserves its 1:1 geometry before paint; CMS failure swaps to the bundled
+  fallback without changing layout.
+- Favicon variants are generated at Payload publish time and served from immutable same-origin
+  URLs. They do not consume runtime Cloudflare transformation variants.
 - Test both paths: a transformed response from Cloudflare and the same-zone
   `onerror=redirect` fallback to the original Supabase CDN object. An image quota/error may
   increase bytes but must never produce a broken image.
@@ -56,6 +60,9 @@
 ## 13.3 SEO fundamentals
 
 - Per-page `metadata`: unique title, description, canonical URL
+- Root metadata emits Payload `SiteSettings.favicon` variants through immutable same-origin URLs;
+  a bundled favicon remains the deterministic fallback. Signed settings updates revalidate metadata
+  so browsers receive a new content-addressed URL rather than requiring a cache purge.
 - Open Graph and Twitter card tags on every page
 - **Dynamic OG images** generated per blog post, TIE entry and project
 - `sitemap.xml` generated at build from CMS content
@@ -82,7 +89,9 @@ whose behaviour drifts from the actual content set.
 | Home | `WebSite` with `SearchAction` pointing at Ask AI |
 
 **`Person` identity fields:** `name: "Kat Bose"`, `email: "im@katbose.dev"`,
-`telephone: "+91 9515166564"`, `sameAs: ["https://linkedin.com/in/katbose", "https://github.com/katbose"]`.
+`telephone: "+91 9515166564"`, `image` from the validated published `Profile.profileImage` (or the
+bundled fallback), and
+`sameAs: ["https://linkedin.com/in/katbose", "https://github.com/katbose"]`.
 
 Structured data is what makes the site legible to both search engines and AI agents, which is why
 it is Phase 1 work rather than a later polish item.

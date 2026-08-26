@@ -390,6 +390,22 @@ Rules:
 
 `simple-icons` is approved by closed decision #58; its data is inlined at build time.
 
+### 20.11.1 Site identity assets
+
+Decision #87 adds two Payload-managed identity surfaces without treating either as a UI primitive:
+
+| Asset | Source | Presentation contract |
+| --- | --- | --- |
+| Homepage portrait | `Profile.profileImage` + `profileImageAlt` | `<ProfilePortrait>` renders a 1:1, `object-fit: cover` image at 80px below 640px and 96px at 640px+, `--radius-pill`, explicit width/height and no motion |
+| Favicon | `SiteSettings.favicon` | Root metadata emits immutable same-origin 32/48/180/192/512 PNG variants; it has no visible component or runtime external request |
+
+The live reference establishes the **presence** of a portrait in the hero, not these dimensions.
+Sizing, alt behavior, validation and fallback handling are project-owned. Both assets use immutable
+media keys. Phase 1's bundled defaults have the same geometry/metadata shape as Phase 2's Payload
+values, so activating the CMS changes data rather than component structure and never introduces
+CLS. An unavailable or unset CMS relation selects the bundled project-owned asset; it never falls
+back to an upstream image.
+
 ---
 
 ## 20.12 Component inventory
@@ -413,6 +429,7 @@ What comes from Base UI (`@base-ui/react`, v1.x), what we build, and what each m
 | `<BottomBar>` | ours | `<nav>` landmark, pill, socials, mode toggle |
 | `<IntroLoader>` | ours | `aria-hidden`, `position: fixed`, never gates content |
 | `<LocalClock>` | ours | placeholder server-side, starts in `useEffect`, `Asia/Kolkata` (decision #53) |
+| `<ProfilePortrait>` | ours | Payload relation or bundled fallback; fixed 1:1 geometry and meaningful alt text (§20.11.1) |
 | `<RichText>` | ours | renders the Payload body contract; sanitised |
 | `<CmsUnavailableFallback>`, `<EmptyState>` | ours | calm degradation ([08-resilience.md](08-resilience.md)) |
 
@@ -469,9 +486,10 @@ Contract rules:
 
 1. **Ordering is the manifest's only content-independent job.** It contains section type, stable ID,
    source selector, limits and display flags—never profile, story or education prose.
-2. **`source` means Payload.** The `Profile` global owns hero/profile/contact/social/skills, story
-   and education content. Collections own experience, projects, Blog and TIE. Lexical is canonical
-   for rich text; Markdown/MDX are derived.
+2. **`source` means Payload.** The `Profile` global owns hero/profile/contact/social/skills, the
+   profile portrait/alt, story and education content. `SiteSettings` owns the favicon relation.
+   Collections own experience, projects, Blog and TIE. Lexical is canonical for rich text;
+   Markdown/MDX are derived.
 3. **Compile-time and runtime exhaustiveness are both required.** The registry switch ends in an
    `assertNever`; manifest and CMS payloads pass closed Zod discriminated unions before dispatch.
    Unknown rich-text nodes fail visibly in tests rather than being silently dropped. Strict
@@ -492,7 +510,7 @@ The live reference currently renders a longer stack than 19 §19.2 records. Mapp
 
 | Reference section | katbose.dev | Rationale |
 | --- | --- | --- |
-| `hero` | **Adopt** — hero | pronunciation line, live clock, intro lines |
+| `hero` | **Adopt** — hero | CMS-managed profile portrait, pronunciation line, live clock and intro lines |
 | `experience` | **Adopt** — experience | featured role + "Previously" accordion, from Payload |
 | `techStack` | **Adopt** — techStack | self-hosted brand marks (§20.11) |
 | `expandableCard` | **Adopt** — story | the "in between these experiences" card |
@@ -520,6 +538,8 @@ Parity is graded on measurables, not on "looks the same". Checked once the Home 
 - [ ] Gutters are 12px below 640px and 16px at 640px+; section gap is always 64px
 - [ ] Home section headings are 14px, weight 700, uppercase through CSS
 - [ ] Hero is 48px below 640px and 72px at 640px+; intro is 16→18→20px
+- [ ] Profile portrait is 80px below 640px and 96px at 640px+, circular, 1:1, dimension-reserved,
+      CMS-backed with meaningful alt text and visually identical bundled-fallback geometry
 - [ ] Cards use 24→32px padding at 640px; controls use `--color-border-strong`
 - [ ] Four DM Sans weights (400/500/600/700) load; mono appears only in code and terminal card
 - [ ] Live clock shows `Asia/Kolkata`, tabular numerals and no width jitter
@@ -544,7 +564,11 @@ design gates in 19 §19.7. They are additive, not a replacement.
 - [ ] **No arbitrary spacing** — spacing comes from the scale in §20.6
 - [ ] **Reduced motion** — each of the twelve interactions verified against its documented fallback,
       not merely sped up (§20.8.1)
-- [ ] **CLS 0 with the intro loader mounted**, and 0 across a full minute of clock ticks
+- [ ] **CLS 0 with the intro loader mounted**, across a full minute of clock ticks, and when the
+      profile portrait switches between bundled fallback and CMS media
+- [ ] **Identity assets** — profile and favicon upload schemas reject invalid signature/type/size/
+      dimensions; replacements create immutable URLs, favicon variants are complete, and neither
+      asset loads from an upstream or runtime third-party origin
 - [ ] **Font budget** — four sans weights (400/500/600/700), one mono, required subsets only, self-hosted, `display: swap`
 - [ ] **Forced-colours pass** — focus ring and active states survive Windows High Contrast
 - [ ] **200% zoom** — no clipping, and the bottom bar never covers content (§20.6)
@@ -559,7 +583,7 @@ design gates in 19 §19.7. They are additive, not a replacement.
 ## 20.17 Decisions this document depends on
 
 Every decision this document depends on is closed and recorded in
-[16-decision-log.md](16-decision-log.md) §16.14. Nothing here is pending.
+[16-decision-log.md](16-decision-log.md) §16.14 and §16.19. Nothing here is pending.
 
 | # | Decision | Where it applies |
 | --- | --- | --- |
@@ -574,10 +598,11 @@ Every decision this document depends on is closed and recorded in
 | ~~65~~ | ~~Theme never resolves from a query parameter~~ — conclusion stands, reasoning corrected by #67 | §20.4.3 |
 | 66 | Dark palette is exact parity: the ramp's endpoints swapped, pure black and pure white | §20.4.2 |
 | 67 | `?theme=` declined because it flashes post-hydration, not because of cache behaviour | §20.4.3 |
+| 87 | Payload-managed profile portrait and favicon with immutable media, validation and bundled fallbacks | §20.11.1, §20.12, §20.15–§20.16 |
 
 The historical chain matters: #60 is superseded by #66, and #65's conclusion is retained with
-reasoning corrected by #67. Decisions #77–#81 are the current precedence, accessibility and asset
-rules for implementation.
+reasoning corrected by #67. Decisions #77–#81 set the current precedence, accessibility and asset
+rules; #87 adds the Payload-managed identity assets and their Phase 1/2 boundary.
 
 ---
 
@@ -591,11 +616,11 @@ on that date. The provenance is recorded so observed facts are not confused with
 light palette; the five spacing steps; border radii and widths; the pill-button and card metrics;
 and the `shadow-sm` value.
 
-**Source-inspected facts:** the dark theme's swapped black/white endpoints; hero and intro
-responsive type steps; CSS motion values for marquee and shine; and runtime reveal facts including
-timing range, viewport amount and run-once behavior. These responsive, motion and runtime facts are
-acknowledged as observations even though they were not available from the desktop computed-style
-capture alone.
+**Source-inspected facts:** the dark theme's swapped black/white endpoints; hero portrait presence;
+hero and intro responsive type steps; CSS motion values for marquee and shine; and runtime reveal
+facts including timing range, viewport amount and run-once behavior. These responsive, motion and
+runtime facts are acknowledged as observations even though they were not available from the
+desktop computed-style capture alone.
 
 **Project-normative rules:** semantic token mapping, `--color-border-strong` for control boundaries,
 WCAG 2.2 AA contrast/focus/zoom requirements, reduced-motion behavior, the ≤2s total intro budget,
@@ -607,6 +632,7 @@ does not let it override project tokens, accessibility or architecture.
 | Long-form typography and internal-page steps | `--text-base` prose and `--text-2xl` subheadings remain project norms. |
 | Adopted source-observed layout geometry | The 672px maximum width, 12→16px gutters at 640px, fixed 64px section gap, 24→32px card padding, 24px bottom inset and lack of a fixed bar height are observed upstream facts expressed through project tokens. |
 | Project-owned responsive safeguards | Safe-area reservation, runtime bar-height reservation, 200% zoom behavior, collision handling and accessibility boundaries are normative project additions. |
+| Portrait implementation | The reference establishes hero portrait presence only; 80→96px sizing, crop, alt text, immutable delivery and bundled fallback behavior are project-owned. |
 | Unobserved motion | Collapse, human/agent crossfade and the intro's internal distribution remain project-defined within the normative motion/accessibility budgets. |
 | Focus treatment | §20.9 is project-owned and intentionally stricter than the reference. |
 

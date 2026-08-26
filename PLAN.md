@@ -34,7 +34,7 @@ v1.2 split the specification; v1.6 is the final implementation lock.
 | 13 | [SEO & Agent Readability](docs/13-seo-and-agent-readability.md) | Core Web Vitals targets, JSON-LD, robots.txt, `llms.txt`, humans.txt, utility pages |
 | 14 | [Privacy & Compliance](docs/14-privacy-and-compliance.md) | Data inventory, no-cookie-banner rationale, retention, privacy policy outline, i18n out of scope |
 | 15 | [Roadmap & Checklist](docs/15-roadmap-and-checklist.md) | Five phases with build lists and non-negotiable production gates |
-| 16 | [Decision Log](docs/16-decision-log.md) | Decisions through #86 with status vocabulary, historical annotations and reasoning |
+| 16 | [Decision Log](docs/16-decision-log.md) | Decisions through #87 with status vocabulary, historical annotations and reasoning |
 | 17 | [Environment Variables](docs/17-env-vars.md) | Full secrets inventory per surface, generation, rotation calendar |
 | 18 | [Knowledge Base](docs/18-knowledge-base.md) | Separate repository, TIE boundary, future indexing |
 | 19 | [Design Reference](docs/19-design-reference.md) | justaditya.com/Hackyfolio as primary visual reference, micro-interaction catalogue, intro loader, `npx katbose`, compatibility analysis |
@@ -127,7 +127,7 @@ and an `npx katbose` terminal card.
 
 | Page | Contents |
 | --- | --- |
-| Home | Hero, About, Featured Projects, Experience preview, Latest Blog, Latest TIE, Contact CTA |
+| Home | Hero with CMS-managed profile portrait, About, Featured Projects, Experience preview, Latest Blog, Latest TIE, Contact CTA |
 | Projects | Overview, screenshots, architecture, challenges, lessons learned, stack, GitHub, live demo |
 | Experience | Timeline |
 | Blog | Long-form content authored in Payload Lexical; derived Markdown/MDX rendering provides reading time, TOC, syntax highlighting, copy-code, tags and related posts |
@@ -187,7 +187,7 @@ quarterly key rotation, and epochs are never correlated.
 | Phase | Focus | Ships when |
 | --- | --- | --- |
 | 1 | Foundation — layout, core pages, utility pages, SEO, deployment | RLS, secrets hygiene, contact protection, privacy policy, CI and OpenNext runtime validation are in place |
-| 2 | Content platform — Payload, Blog, TIE, canonical Lexical authoring, derived Markdown/MDX, draft preview | Spike B, CMS domain/Access, scoped preview, ISR fallback and restore drill pass |
+| 2 | Content platform — Payload, Blog, TIE, Profile/SiteSettings identity uploads, canonical Lexical authoring, derived Markdown/MDX, draft preview | Spike B, CMS domain/Access, scoped preview, identity-asset replacement, ISR fallback and restore drill pass |
 | 3 | AI search — index, Ask AI, sync pipeline | Current AI Search binding, reconciliation, cost caps and all four injection layers verified |
 | 4 | Resume security — private bucket, signed URLs, Turnstile | E2E download test passes and fail-open behaviour is proven |
 | 5 | Analytics & operations — dashboard, retention, alerting | Access control, retention and alerting verified |

@@ -138,6 +138,10 @@ Payload upload
 - Original object keys are immutable/versioned and carry
   `Cache-Control: public, max-age=31536000, immutable`. Updating media creates a new key rather
   than overwriting one, so neither CDN needs an individual purge.
+- The Payload-managed homepage portrait and favicon use this same media origin. Metadata points to
+  the favicon's immutable same-origin key, while the portrait uses the standard responsive image
+  path. Bundled project-owned defaults remain in `apps/web/public` for an unset asset or a
+  first-render CMS failure; no browser requests Payload or Supabase directly.
 - Static UI assets in `apps/web/public` use the Worker assets/CDN path directly. The private
   resume bucket is never passed through Cloudflare Images; it keeps the signed-URL flow in
   [04-resume-system.md](04-resume-system.md).
