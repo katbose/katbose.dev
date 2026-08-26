@@ -388,6 +388,23 @@ What comes from Base UI (`@base-ui/react`, v1.x), what we build, and what each m
 No component library beyond Base UI is required, and none should be added. Every interactive
 primitive the reference layout uses is covered above.
 
+**How the reference is used here (decision #63 — inspiration only).** Upstream is read for layout,
+section anatomy, interaction detail and measured values. It is not a source of code. Concretely:
+
+| Upstream approach | Ours | Why |
+| --- | --- | --- |
+| Hand-rolled height-measuring collapsible and accordion | Base UI `Collapsible` / `Accordion` | ARIA wiring, focus handling and Escape behaviour come free and are what the AA gate checks |
+| Animated theme toggler using the View Transitions API | `next-themes` toggle, plain CSS transition | needs a reduced-motion guard and an unsupported-browser path; not worth the surface (§20.8.1) |
+| `portfolio.json` as content source | Payload collections, manifest orders only | decision #1; avoids the two-sources drift in 19 §19.5 |
+| Essays as TypeScript modules | Payload Blog/TIE + MDX | [02-content-model.md](02-content-model.md) §2.2 |
+| `middleware.ts` | route handlers and Server Components | decision #64 — middleware is unvalidated on the OpenNext adapter |
+| Theme from a query parameter | `next-themes` only | decision #65 — query-varying output breaks ISR cache correctness |
+| Decorative image effects | omitted | outside the JS budget in 13 §13.2 |
+
+What genuinely transfers is the **architecture**, which is why §20.13 exists: the ordered manifest,
+the registry with an exhaustive switch, one data type per section, the rich-text block shape, and a
+single Markdown generator feeding both views. Those are ideas, and they are good ones.
+
 ---
 
 ## 20.13 Section manifest contract
@@ -515,13 +532,15 @@ Every decision this document depends on is closed and recorded in
 | 58 | `simple-icons` inlined at build time; no runtime icon CDN | §20.11 |
 | 59 | `recommendations`, `publications`, `youtube`, `podcast` deferred past Phase 1 | §20.14 |
 | 60 | Dark palette is project-defined and contrast-verified, not measured | §20.4.2, §20.18 |
-| ~~61~~ | ~~Upstream source is not used~~ — superseded on licensing by #63; architectural half stands | §20.2.3, §20.18.1 |
+| ~~61~~ | ~~Upstream source is not used~~ — superseded on licensing by #63 | §20.2.3, §20.18.1 |
 | 62 | Reference author's content never enters the repository, fixtures included | §20.18.1 |
-| 63 | Author granted written permission to use the upstream repository; source is ported, not copied wholesale | §20.2.3, §20.18.1 |
+| 63 | Permission granted, but scope of use is **inspiration only**; Base UI and our architecture stand | §20.2.3, §20.12, §20.18.1 |
+| 64 | No Next.js middleware — route handlers and Server Components instead | §20.13 |
+| 65 | Theme never resolves from a query parameter; `next-themes` only | §20.4.3, §20.9 |
 
 Two of these are worth re-reading before the design pass rather than at review time: **#60**, because
-a dark-mode measurement would refine the palette and is cheap to run; and **#63**, because it defines
-what "ported" has to mean for the Phase 1 gate to be checkable.
+a dark-mode measurement would refine the palette and is cheap to run; and **#63**, because it is what
+keeps this document a specification rather than a description of someone else's site.
 
 ---
 
