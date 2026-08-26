@@ -19,13 +19,26 @@ verbatim is not. Every component in `apps/web` is written fresh against our own 
 design tokens and Base UI primitives. If the upstream repo later gains a permissive license, this
 constraint can be revisited via the decision log.
 
-**Re-verified 2026-08-26** (decision [#61](16-decision-log.md)): still no LICENSE file, and GitHub
-reports no licence. The `open-source` topic tag and the site's "Open source" link are descriptions,
-not grants. The upstream README *does* invite template use — clone, edit `portfolio.json`, deploy —
-which covers using it as intended, but not lifting components into a different codebase. Measured
-rendered values (typeface, palette, metrics) are facts and are adopted in
-[20-design-system.md](20-design-system.md); source files are not. Separately, the author's own
-content is out of scope entirely (decision #62).
+**Updated 2026-08-26 — permission granted (decision [#63](16-decision-log.md)).** The paragraph above
+described the position while the repository's licence status was the only signal available. It has
+since been resolved directly: the author confirmed he cannot add a LICENSE file but granted express
+permission, by dated WhatsApp message, to use the complete repository for building this portfolio.
+Permission from the copyright holder is the grant; a LICENSE file would have been the publicly
+verifiable form of the same thing.
+
+What this changes: upstream source may be **read and ported**. What it does not change:
+
+- The grant is scoped to building this portfolio. It does not make the upstream code open-source, so
+  republishing it as a template or relicensing it needs separate agreement.
+- The author's own content stays out entirely — biography, essays, publication and client
+  recommendations, including as fixture data (decision #62).
+- Wholesale adoption is still declined, now on **architectural** grounds alone: the upstream stack
+  (shadcn/Radix, a hand-edited JSON content file, Vercel) conflicts with decisions #1, #37/#38 and
+  the Base UI choice. Source is ported into this architecture, not dropped into it.
+- The author is credited in the README.
+
+The Phase 1 gate therefore shifts from "no upstream file is present" to "no upstream file is present
+**unported**" — adapted code is expected to read like our stack.
 
 ---
 

@@ -199,7 +199,7 @@ katbose-portfolio/
 | [13](docs/13-seo-and-agent-readability.md) | **SEO & Agent Readability** | Core Web Vitals targets, JSON-LD, `robots.txt`, `llms.txt`, `humans.txt`, utility pages |
 | [14](docs/14-privacy-and-compliance.md) | **Privacy & Compliance** | Data inventory, no-cookie-banner rationale, retention, privacy policy, i18n out of scope |
 | [15](docs/15-roadmap-and-checklist.md) | **Roadmap & Checklist** | Five phases with build lists and non-negotiable production gates |
-| [16](docs/16-decision-log.md) | **Decision Log** | Decisions through #62 with reasoning, plus rejected options |
+| [16](docs/16-decision-log.md) | **Decision Log** | Decisions through #63 with reasoning, plus rejected options |
 | [17](docs/17-env-vars.md) | **Environment Variables** | Full secrets inventory per surface, generation, rotation calendar |
 | [18](docs/18-knowledge-base.md) | **Knowledge Base** | Separate repository, TIE boundary, future indexing |
 | [19](docs/19-design-reference.md) | **Design Reference** | justaditya.com/Hackyfolio as primary visual reference, micro-interaction catalogue, intro loader, `npx katbose`, compatibility analysis |
@@ -247,6 +247,19 @@ the production gates.
 - Run and test every public-table migration locally first; take a backup before a production
   migration.
 - Prefer boring, well-understood technology over novelty.
+
+---
+
+## Credits
+
+The visual design and the Home page's section-stack architecture follow
+[Hackyfolio](https://github.com/PythonHacker24/yo-hackyfolio) by
+[Aditya Patil](https://github.com/PythonHacker24), used with his express permission. Thanks, Aditya.
+
+The upstream project carries no LICENSE file; permission was granted directly for use in this
+portfolio and does not make that code open-source. See
+[decision #63](docs/16-decision-log.md) for the scope. No content from
+[justaditya.com](https://www.justaditya.com) appears here.
 
 ---
 

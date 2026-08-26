@@ -515,12 +515,13 @@ Every decision this document depends on is closed and recorded in
 | 58 | `simple-icons` inlined at build time; no runtime icon CDN | §20.11 |
 | 59 | `recommendations`, `publications`, `youtube`, `podcast` deferred past Phase 1 | §20.14 |
 | 60 | Dark palette is project-defined and contrast-verified, not measured | §20.4.2, §20.18 |
-| 61 | Upstream source is not used; parity comes from measurement and reimplementation | §20.2.3, §20.18.1 |
+| ~~61~~ | ~~Upstream source is not used~~ — superseded on licensing by #63; architectural half stands | §20.2.3, §20.18.1 |
 | 62 | Reference author's content never enters the repository, fixtures included | §20.18.1 |
+| 63 | Author granted written permission to use the upstream repository; source is ported, not copied wholesale | §20.2.3, §20.18.1 |
 
 Two of these are worth re-reading before the design pass rather than at review time: **#60**, because
-a dark-mode measurement would refine the palette and is cheap to run; and **#61**, because it is the
-constraint the Phase 1 licence gate actually tests.
+a dark-mode measurement would refine the palette and is cheap to run; and **#63**, because it defines
+what "ported" has to mean for the Phase 1 gate to be checkable.
 
 ---
 
@@ -552,11 +553,13 @@ reference. That is the whole basis on which §20.4–§20.7 are legitimate.
 
 Two things sit on the other side of that line and are out of scope here:
 
-1. **Source code.** Component files, stylesheets and the upstream `portfolio.json` are not copied
-   (§20.2.3). The Phase 1 gate tests for it. Note also that scraping only ever yields compiled
-   output, so it is not a route to usable source even setting the licence aside — if permission is
-   ever obtained in writing, the correct mechanism is a licensed fork of the upstream repository,
-   recorded in [16-decision-log.md](16-decision-log.md).
+1. **Source code — permission granted, architecture still governs.** As of decision
+   [#63](16-decision-log.md) the author has given express written permission to use the complete
+   upstream repository for this portfolio, so source may be read and ported. It is still not copied
+   in wholesale, because the upstream stack (shadcn/Radix, a JSON content file, Vercel) conflicts
+   with decisions #1, #37/#38 and the Base UI choice. Ported code is expected to read like our
+   stack. Note separately that scraping only ever yields compiled output, so the repository — not
+   the rendered site — is the source of any implementation detail worth reusing.
 2. **Content.** Aditya's biography, roles, essays, publication and client recommendations are his
    personal information and his prose. None of it enters this project in any form, including as
    placeholder or fixture data. Fixtures are the `[Fixture]`-prefixed set defined in
