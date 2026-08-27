@@ -94,7 +94,7 @@ around silently.
 - [x] **All current and default client-role grants on schemas, tables, sequences and functions revoked/controlled; RLS enabled/forced with restrictive denies on every application table; catalog + anon/authenticated CRUD tests pass; resume bucket private** — verified in CI against real Postgres 17.6 and Supabase Storage, 72 assertions (2026-08-27)
 - [ ] **Contact form protection live: Turnstile + honeypot + rate limit (fail closed) + Slack** — code paths implemented and unit/E2E covered; the live widget, verification keys and vendor credentials are unprovisioned, so the form fails closed
 - [ ] **Privacy policy published** — `/privacy` renders and passes axe, but publication depends on deployment
-- [ ] CI green **and enforced**: the `quality`, `database`, `e2e` and `secret-scan` jobs all pass on `main`; branch protection requiring them is **not yet configured**
+- [ ] CI green **and enforced**: all four checks pass on `main` (`ci / quality`, `ci / database`, `ci / e2e`, `secret-scan / gitleaks` — confirmed 2026-08-27). Branch protection requiring them as status checks is **not yet configured**, so this gate stays open
 - [x] axe (WCAG 2.2 AA) and keyboard E2E pass on every current page **in the Workers runtime** (CI `e2e`, 35 tests under `opennextjs-cloudflare preview`, 2026-08-27)
 - [ ] Design-reference gates pass ([19-design-reference.md](19-design-reference.md) §19.7): reduced-motion fallbacks, CLS = 0 with the intro loader and profile fallback, canonical `/agent` + generated `/llms.txt` from one route manifest, bottom-bar keyboard specs, no copied upstream files
 - [ ] Spike A registered-zone image transform/cache/original-fallback probe passes
