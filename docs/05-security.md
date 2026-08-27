@@ -132,6 +132,18 @@ jobs:
       - uses: gitleaks/gitleaks-action@v2
 ```
 
+**Scan configuration.** `.gitleaks.toml` at the repository root extends the full default ruleset —
+no rule is disabled. It carries exactly one allowlist entry, for the `KEY=replace-with-…`
+placeholder values that rule 4 above requires committed `.env.example` templates to contain;
+gitleaks' `generic-api-key` rule otherwise flags them because the variable *names* end in `SECRET`
+or `KEY`.
+
+The allowlist matches the **placeholder value pattern, not the `.env.example` path**. Allowlisting
+the file would mean a real secret pasted into a template goes undetected; matching only the
+placeholder keeps every other value in those files in scope. Verified both ways against gitleaks
+8.24.3: the committed placeholders produce no finding, and a high-entropy value on a
+non-placeholder line in the same file still fails the scan.
+
 ---
 
 ## 5.4 IP pseudonyms, trusted address source and key epochs

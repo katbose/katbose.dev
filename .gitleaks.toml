@@ -1,0 +1,21 @@
+# Gitleaks configuration for katbose.dev
+#
+# Extends the full default ruleset — no rule is disabled. The only allowlist
+# entry covers the literal placeholder values used in committed `.env.example`
+# templates ([17-env-vars.md](docs/17-env-vars.md) requires those templates to
+# be committed with placeholders and comments).
+#
+# The allowlist is deliberately scoped to the *placeholder value pattern*, not
+# to the `.env.example` file path. Allowlisting the whole file would mean a real
+# secret accidentally pasted into a template goes undetected; matching only
+# `KEY=replace-with-...` keeps every other value in those files in scope.
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Documented .env.example placeholders are not secrets"
+regexTarget = "line"
+regexes = [
+  '''=\s*replace-with-[a-z0-9-]+''',
+]
