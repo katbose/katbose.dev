@@ -63,7 +63,8 @@ around silently.
 **Build**
 
 - [x] Monorepo scaffold: pnpm workspaces, `apps/web`, `packages/shared`
-- [ ] **Validate the current OpenNext Cloudflare Worker build/runtime — ISR/revalidation, Draft Mode cookies, Node-compatible crypto and dynamic OG images** ([01-architecture.md](01-architecture.md) §1.2); the historical Spike A passed, but the current scaffold's Windows/OneDrive build remains blocked pending Linux/CI proof
+- [x] Build the committed scaffold as an OpenNext Cloudflare Worker and run the full E2E suite in the Workers runtime (CI `quality` + `e2e`, 2026-08-27: `.open-next/worker.js` produced; 35 Playwright/axe tests pass under `opennextjs-cloudflare preview`). Windows/OneDrive bundling still fails on the documented pnpm-symlink limit; Linux CI is the normative check
+- [ ] Extend `test:spike:workers` to the full documented Spike A contract ([11-testing-and-ci.md](11-testing-and-ci.md) §11.2.2): ISR stale-while-revalidate against the R2 incremental cache binding, Draft Mode cookie round-trip/expiry, and `timingSafeEqual` from `node:crypto`. The historical throwaway scaffold proved these on 2026-08-25; the committed spec currently asserts only agent output and the dynamic OG PNG
 - [ ] Connect Cloudflare Workers Builds to protected `main`; production deploys from Workers Builds, not GitHub Actions
 - [ ] Provision/confirm only the accounts needed for Phase 1 and record no credentials in Git ([17-env-vars.md](17-env-vars.md) §17.1.1)
 - [x] TypeScript strict, Oxlint, Oxfmt, Vitest, Playwright configured
@@ -85,16 +86,16 @@ around silently.
 - [x] Sentry + PostHog repository wiring
 - [ ] Create and live-verify Slack `#katbose-alerts` and `#contact-form`, Sentry and PostHog projects
 - [x] Author public-table migrations, pgTAP/role tests and the protected backup-first production migration workflow in the working tree
-- [ ] Run public-table migrations and pgTAP tests against local Supabase (blocked locally until Docker is available)
+- [x] Run public-table migrations and the pgTAP suites against real Postgres (CI `database`, 2026-08-27: Postgres 17.6.1.165; both migrations applied on `supabase start` and again on `supabase db reset`; `Files=2, Tests=72, Result: PASS`). Still unexecuted on this workstation because Docker is unavailable locally
 
 **Gate**
 
 - [x] **Env var inventory documented; documented server-secret identifiers absent from the built client static chunks (local scan 2026-08-27)**
-- [ ] **All current and default client-role grants on schemas, tables, sequences and functions revoked/controlled; RLS enabled/forced with restrictive denies on every application table; catalog + anon/authenticated CRUD tests pass; resume bucket private**
-- [ ] **Contact form protection live: Turnstile + honeypot + rate limit (fail closed) + Slack**
-- [ ] **Privacy policy published**
-- [ ] CI green: typecheck, lint, unit, OpenNext build, Workers-runtime E2E; gitleaks passing; branch protection on `main`
-- [x] axe (WCAG 2.2 AA) and keyboard E2E pass on every current page against the Next production server (35-test local suite, 2026-08-27); Workers-runtime execution remains part of the unchecked CI gate above
+- [x] **All current and default client-role grants on schemas, tables, sequences and functions revoked/controlled; RLS enabled/forced with restrictive denies on every application table; catalog + anon/authenticated CRUD tests pass; resume bucket private** — verified in CI against real Postgres 17.6 and Supabase Storage, 72 assertions (2026-08-27)
+- [ ] **Contact form protection live: Turnstile + honeypot + rate limit (fail closed) + Slack** — code paths implemented and unit/E2E covered; the live widget, verification keys and vendor credentials are unprovisioned, so the form fails closed
+- [ ] **Privacy policy published** — `/privacy` renders and passes axe, but publication depends on deployment
+- [ ] CI green **and enforced**: the `quality`, `database`, `e2e` and `secret-scan` jobs all pass on `main`; branch protection requiring them is **not yet configured**
+- [x] axe (WCAG 2.2 AA) and keyboard E2E pass on every current page **in the Workers runtime** (CI `e2e`, 35 tests under `opennextjs-cloudflare preview`, 2026-08-27)
 - [ ] Design-reference gates pass ([19-design-reference.md](19-design-reference.md) §19.7): reduced-motion fallbacks, CLS = 0 with the intro loader and profile fallback, canonical `/agent` + generated `/llms.txt` from one route manifest, bottom-bar keyboard specs, no copied upstream files
 - [ ] Spike A registered-zone image transform/cache/original-fallback probe passes
 - [ ] Deployed to Cloudflare Workers via OpenNext from protected `main`

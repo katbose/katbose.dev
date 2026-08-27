@@ -89,9 +89,9 @@ is the production release event; the Workers Build then deploys the resulting Op
 
 | Workflow | Trigger | Purpose | Repository status |
 | --- | --- | --- | --- |
-| `ci.yml` | PR, push to `main` | Typecheck, lint, unit, OpenNext build, database tests, Workers-runtime E2E | committed; not yet observed on GitHub |
+| `ci.yml` | PR, push to `main` | Typecheck, lint, unit, OpenNext build, database tests, Workers-runtime E2E | **all three jobs green on 2026-08-27** (`quality` 1m08s, `database` 2m05s, `e2e` 1m48s) |
 | Cloudflare Workers Builds | Push to protected `main` | OpenNext production build and Worker deployment | external configuration unverified |
-| `secret-scan.yml` | PR, push | gitleaks | committed; not yet observed on GitHub |
+| `secret-scan.yml` | PR, push | gitleaks | runs; initially failed on `.env.example` placeholders, resolved by the root `.gitleaks.toml` allowlist ([05-security.md](05-security.md) §5.3) |
 | `production-migration.yml` | explicit dispatch from `main` | encrypted backup + committed migration application | committed; never run here |
 | `nightly-reconciliation.yml` | 02:00 daily | DLQ retry + index sweep | planned Phase 3 |
 | `weekly-backup.yml` | Sundays 03:00 | `pg_dump`, media sync, content export | planned Phase 2/operations |

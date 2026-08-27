@@ -5,7 +5,7 @@ import {
   siReact,
   siSupabase,
   siTypescript,
-} from "simple-icons/icons";
+} from "simple-icons";
 import { z } from "zod";
 
 const PhaseOneFallbackContentSchema = z.object({
