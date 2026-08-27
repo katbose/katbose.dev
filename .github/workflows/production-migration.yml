@@ -57,14 +57,20 @@ jobs:
           fi
 
       - name: Install PostgreSQL 17 backup tools
+        shell: bash
         run: |
+          set -euo pipefail
           sudo apt-get update
-          sudo apt-get install --yes age postgresql-client-17 rclone
+          sudo apt-get install --yes age ca-certificates postgresql-common rclone
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh
+          sudo apt-get update
+          sudo apt-get install --yes postgresql-client-17
           pg_dump_bin="/usr/lib/postgresql/17/bin/pg_dump"
           pg_restore_bin="/usr/lib/postgresql/17/bin/pg_restore"
           test -x "$pg_dump_bin"
           test -x "$pg_restore_bin"
           test "$("$pg_dump_bin" --version | grep -oE '[0-9]+' | head -n 1)" = "17"
+          test "$("$pg_restore_bin" --version | grep -oE '[0-9]+' | head -n 1)" = "17"
 
       - name: Create and verify encrypted off-primary backup
         id: backup
