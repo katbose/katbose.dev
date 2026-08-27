@@ -57,7 +57,7 @@ code — without introducing a second content source that would drift from the C
 ### Hero portrait and site icon (decision #87)
 
 The live reference places a profile portrait in the hero identity area. That anatomy is adopted,
-but neither its image nor unmeasured dimensions are copied. Kat's portrait is uploaded through the
+but neither its image nor unmeasured dimensions are copied. KatBose's portrait is uploaded through the
 Payload `Profile` global and rendered by a project-owned `<ProfilePortrait>` component. A separate
 Payload `SiteSettings` global owns the favicon; favicon placement is a project requirement rather
 than a visual fact inferred from page content.
@@ -286,7 +286,7 @@ These fold into the existing Phase 1 gate ([15-roadmap-and-checklist.md](15-road
 
 - [ ] All §19.3 interactions disabled correctly under `prefers-reduced-motion` (axe + manual pass)
 - [ ] Lighthouse ≥ 95 measured with the intro loader and all interactions enabled; CLS = 0
-- [ ] Hero portrait reserves 80→96px 1:1 geometry, uses Kat's Payload alt text or the bundled
+- [ ] Hero portrait reserves 80→96px 1:1 geometry, uses KatBose's Payload alt text or the bundled
       fallback, and never references the upstream portrait; favicon metadata has the same no-copy rule
 - [ ] Canonical `/agent` and generated `/llms.txt` derive from the typed route manifest—grep proves no handwritten runtime duplicate
 - [ ] Bottom-bar navigation passes the keyboard E2E specs (skip link first, focus visible, Escape behaviour on any expanded state)

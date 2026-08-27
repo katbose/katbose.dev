@@ -13,6 +13,6 @@ describe("public route manifest", () => {
       expect(llms).toContain(`katbose.dev${route.path}`);
     }
     expect(generateRobotsText()).toContain("Disallow: /api/");
-    expect(generateHumansText()).toContain("Developer: Kat Bose");
+    expect(generateHumansText()).toContain("Developer: KatBose");
   });
 });

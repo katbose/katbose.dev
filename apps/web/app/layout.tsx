@@ -53,7 +53,7 @@ export default function RootLayout({ children }: Readonly<{ children: ReactNode 
           <IntroLoader />
           <div className="site-shell">
             <header className="site-header">
-              <a className="site-mark" href="/" aria-label="Kat Bose home">
+              <a className="site-mark" href="/" aria-label="KatBose home">
                 KB
               </a>
               <ThemeToggle />

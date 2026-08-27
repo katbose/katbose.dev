@@ -1,16 +1,16 @@
-# Kat Bose — katbose.dev
+# KatBose — katbose.dev
 
 > Generated from the typed public route manifest.
 
 ## Pages
-- [Home](https://katbose.dev/): Kat Bose's portfolio and engineering work.
+- [Home](https://katbose.dev/): KatBose's portfolio and engineering work.
 - [Projects](https://katbose.dev/projects): Selected software projects and engineering decisions.
 - [Experience](https://katbose.dev/experience): Professional experience and areas of impact.
 - [Blog](https://katbose.dev/blog): Long-form technical writing.
 - [TIE](https://katbose.dev/tie): Short notes on things I explore.
 - [Resume](https://katbose.dev/resume): Recruiter-first resume overview and download entry point.
 - [Ask AI](https://katbose.dev/ask-ai): Resilient semantic search over public portfolio content.
-- [Contact](https://katbose.dev/contact): Send Kat a message or book a conversation.
+- [Contact](https://katbose.dev/contact): Send KatBose a message or book a conversation.
 - [Privacy](https://katbose.dev/privacy): Plain-language data and privacy policy.
 - [Agent view](https://katbose.dev/agent): Canonical agent-readable portfolio view.
 

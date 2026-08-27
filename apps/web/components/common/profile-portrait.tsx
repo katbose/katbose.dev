@@ -6,7 +6,7 @@ interface ProfilePortraitProps {
 }
 
 export function ProfilePortrait({
-  alt = "Kat Bose profile portrait",
+  alt = "KatBose profile portrait",
   src = "/profile-fallback.svg",
 }: Readonly<ProfilePortraitProps>) {
   return (

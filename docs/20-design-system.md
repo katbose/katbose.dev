@@ -653,5 +653,5 @@ Two things sit on the other side of that line and are out of scope here:
 2. **Content.** Aditya's biography, roles, essays, publication and client recommendations are his
    personal information and his prose. None of it enters this project in any form, including as
    placeholder or fixture data. Fixtures are the `[Fixture]`-prefixed set defined in
-   [02-content-model.md](02-content-model.md) §2.1.1, and real content is Kat's, entered through
+   [02-content-model.md](02-content-model.md) §2.1.1, and real content is KatBose's, entered through
    Payload.

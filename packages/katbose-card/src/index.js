@@ -5,7 +5,7 @@ const cyan = "\u001B[36m";
 const reset = "\u001B[0m";
 
 const lines = [
-  `${bold}Kat Bose${reset} · Software Engineer`,
+  `${bold}KatBose${reset} · Software Engineer`,
   "",
   `${cyan}Web${reset}       https://katbose.dev`,
   `${cyan}Ask AI${reset}    https://katbose.dev/ask-ai`,

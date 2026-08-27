@@ -88,7 +88,7 @@ whose behaviour drifts from the actual content set.
 | All | `BreadcrumbList` |
 | Home | `WebSite` with `SearchAction` pointing at Ask AI |
 
-**`Person` identity fields:** `name: "Kat Bose"`, `email: "im@katbose.dev"`,
+**`Person` identity fields:** `name: "KatBose"`, `email: "im@katbose.dev"`,
 `telephone: "+91 9515166564"`, `image` from the validated published `Profile.profileImage` (or the
 bundled fallback), and
 `sameAs: ["https://linkedin.com/in/katbose", "https://github.com/katbose"]`.
@@ -134,7 +134,7 @@ running routes, never hand-edited, and are not served to visitors. The sample be
 generated output follows:
 
 ```text
-# Kat Bose — katbose.dev
+# KatBose — katbose.dev
 
 > Generated from the typed public route manifest.
 
@@ -163,7 +163,7 @@ copies differ from the response the routes actually serve.
 
 ```text
 /* TEAM */
-Developer: Kat Bose
+Developer: KatBose
 Contact: im@katbose.dev
 LinkedIn: https://linkedin.com/in/katbose
 GitHub: https://github.com/katbose
