@@ -61,8 +61,19 @@ jobs:
         run: |
           set -euo pipefail
           sudo apt-get update
-          sudo apt-get install --yes age ca-certificates postgresql-common rclone
-          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh
+          sudo apt-get install --yes age ca-certificates curl postgresql-common rclone
+          sudo install --directory /usr/share/postgresql-common/pgdg
+          sudo curl --fail --silent --show-error \
+            --output /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc \
+            https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          source /etc/os-release
+          sudo tee /etc/apt/sources.list.d/pgdg.sources > /dev/null <<EOF
+          Types: deb
+          URIs: https://apt.postgresql.org/pub/repos/apt
+          Suites: ${VERSION_CODENAME}-pgdg
+          Components: main
+          Signed-By: /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc
+          EOF
           sudo apt-get update
           sudo apt-get install --yes postgresql-client-17
           pg_dump_bin="/usr/lib/postgresql/17/bin/pg_dump"
