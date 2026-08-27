@@ -3,6 +3,21 @@
   "main": ".open-next/worker.js",
   "compatibility_date": "2026-08-26",
   "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  // Runtime plain-text vars are set in the Cloudflare dashboard, not here, so
+  // that SUPABASE_URL and friends stay out of the repository. Without this a
+  // deploy deletes every dashboard var — including IP_PSEUDONYM_EPOCH, whose
+  // absence makes the contact route fail closed with a 503. Secrets are never
+  // deleted by a deploy regardless of this setting.
+  "keep_vars": true,
+  // The apex custom domain is declared here rather than left dashboard-only:
+  // a deploy overrides remote routes with whatever this file specifies, so an
+  // undeclared custom domain would be removed on the next deploy.
+  "routes": [
+    {
+      "pattern": "katbose.dev",
+      "custom_domain": true,
+    },
+  ],
   "assets": {
     "directory": ".open-next/assets",
     "binding": "ASSETS",
