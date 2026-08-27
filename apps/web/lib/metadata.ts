@@ -1,6 +1,7 @@
 import { SITE_IDENTITY } from "@katbose/shared";
 import type { Metadata } from "next";
 import { getRoute, type PublicPath } from "./routes";
+import { SITE_URL } from "./site-url";
 
 // Referenced explicitly rather than relying on Next's opengraph-image file
 // convention: because every page sets `openGraph` here, the convention's
@@ -19,7 +20,7 @@ export function createPageMetadata(path: PublicPath): Metadata {
     path === "/"
       ? `${SITE_IDENTITY.name} — ${SITE_IDENTITY.role}`
       : `${route.label} — ${SITE_IDENTITY.name}`;
-  const url = `${SITE_IDENTITY.siteUrl}${path}`;
+  const url = `${SITE_URL}${path}`;
   return {
     title,
     description: route.description,

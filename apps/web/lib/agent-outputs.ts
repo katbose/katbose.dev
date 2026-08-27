@@ -1,6 +1,7 @@
 import { SITE_IDENTITY } from "@katbose/shared";
 import { PHASE_ONE_FALLBACK_CONTENT } from "./fallback-content";
 import { PUBLIC_ROUTES } from "./routes";
+import { SITE_URL } from "./site-url";
 
 export function getIndexableRoutes({ includeAgent = true } = {}) {
   return PUBLIC_ROUTES.filter(
@@ -12,11 +13,39 @@ const nonIndexablePaths = PUBLIC_ROUTES.filter((route) => !route.indexable).map(
   (route) => route.path,
 );
 
+// Stated here rather than left to Cloudflare's managed robots.txt, which used to
+// inject this signal alongside `Disallow: /` for GPTBot and ClaudeBot — the exact
+// crawlers this site allows on purpose. Owning the directive keeps the training
+// preference without the contradiction. See docs/16-decision-log.md.
+export const CONTENT_SIGNAL = "search=yes, ai-train=no, use=reference";
+
+// Training-only crawlers that get no benefit to a reader of this site. Carried
+// over from Cloudflare's managed robots.txt so that turning that feature off —
+// it also emitted `Disallow: /` for the assistants below, which this site allows
+// on purpose — does not quietly drop the opt-out. Kept as a plain list because
+// the tokens are vendor-defined, not routes.
+export const TRAINING_OPT_OUT_AGENTS = [
+  "Amazonbot",
+  "Applebot-Extended",
+  "Bytespider",
+  "CCBot",
+  "Google-Extended",
+  "meta-externalagent",
+] as const;
+
 export const ROBOTS_RULES = [
-  { userAgent: "*", allow: "/", disallow: ["/api/", ...nonIndexablePaths] },
+  {
+    userAgent: "*",
+    contentSignal: CONTENT_SIGNAL,
+    allow: "/",
+    disallow: ["/api/", ...nonIndexablePaths],
+  },
+  // Assistants that make the site more useful when they can read it: this is the
+  // whole point of /agent and /llms.txt.
   { userAgent: "GPTBot", allow: "/" },
   { userAgent: "ClaudeBot", allow: "/" },
   { userAgent: "PerplexityBot", allow: "/" },
+  ...TRAINING_OPT_OUT_AGENTS.map((userAgent) => ({ userAgent, disallow: ["/"] as const })),
 ] as const;
 
 export function generateAgentMarkdown() {
@@ -52,7 +81,7 @@ export function generateAgentMarkdown() {
     "",
     "## Public routes",
     ...getIndexableRoutes({ includeAgent: false }).map(
-      (route) => `- [${route.label}](${SITE_IDENTITY.siteUrl}${route.path}): ${route.description}`,
+      (route) => `- [${route.label}](${SITE_URL}${route.path}): ${route.description}`,
     ),
     "",
     "## Contact",
@@ -65,13 +94,13 @@ export function generateAgentMarkdown() {
 
 export function generateLlmsText() {
   return [
-    `# ${SITE_IDENTITY.name} — katbose.dev`,
+    `# ${SITE_IDENTITY.name} — ${new URL(SITE_URL).host}`,
     "",
     "> Generated from the typed public route manifest.",
     "",
     "## Pages",
     ...getIndexableRoutes().map(
-      (route) => `- [${route.label}](${SITE_IDENTITY.siteUrl}${route.path}): ${route.description}`,
+      (route) => `- [${route.label}](${SITE_URL}${route.path}): ${route.description}`,
     ),
     "",
     "## Contact",
@@ -87,11 +116,14 @@ export function generateRobotsText() {
     const disallowed = "disallow" in rule ? rule.disallow : [];
     return [
       `User-Agent: ${rule.userAgent}`,
-      `Allow: ${rule.allow}`,
+      ...("contentSignal" in rule ? [`Content-Signal: ${rule.contentSignal}`] : []),
+      // Opt-out groups carry only Disallow, so an unconditional `Allow:` here
+      // would emit an empty directive and contradict the block.
+      ...("allow" in rule ? [`Allow: ${rule.allow}`] : []),
       ...disallowed.map((path: string) => `Disallow: ${path}`),
     ].join("\n");
   });
-  return [...blocks, `Sitemap: ${SITE_IDENTITY.siteUrl}/sitemap.xml`].join("\n\n") + "\n";
+  return [...blocks, `Sitemap: ${SITE_URL}/sitemap.xml`].join("\n\n") + "\n";
 }
 
 export function generateHumansText() {
@@ -101,7 +133,7 @@ export function generateHumansText() {
     `Contact: ${SITE_IDENTITY.email}`,
     `LinkedIn: ${SITE_IDENTITY.linkedInUrl}`,
     `GitHub: ${SITE_IDENTITY.githubUrl}`,
-    `Site: ${SITE_IDENTITY.siteUrl}`,
+    `Site: ${SITE_URL}`,
     `Location: ${SITE_IDENTITY.location}`,
     "",
     `/* SITE */`,

@@ -1,6 +1,6 @@
-import { SITE_IDENTITY } from "@katbose/shared";
 import type { ReactNode } from "react";
 import type { PublicPath } from "@/lib/routes";
+import { SITE_URL } from "@/lib/site-url";
 import { JsonLd } from "./json-ld";
 
 interface PageIntroProps {
@@ -25,12 +25,12 @@ export function PageIntro({
           "@context": "https://schema.org",
           "@type": "BreadcrumbList",
           itemListElement: [
-            { "@type": "ListItem", position: 1, name: "Home", item: SITE_IDENTITY.siteUrl },
+            { "@type": "ListItem", position: 1, name: "Home", item: SITE_URL },
             {
               "@type": "ListItem",
               position: 2,
               name: title,
-              item: `${SITE_IDENTITY.siteUrl}${path}`,
+              item: `${SITE_URL}${path}`,
             },
           ],
         }}
