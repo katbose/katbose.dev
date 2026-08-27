@@ -6,6 +6,7 @@ export const metadata = createPageMetadata("/contact");
 export default function ContactPage() {
   const fallbackEmail = process.env["CONTACT_FALLBACK_EMAIL"] ?? SITE_IDENTITY.email;
   const calLink = process.env["NEXT_PUBLIC_CAL_LINK"] ?? SITE_IDENTITY.calUrl;
+  const turnstileSiteKey = process.env["NEXT_PUBLIC_TURNSTILE_SITE_KEY"] ?? "";
   return (
     <main className="content-page" id="content">
       <PageIntro
@@ -16,7 +17,7 @@ export default function ContactPage() {
       />
       <section>
         <h2>Message</h2>
-        <ContactForm fallbackEmail={fallbackEmail} />
+        <ContactForm fallbackEmail={fallbackEmail} turnstileSiteKey={turnstileSiteKey} />
       </section>
       <section>
         <h2>Other ways to connect</h2>
