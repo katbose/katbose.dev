@@ -37,9 +37,7 @@ describe("committed MCP configuration", () => {
   });
 
   it("never commits a literal credential", () => {
-    const literals = credentialValues().filter(
-      (entry) => !SAFE_CREDENTIAL_REFERENCE.test(entry.v),
-    );
+    const literals = credentialValues().filter((entry) => !SAFE_CREDENTIAL_REFERENCE.test(entry.v));
     expect(
       literals.map((entry) => `${entry.name}.${entry.source}.${entry.k}`),
       "credential values must be ${ENV_VAR} references, not literals",
@@ -75,7 +73,9 @@ describe("committed MCP configuration", () => {
     const localNpxServers = servers.filter(([, server]) => server.command === "npx");
     expect(localNpxServers.length).toBeGreaterThan(0);
     for (const [name, server] of localNpxServers) {
-      expect(server.args?.[0], `${name} must accept the install prompt non-interactively`).toBe("-y");
+      expect(server.args?.[0], `${name} must accept the install prompt non-interactively`).toBe(
+        "-y",
+      );
       expect(server.args?.[1], `${name} must use package@x.y.z, never @latest`).toMatch(
         /^(?:@[a-z0-9-]+\/)?[a-z0-9-]+@\d+\.\d+\.\d+$/,
       );
