@@ -212,6 +212,12 @@ Running `npx katbose` in any terminal prints a compact ANSI business card: name,
 - Lives in the monorepo as `packages/katbose-card`, published to npm as **`katbose`**. The
   package was created and published (user-confirmed 2026-08-24); keep the repository source and
   published package synchronized as the card evolves.
+  **Parity status (2026-08-27):** the published `0.0.1` is a placeholder stub, not this source —
+  see [15-roadmap-and-checklist.md](15-roadmap-and-checklist.md). The workspace package is now the
+  canonical definition, its metadata matches `SITE_IDENTITY`, and
+  `apps/web/tests/katbose-card.test.ts` fails if the card's printed identity values, package
+  metadata, dependency-free guarantee or size budget drift. Reconciling `npx katbose` requires a
+  manual `0.0.2` publish.
 - Zero runtime dependencies if possible (hand-rolled ANSI codes; `picocolors` at most). A
   business card that pulls 40 packages is the wrong statement.
 - Content is a **build-time snapshot** (name, links, tagline baked into the published version) —
