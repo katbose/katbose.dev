@@ -3,17 +3,29 @@
     "cloudflare-api": {
       "url": "https://mcp.cloudflare.com/mcp",
       "disabled": false,
-      "autoApprove": ["search", "execute"]
+      "autoApprove": [
+        "search",
+        "execute"
+      ]
     },
     "cloudflare-bindings": {
       "url": "https://bindings.mcp.cloudflare.com/mcp",
       "disabled": false,
-      "autoApprove": ["workers_list", "kv_namespaces_list", "r2_buckets_list"]
+      "autoApprove": [
+        "workers_list",
+        "kv_namespaces_list",
+        "r2_buckets_list",
+        "r2_bucket_create"
+      ]
     },
     "cloudflare-builds": {
       "url": "https://builds.mcp.cloudflare.com/mcp",
       "disabled": false,
-      "autoApprove": ["workers_list"]
+      "autoApprove": [
+        "workers_list",
+        "workers_builds_get_build",
+        "workers_builds_get_build_logs"
+      ]
     },
     "cloudflare-observability": {
       "url": "https://observability.mcp.cloudflare.com/mcp",
@@ -23,7 +35,14 @@
     "cloudflare-docs": {
       "url": "https://docs.mcp.cloudflare.com/mcp",
       "disabled": false,
-      "autoApprove": ["search_cloudflare_documentation"]
+      "autoApprove": [
+        "search_cloudflare_documentation"
+      ]
+    },
+    "posthog": {
+      "url": "https://mcp.posthog.com/mcp",
+      "disabled": false,
+      "autoApprove": []
     }
   }
 }
