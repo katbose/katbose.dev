@@ -1,7 +1,7 @@
 {
   "name": "katbose",
   "version": "0.0.2",
-  "description": "Kat Bose's offline terminal business card",
+  "description": "KatBose's offline terminal business card",
   "keywords": [
     "business-card",
     "cli",
@@ -10,7 +10,7 @@
   ],
   "homepage": "https://katbose.dev",
   "license": "MIT",
-  "author": "Kat Bose <im@katbose.dev>",
+  "author": "KatBose <im@katbose.dev>",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/katbose/katbose.dev.git",

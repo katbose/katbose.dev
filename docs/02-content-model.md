@@ -45,7 +45,7 @@ experience, blog and TIE content will be entered independently through Payload l
 Rules:
 
 - Every slug/path starts with `fixture-` and every visible title starts with `[Fixture]`; no
-  fixture pretends to be Kat's real work.
+  fixture pretends to be KatBose's real work.
 - The seed command requires `ALLOW_DEV_SEED=true` **and throws in production**. CI runs it only
   against local Supabase/Payload.
 - Seed requests set `skipSearchSync: true`; fixtures never enter the production AI Search index,
@@ -53,7 +53,7 @@ Rules:
 - The seed is idempotent: rerunning it upserts the same fixtures, and `seed:clear` removes only
   `fixture-*` data.
 - Real content is entered later through Payload. In particular, the real resume replaces the
-  dummy PDF through the same CMS workflow; Kat's portrait and favicon replace their synthetic
+  dummy PDF through the same CMS workflow; KatBose's portrait and favicon replace their synthetic
   fixtures through the identity-asset fields below. No personal data is committed to Git.
 
 ### 2.1.2 Payload-managed site identity assets
@@ -63,7 +63,7 @@ Two Payload globals own identity assets; the Home manifest never stores their UR
 | Global | Field | Contract |
 | --- | --- | --- |
 | `Profile` | `profileImage` | Required upload relation to `media`; signature-verified PNG, JPEG or WebP; maximum 2 MiB; minimum 512×512; focal point/crop enabled |
-| `Profile` | `profileImageAlt` | Required meaningful text describing Kat's portrait; never inferred from the filename |
+| `Profile` | `profileImageAlt` | Required meaningful text describing KatBose's portrait; never inferred from the filename |
 | `SiteSettings` | `favicon` | Required upload relation to `media`; signature-verified square PNG only; maximum 512 KiB; minimum 512×512; SVG and renamed non-images rejected |
 
 Implementation rules:

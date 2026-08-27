@@ -1,5 +1,5 @@
 export const SITE_IDENTITY = {
-  name: "Kat Bose",
+  name: "KatBose",
   role: "Software Engineer",
   siteUrl: "https://katbose.dev",
   email: "im@katbose.dev",

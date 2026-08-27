@@ -73,7 +73,7 @@ are never correlated or backfilled. Rotation must never delay deletion.
 
 `/privacy` — one page, plain language, linked from the footer and from the contact form. Contents:
 
-1. **Who** — Kat Bose, im@katbose.dev
+1. **Who** — KatBose, im@katbose.dev
 2. **What is collected** — the inventory in §14.3, in ordinary words
 3. **Why** — abuse prevention, analytics, replying to messages
 4. **How long** — 90 days for logs; contact messages kept until cleared

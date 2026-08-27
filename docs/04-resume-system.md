@@ -126,7 +126,7 @@ old or new complete pointer, never zero current rows or a half-promoted state.
 
 ### 4.4.1 Upload workflow — through the CMS
 
-Uploading a new resume is a task Kat repeats every time the resume changes, so it gets a real
+Uploading a new resume is a task KatBose repeats every time the resume changes, so it gets a real
 workflow instead of manual SQL or a one-off script.
 
 **`resume-uploads` — an admin-only Payload collection**, used purely as an upload trigger. It is

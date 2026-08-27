@@ -15,7 +15,7 @@ export default function AskAiPage() {
         <h2>Ask a question</h2>
         <label>
           Question
-          <input disabled name="question" placeholder="What has Kat built with Cloudflare?" />
+          <input disabled name="question" placeholder="What has KatBose built with Cloudflare?" />
         </label>
         <p role="status">
           Ask AI is visible but not active until the Phase 3 search binding is validated.
