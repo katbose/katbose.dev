@@ -5,7 +5,7 @@ export const ContactSchema = z.object({
   email: z.email("Enter a valid email address.").max(200),
   message: z.string().trim().min(10, "Use at least 10 characters.").max(5000),
   website: z.literal("").optional(),
-  turnstileToken: z.string().min(1, "Complete the bot check."),
+  turnstileToken: z.string().min(1, "Complete the bot check.").max(2048),
 });
 
 export const ContactFormSchema = ContactSchema.omit({ turnstileToken: true });
