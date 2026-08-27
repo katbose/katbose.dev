@@ -116,9 +116,10 @@ repository owner, but both can dispatch mutations. Auto-approval removes the pro
 judgement: destructive or production-affecting operations — deleting DNS records, changing security
 configuration, editing analytics entities or applying migrations — still require owner confirmation.
 
-GitHub auto-approves only `create_pull_request`. Opening a pull request cannot modify the protected
-`main` branch by itself: the repository's ruleset still requires the `quality`, `database`, `e2e`
-and `gitleaks` status checks, mandatory review, and a squash merge before any commit reaches `main`.
+GitHub auto-approves `create_pull_request` and `pull_request_read`. Opening a pull request cannot
+modify the protected `main` branch by itself: the repository's ruleset still requires the `quality`,
+`database`, `e2e` and `gitleaks` status checks, mandatory review, and a squash merge before any
+commit reaches `main`. `pull_request_read` is read-only and makes no changes.
 Merging, force-pushing and deleting branches all remain outside the approval list and stay
 supervised. `sentry` keeps an empty list: its tool names are not known until the server is
 connected, and inventing plausible-looking entries would read as approved capability while silently
