@@ -76,7 +76,8 @@ around silently.
 - [x] Intro loader (multilingual "Hello", ≤2s, once per session, skipped under reduced motion)
 - [x] `katbose` npm package published (user-confirmed 2026-08-24)
 - [x] Integrate `packages/katbose-card` source into the pnpm monorepo
-- [ ] Compare repository package contents with the published release before claiming source/release parity
+- [x] Compare repository package contents with the published release (2026-08-27: **they diverge**. Published `katbose@0.0.1` is a 221-byte "under construction" stub with `index.js` at the package root, no `type: module`/`files`/`engines`, author `hello@katbose.dev` and a repository URL pointing at the non-existent `katbose/katbose-portfolio`. The workspace holds the real 496-byte card. Workspace metadata corrected and a drift guard added; `npx katbose` still serves the stub until a manual publish)
+- [ ] Manually publish `katbose@0.0.2` from a tagged commit so `npx katbose` serves the real card ([19-design-reference.md](19-design-reference.md) §19.4.2 — publishing stays manual, no npm credentials in CI)
 - [x] Pages: Home (hero, about, featured projects, experience preview, latest blog, latest TIE, contact CTA), Projects, Experience, Resume, Contact
 - [x] Utility pages: `not-found.tsx`, `error.tsx`, `global-error.tsx`, `/privacy`, `/resume-unavailable`
 - [x] Canonical `/agent`, plus `robots.txt`, `humans.txt`, generated `/llms.txt`, `sitemap.xml` and `rss.xml` from shared typed generators
