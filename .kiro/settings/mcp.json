@@ -26,7 +26,8 @@
         "workers_list",
         "workers_builds_get_build",
         "workers_builds_get_build_logs",
-        "workers_builds_list_builds"
+        "workers_builds_list_builds",
+        "workers_get_worker"
       ]
     },
     "cloudflare-observability": {
@@ -84,6 +85,16 @@
       "disabled": false,
       "autoApprove": [
         "exec"
+      ]
+    },
+    "sentry": {
+      "url": "https://mcp.sentry.dev/mcp",
+      "disabled": false,
+      "autoApprove": [
+        "find_organizations",
+        "find_projects",
+        "search_sentry_tools",
+        "execute_sentry_tool"
       ]
     }
   }

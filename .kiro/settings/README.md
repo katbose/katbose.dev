@@ -26,6 +26,7 @@ tools during a review.
 | `chrome-devtools` | `chrome-devtools-mcp@1.8.0` | Chrome traces, Core Web Vitals, network inspection and accessibility snapshots |
 | `playwright` | `@playwright/mcp@0.0.79` | Headless browser navigation and accessibility-tree automation |
 | `posthog` | `https://mcp.posthog.com/mcp` | Product analytics, web vitals and production event verification |
+| `sentry` | `https://mcp.sentry.dev/mcp` | Error monitoring — project setup, issue search, stack traces and Seer analysis |
 
 The Cloudflare endpoints follow
 [Cloudflare's agent setup guide](https://developers.cloudflare.com/agent-setup/prompt.md). GitHub's
@@ -46,10 +47,19 @@ installed stable Chrome channel. Only the read-only session-discovery tools are 
 
 ---
 
+Sentry hosts its server at the endpoint above over Streamable HTTP with OAuth, per
+[Sentry's MCP documentation](https://docs.sentry.io/ai/mcp/) — there is nothing to install and no
+token to store. Authorization is scoped to whichever Sentry organization is approved during the
+OAuth flow, so approve the personal organization that owns `katbose.dev`; an employer-owned
+organization must not receive this project's error data.
+
+---
+
 ## Why there are no secrets in this file
 
-The Cloudflare and PostHog managed servers authenticate with OAuth on first tool use. Their tokens
-are written outside the repository by the MCP client. The local browser servers need no credential.
+The Cloudflare, PostHog and Sentry managed servers authenticate with OAuth on first tool use. Their
+tokens are written outside the repository by the MCP client. The local browser servers need no
+credential.
 GitHub's hosted MCP server requires a fine-grained personal access token from the user environment;
 the committed header contains only `${GITHUB_PERSONAL_ACCESS_TOKEN}`. No API key, token or account
 identifier appears in `mcp.json`, which is what makes it safe to commit.
@@ -106,7 +116,13 @@ repository owner, but both can dispatch mutations. Auto-approval removes the pro
 judgement: destructive or production-affecting operations — deleting DNS records, changing security
 configuration, editing analytics entities or applying migrations — still require owner confirmation.
 
-GitHub intentionally has an empty approval list. The only browser auto-approvals are the read-only
+GitHub intentionally has an empty approval list. So does `sentry`: its tool names are not known until
+the server is connected, and inventing plausible-looking entries would read as approved capability
+while silently matching nothing. Its surface also mixes reads with mutations — it can create
+projects and update issue state — so approvals should be added only for named read-only tools after
+the connection confirms them.
+
+The only browser auto-approvals are the read-only
 session discovery calls `list_pages` and `browser_tabs`, recorded by Kiro during the smoke test.
 Navigation, script execution, clicks, form submission and every other browser action remain
 supervised even after the MCP connections succeed.
@@ -117,8 +133,9 @@ supervised even after the MCP connections succeed.
 
 1. Open the **MCP Server** view in the Kiro feature panel. Configuration changes reconnect
    automatically; if a server remains stale, reconnect it from that view.
-2. Connect the Cloudflare and PostHog servers. A browser opens for OAuth on first use;
-   `cloudflare-docs` is public and needs no authorization.
+2. Connect the Cloudflare, PostHog and Sentry servers. A browser opens for OAuth on first use;
+   `cloudflare-docs` is public and needs no authorization. On the Sentry consent screen, confirm the
+   organization being granted is the personal one, not an employer organization.
 3. Create a **fine-grained** GitHub personal access token restricted to the `katbose/katbose.dev`
    repository. Grant only the repository permissions needed for the intended work: Contents and Pull
    requests for code review/merge, Actions for workflow runs, and Administration for environments.
