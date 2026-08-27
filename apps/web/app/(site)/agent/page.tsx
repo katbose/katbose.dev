@@ -1,7 +1,7 @@
-import { SITE_IDENTITY } from "@katbose/shared";
 import { JsonLd } from "@/components/common/json-ld";
 import { generateAgentMarkdown } from "@/lib/agent-outputs";
 import { createPageMetadata } from "@/lib/metadata";
+import { SITE_URL } from "@/lib/site-url";
 
 export const metadata = createPageMetadata("/agent");
 
@@ -14,12 +14,12 @@ export default function AgentPage() {
           "@context": "https://schema.org",
           "@type": "BreadcrumbList",
           itemListElement: [
-            { "@type": "ListItem", position: 1, name: "Home", item: SITE_IDENTITY.siteUrl },
+            { "@type": "ListItem", position: 1, name: "Home", item: SITE_URL },
             {
               "@type": "ListItem",
               position: 2,
               name: "Agent view",
-              item: `${SITE_IDENTITY.siteUrl}/agent`,
+              item: `${SITE_URL}/agent`,
             },
           ],
         }}

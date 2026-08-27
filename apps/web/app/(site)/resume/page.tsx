@@ -3,6 +3,7 @@ import Link from "next/link";
 import { JsonLd } from "@/components/common/json-ld";
 import { PageIntro } from "@/components/common/page-intro";
 import { createPageMetadata } from "@/lib/metadata";
+import { SITE_URL } from "@/lib/site-url";
 export const metadata = createPageMetadata("/resume");
 export default function ResumePage() {
   return (
@@ -13,7 +14,7 @@ export default function ResumePage() {
           "@type": "Person",
           name: SITE_IDENTITY.name,
           jobTitle: SITE_IDENTITY.role,
-          url: `${SITE_IDENTITY.siteUrl}/resume`,
+          url: `${SITE_URL}/resume`,
         }}
       />
       <PageIntro

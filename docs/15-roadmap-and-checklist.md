@@ -83,7 +83,7 @@ around silently.
 - [ ] Manually publish `katbose@0.0.2` from a tagged commit so `npx katbose` serves the real card ([19-design-reference.md](19-design-reference.md) §19.4.2 — publishing stays manual, no npm credentials in CI)
 - [x] Pages: Home (hero, about, featured projects, experience preview, latest blog, latest TIE, contact CTA), Projects, Experience, Resume, Contact
 - [x] Utility pages: `not-found.tsx`, `error.tsx`, `global-error.tsx`, `/privacy`, `/resume-unavailable`
-- [x] Canonical `/agent`, plus `robots.txt`, `humans.txt`, generated `/llms.txt`, `sitemap.xml` and `rss.xml` from shared typed generators
+- [x] Canonical `/agent`, plus `robots.txt`, `humans.txt`, generated `/llms.txt`, `sitemap.xml` and `rss.xml` from shared typed generators (2026-08-27: `robots.txt` moved off Next's `app/robots.ts` convention onto `app/robots.txt/route.ts` so the served file and the repository-root export render the same generator, and every absolute URL now resolves through `apps/web/lib/site-url.ts` — see decisions #91 and #92. Cloudflare's managed `robots.txt` feature was injecting `Disallow: /` for `GPTBot` and `ClaudeBot` against the site's own allow rules and has been turned off, with its training opt-outs carried into the generator)
 - [x] SEO baseline: metadata, Open Graph, JSON-LD (`Person`, `BreadcrumbList`, `WebSite`) and deterministic bundled PNG favicons until Phase 2 activates Payload `SiteSettings`
 - [x] Static CSP and security headers in `next.config.ts`; no middleware/nonces; no runtime external media/CDN origins
 - [x] Image delivery implementation: immutable Supabase originals, Cloudflare Images fixed variants, cache headers and transform-error fallback; registered-zone proof remains a gate below
@@ -97,12 +97,12 @@ around silently.
 - [x] **Env var inventory documented; documented server-secret identifiers absent from the built client static chunks (local scan 2026-08-27)**
 - [x] **All current and default client-role grants on schemas, tables, sequences and functions revoked/controlled; RLS enabled/forced with restrictive denies on every application table; catalog + anon/authenticated CRUD tests pass; resume bucket private** — verified in CI against real Postgres 17.6 and Supabase Storage, 72 assertions (2026-08-27)
 - [ ] **Contact form protection live: Turnstile + honeypot + rate limit (fail closed) + Slack** — code paths implemented and unit/E2E covered; the live widget, verification keys and vendor credentials are unprovisioned, so the form fails closed
-- [ ] **Privacy policy published** — `/privacy` renders and passes axe, but publication depends on deployment
+- [x] **Privacy policy published** — `https://katbose.dev/privacy` returns 200 from the production Worker (2026-08-27)
 - [x] CI green **and enforced**: all four checks pass on `main` and the `main-protection` ruleset requires them as status checks (`quality`, `database`, `e2e`, `gitleaks`), with pull requests mandatory, force pushes and deletion blocked, squash-only merges, an empty bypass list, and strict up-to-date branches (2026-08-27; configuration recorded in [11-testing-and-ci.md](11-testing-and-ci.md) §11.2)
 - [x] axe (WCAG 2.2 AA) and keyboard E2E pass on every current page **in the Workers runtime** (CI `e2e`, 35 tests under `opennextjs-cloudflare preview`, 2026-08-27)
 - [ ] Design-reference gates pass ([19-design-reference.md](19-design-reference.md) §19.7): reduced-motion fallbacks, CLS = 0 with the intro loader and profile fallback, canonical `/agent` + generated `/llms.txt` from one route manifest, bottom-bar keyboard specs, no copied upstream files
 - [ ] Spike A registered-zone image transform/cache/original-fallback probe passes
-- [ ] Deployed to Cloudflare Workers via OpenNext from protected `main`
+- [x] Deployed to Cloudflare Workers via OpenNext from protected `main` (2026-08-27: squash-merge of PR #5 triggered `wrangler deploy`; apex `katbose.dev` bound as a custom domain and all of `/`, `/agent`, `/llms.txt`, `/robots.txt`, `/sitemap.xml`, `/opengraph-image.png`, `/contact`, `/privacy` return 200. `keep_vars: true` confirmed working — all four dashboard plain-text vars including `IP_PSEUDONYM_EPOCH` survived, so the earlier `-` markers in the wrangler diff were cosmetic. `workers_dev` and preview URLs are off as a consequence of declaring `routes`)
 - [ ] Lighthouse ≥ 95 on Performance, SEO and Accessibility
 
 ---

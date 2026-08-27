@@ -6,6 +6,7 @@ import { IntroLoader } from "@/components/common/intro-loader";
 import { BottomBar } from "@/components/layout/bottom-bar";
 import { SiteFooter } from "@/components/layout/site-footer";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
+import { SITE_URL } from "@/lib/site-url";
 import { Providers } from "./providers";
 import "./globals.css";
 
@@ -23,7 +24,7 @@ const mono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL(SITE_IDENTITY.siteUrl),
+  metadataBase: new URL(SITE_URL),
   title: {
     default: `${SITE_IDENTITY.name} — ${SITE_IDENTITY.role}`,
     template: `%s — ${SITE_IDENTITY.name}`,
