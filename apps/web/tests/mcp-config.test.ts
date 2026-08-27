@@ -16,9 +16,10 @@ const raw = readFileSync(configUrl, "utf8");
 const config = JSON.parse(raw) as { mcpServers: Record<string, McpServer> };
 const servers = Object.entries(config.mcpServers);
 
-// Only a ${VAR} reference may supply a credential; a literal value must never
-// be committed. See .kiro/settings/README.md.
-const ENV_REFERENCE = /^\$\{[A-Z_][A-Z0-9_]*\}$/;
+// Only a ${VAR} reference (optionally prefixed by the standard HTTP Bearer
+// scheme) may supply a credential; a literal value must never be committed.
+// See .kiro/settings/README.md.
+const SAFE_CREDENTIAL_REFERENCE = /^(?:Bearer )?\$\{[A-Z_][A-Z0-9_]*\}$/;
 
 function credentialValues() {
   return servers.flatMap(([name, server]) => [
@@ -36,7 +37,7 @@ describe("committed MCP configuration", () => {
   });
 
   it("never commits a literal credential", () => {
-    const literals = credentialValues().filter((entry) => !ENV_REFERENCE.test(entry.v));
+    const literals = credentialValues().filter((entry) => !SAFE_CREDENTIAL_REFERENCE.test(entry.v));
     expect(
       literals.map((entry) => `${entry.name}.${entry.source}.${entry.k}`),
       "credential values must be ${ENV_VAR} references, not literals",
@@ -65,6 +66,36 @@ describe("committed MCP configuration", () => {
       if (server.url) {
         expect(server.url.startsWith("https://"), `${name} must use https`).toBe(true);
       }
+    }
+  });
+
+  it("pins every npx MCP package to an exact version", () => {
+    const localNpxServers = servers.filter(([, server]) => server.command === "npx");
+    expect(localNpxServers.length).toBeGreaterThan(0);
+    for (const [name, server] of localNpxServers) {
+      expect(server.args?.[0], `${name} must accept the install prompt non-interactively`).toBe(
+        "-y",
+      );
+      expect(server.args?.[1], `${name} must use package@x.y.z, never @latest`).toMatch(
+        /^(?:@[a-z0-9-]+\/)?[a-z0-9-]+@\d+\.\d+\.\d+$/,
+      );
+    }
+  });
+
+  it("registers supervised GitHub and isolated browser servers", () => {
+    const github = config.mcpServers["github"];
+    expect(github?.url).toBe("https://api.githubcopilot.com/mcp/");
+    expect(github?.headers?.["Authorization"]).toBe("Bearer ${GITHUB_PERSONAL_ACCESS_TOKEN}");
+    expect(github?.autoApprove).toEqual([]);
+
+    const browserApprovals: Record<string, string[]> = {
+      "chrome-devtools": ["list_pages"],
+      playwright: ["browser_tabs"],
+    };
+    for (const [name, expectedApprovals] of Object.entries(browserApprovals)) {
+      const server = config.mcpServers[name];
+      expect(server?.args).toContain("--isolated");
+      expect(server?.autoApprove).toEqual(expectedApprovals);
     }
   });
 });
