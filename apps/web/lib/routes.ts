@@ -29,7 +29,7 @@ export const PUBLIC_ROUTES = PublicRouteSchema.array().parse([
   {
     path: "/",
     label: "Home",
-    description: "Kat Bose's portfolio and engineering work.",
+    description: "KatBose's portfolio and engineering work.",
     navigation: true,
     indexable: true,
   },
@@ -78,7 +78,7 @@ export const PUBLIC_ROUTES = PublicRouteSchema.array().parse([
   {
     path: "/contact",
     label: "Contact",
-    description: "Send Kat a message or book a conversation.",
+    description: "Send KatBose a message or book a conversation.",
     navigation: true,
     indexable: true,
   },

@@ -267,4 +267,4 @@ licensed. See [decision #63](docs/16-decision-log.md). No content from
 
 ## License
 
-No license is set yet. Content and design are © Kat Bose unless otherwise noted.
+No license is set yet. Content and design are © KatBose unless otherwise noted.

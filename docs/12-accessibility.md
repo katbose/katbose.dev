@@ -122,8 +122,8 @@ Applied to every component, checked in review:
 Accessibility is not only a code concern — the CMS can introduce violations:
 
 - Alt text is a **required field** on media uploads
-- `Profile.profileImageAlt` must identify the portrait meaningfully (for example, “Portrait of Kat
-  Bose”), not repeat “image”, a filename or surrounding hero text. Favicon media has no DOM alt
+- `Profile.profileImageAlt` must identify the portrait meaningfully (for example, “Portrait of
+  KatBose”), not repeat “image”, a filename or surrounding hero text. Favicon media has no DOM alt
   attribute, but its Payload record retains an administrative label.
 - Headings inside articles follow a logical order; the editor does not skip levels for styling
 - Link text is descriptive — never "click here" or a bare URL

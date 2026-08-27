@@ -18,7 +18,7 @@ describe("shared schemas", () => {
     expect(
       ProfileImageSchema.parse({
         key,
-        alt: "Portrait of Kat Bose",
+        alt: "Portrait of KatBose",
         width: 960,
         height: 960,
         mimeType: "image/webp",
