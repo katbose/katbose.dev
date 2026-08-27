@@ -68,7 +68,7 @@ around silently.
 - [x] Monorepo scaffold: pnpm workspaces, `apps/web`, `packages/shared`
 - [x] Build the committed scaffold as an OpenNext Cloudflare Worker and run the full E2E suite in the Workers runtime (CI `quality` + `e2e`, 2026-08-27: `.open-next/worker.js` produced; 35 Playwright/axe tests pass under `opennextjs-cloudflare preview`). Windows/OneDrive bundling still fails on the documented pnpm-symlink limit; Linux CI is the normative check
 - [ ] Extend `test:spike:workers` to the full documented Spike A contract ([11-testing-and-ci.md](11-testing-and-ci.md) §11.2.2): ISR stale-while-revalidate against the R2 incremental cache binding, Draft Mode cookie round-trip/expiry, and `timingSafeEqual` from `node:crypto`. The historical throwaway scaffold proved these on 2026-08-25; the committed spec currently asserts only agent output and the dynamic OG PNG
-- [ ] Connect Cloudflare Workers Builds to protected `main`; production deploys from Workers Builds, not GitHub Actions
+- [x] Connect Cloudflare Workers Builds to protected `main`; production deploys from Workers Builds, not GitHub Actions (verified by the successful PR #5 deployment on 2026-08-27)
 - [ ] Provision/confirm only the accounts needed for Phase 1 and record no credentials in Git ([17-env-vars.md](17-env-vars.md) §17.1.1)
 - [x] TypeScript strict, Oxlint, Oxfmt, Vitest, Playwright configured
 - [x] Tailwind + Base UI, design tokens, typography scale, contrast-checked light + dark palettes with a `next-themes` toggle (defaults to system preference)
@@ -86,10 +86,10 @@ around silently.
 - [x] Canonical `/agent`, plus `robots.txt`, `humans.txt`, generated `/llms.txt`, `sitemap.xml` and `rss.xml` from shared typed generators (2026-08-27: `robots.txt` moved off Next's `app/robots.ts` convention onto `app/robots.txt/route.ts` so the served file and the repository-root export render the same generator, and every absolute URL now resolves through `apps/web/lib/site-url.ts` — see decisions #91 and #92. Cloudflare's managed `robots.txt` feature was injecting `Disallow: /` for `GPTBot` and `ClaudeBot` against the site's own allow rules and has been turned off, with its training opt-outs carried into the generator)
 - [x] SEO baseline: metadata, Open Graph, JSON-LD (`Person`, `BreadcrumbList`, `WebSite`) and deterministic bundled PNG favicons until Phase 2 activates Payload `SiteSettings`
 - [x] Static CSP and security headers in `next.config.ts`; no middleware/nonces and no runtime external media/CDN origins. Decision #94 adds only the exact `https://challenges.cloudflare.com` script/frame exception required by the contact widget
-- [x] Image delivery implementation: immutable Supabase originals, Cloudflare Images fixed variants, cache headers and transform-error fallback; registered-zone proof remains a gate below
+- [x] Image delivery implementation: immutable Supabase originals, Cloudflare Images fixed variants, cache headers and transform-error fallback; registered-zone transform and cache-hit proof passes, while the full Supabase original/fallback gate remains open below
 - [x] Sentry + PostHog repository wiring
-- [ ] Create and live-verify Slack `#katbose-alerts` and `#contact-form`, Sentry and PostHog projects
-- [x] Author public-table migrations, pgTAP/role tests and the protected backup-first production migration workflow in the working tree
+- [ ] Complete vendor verification: PostHog EU ingestion, production `$pageview` host and `web_vital` events are verified; the Slack contact Worker binding exists but channel delivery is unverified; Sentry configuration and the alerts-channel path remain unverified
+- [x] Author public-table migrations, pgTAP/role tests and the protected backup-first production migration workflow; all are committed on protected `main`
 - [x] Run public-table migrations and the pgTAP suites against real Postgres (CI `database`, 2026-08-27: Postgres 17.6.1.165; both migrations applied on `supabase start` and again on `supabase db reset`; `Files=2, Tests=72, Result: PASS`). Still unexecuted on this workstation because Docker is unavailable locally
 
 **Gate**
@@ -101,7 +101,7 @@ around silently.
 - [x] CI green **and enforced**: all four checks pass on `main` and the `main-protection` ruleset requires them as status checks (`quality`, `database`, `e2e`, `gitleaks`), with pull requests mandatory, force pushes and deletion blocked, squash-only merges, an empty bypass list, and strict up-to-date branches (2026-08-27; configuration recorded in [11-testing-and-ci.md](11-testing-and-ci.md) §11.2)
 - [x] axe (WCAG 2.2 AA) and keyboard E2E pass on every current page **in the Workers runtime** (CI `e2e`, 35 tests under `opennextjs-cloudflare preview`, 2026-08-27)
 - [ ] Design-reference gates pass ([19-design-reference.md](19-design-reference.md) §19.7): reduced-motion fallbacks, CLS = 0 with the intro loader and profile fallback, canonical `/agent` + generated `/llms.txt` from one route manifest, bottom-bar keyboard specs, no copied upstream files
-- [ ] Spike A registered-zone image transform/cache/original-fallback probe passes
+- [ ] Spike A registered-zone image transform/cache/original-fallback probe passes — transform and second-request `CF-Cache-Status: HIT` are verified; Supabase original plus forced `onerror=redirect` remain blocked until production has a `media` object
 - [x] Deployed to Cloudflare Workers via OpenNext from protected `main` (2026-08-27: squash-merge of PR #5 triggered `wrangler deploy`; apex `katbose.dev` bound as a custom domain and all of `/`, `/agent`, `/llms.txt`, `/robots.txt`, `/sitemap.xml`, `/opengraph-image.png`, `/contact`, `/privacy` return 200. `keep_vars: true` confirmed working — all four dashboard plain-text vars including `IP_PSEUDONYM_EPOCH` survived, so the earlier `-` markers in the wrangler diff were cosmetic. `workers_dev` and preview URLs are off as a consequence of declaring `routes`)
 - [ ] Lighthouse ≥ 95 on Performance, SEO and Accessibility
 
