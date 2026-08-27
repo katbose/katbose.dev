@@ -108,9 +108,13 @@ jobs:
 
           printf '%s' "$R2_RCLONE_CONFIG" > "$rclone_config"
           chmod 600 "$rclone_config"
-          rclone --config "$rclone_config" copyto "$encrypted_path" "$remote_dir/$backup_name.age"
+          # A bucket-scoped R2 token cannot create buckets, so rclone's default
+          # pre-upload bucket check fails the upload with 403 AccessDenied.
+          rclone --config "$rclone_config" --s3-no-check-bucket \
+            copyto "$encrypted_path" "$remote_dir/$backup_name.age"
           local_checksum="$(sha256sum "$encrypted_path" | cut -d ' ' -f 1)"
-          remote_checksum="$(rclone --config "$rclone_config" cat "$remote_dir/$backup_name.age" | sha256sum | cut -d ' ' -f 1)"
+          remote_checksum="$(rclone --config "$rclone_config" --s3-no-check-bucket \
+            cat "$remote_dir/$backup_name.age" | sha256sum | cut -d ' ' -f 1)"
           test "$local_checksum" = "$remote_checksum"
 
           echo "artifact_name=$backup_name" >> "$GITHUB_OUTPUT"
