@@ -86,7 +86,10 @@ describe("committed MCP configuration", () => {
     const github = config.mcpServers["github"];
     expect(github?.url).toBe("https://api.githubcopilot.com/mcp/");
     expect(github?.headers?.["Authorization"]).toBe("Bearer ${GITHUB_PERSONAL_ACCESS_TOKEN}");
-    expect(github?.autoApprove).toEqual([]);
+    // create_pull_request cannot touch the protected main branch directly: every
+    // PR still requires the quality/database/e2e/gitleaks checks and a squash
+    // merge, so auto-approving it does not bypass branch protection.
+    expect(github?.autoApprove).toEqual(["create_pull_request"]);
 
     const browserApprovals: Record<string, string[]> = {
       "chrome-devtools": ["list_pages"],

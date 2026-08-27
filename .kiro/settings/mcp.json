@@ -48,7 +48,9 @@
         "Authorization": "Bearer ${GITHUB_PERSONAL_ACCESS_TOKEN}"
       },
       "disabled": false,
-      "autoApprove": []
+      "autoApprove": [
+        "create_pull_request"
+      ]
     },
     "chrome-devtools": {
       "command": "npx",
