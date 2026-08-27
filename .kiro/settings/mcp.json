@@ -26,7 +26,8 @@
         "workers_list",
         "workers_builds_get_build",
         "workers_builds_get_build_logs",
-        "workers_builds_list_builds"
+        "workers_builds_list_builds",
+        "workers_get_worker"
       ]
     },
     "cloudflare-observability": {
@@ -47,7 +48,10 @@
         "Authorization": "Bearer ${GITHUB_PERSONAL_ACCESS_TOKEN}"
       },
       "disabled": false,
-      "autoApprove": []
+      "autoApprove": [
+        "create_pull_request",
+        "pull_request_read"
+      ]
     },
     "chrome-devtools": {
       "command": "npx",
@@ -84,6 +88,16 @@
       "disabled": false,
       "autoApprove": [
         "exec"
+      ]
+    },
+    "sentry": {
+      "url": "https://mcp.sentry.dev/mcp",
+      "disabled": false,
+      "autoApprove": [
+        "find_organizations",
+        "find_projects",
+        "search_sentry_tools",
+        "execute_sentry_tool"
       ]
     }
   }
