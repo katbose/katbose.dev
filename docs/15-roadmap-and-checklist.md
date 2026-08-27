@@ -85,7 +85,7 @@ around silently.
 - [x] Utility pages: `not-found.tsx`, `error.tsx`, `global-error.tsx`, `/privacy`, `/resume-unavailable`
 - [x] Canonical `/agent`, plus `robots.txt`, `humans.txt`, generated `/llms.txt`, `sitemap.xml` and `rss.xml` from shared typed generators (2026-08-27: `robots.txt` moved off Next's `app/robots.ts` convention onto `app/robots.txt/route.ts` so the served file and the repository-root export render the same generator, and every absolute URL now resolves through `apps/web/lib/site-url.ts` — see decisions #91 and #92. Cloudflare's managed `robots.txt` feature was injecting `Disallow: /` for `GPTBot` and `ClaudeBot` against the site's own allow rules and has been turned off, with its training opt-outs carried into the generator)
 - [x] SEO baseline: metadata, Open Graph, JSON-LD (`Person`, `BreadcrumbList`, `WebSite`) and deterministic bundled PNG favicons until Phase 2 activates Payload `SiteSettings`
-- [x] Static CSP and security headers in `next.config.ts`; no middleware/nonces; no runtime external media/CDN origins
+- [x] Static CSP and security headers in `next.config.ts`; no middleware/nonces and no runtime external media/CDN origins. Decision #94 adds only the exact `https://challenges.cloudflare.com` script/frame exception required by the contact widget
 - [x] Image delivery implementation: immutable Supabase originals, Cloudflare Images fixed variants, cache headers and transform-error fallback; registered-zone proof remains a gate below
 - [x] Sentry + PostHog repository wiring
 - [ ] Create and live-verify Slack `#katbose-alerts` and `#contact-form`, Sentry and PostHog projects
@@ -96,7 +96,7 @@ around silently.
 
 - [x] **Env var inventory documented; documented server-secret identifiers absent from the built client static chunks (local scan 2026-08-27)**
 - [x] **All current and default client-role grants on schemas, tables, sequences and functions revoked/controlled; RLS enabled/forced with restrictive denies on every application table; catalog + anon/authenticated CRUD tests pass; resume bucket private** — verified in CI against real Postgres 17.6 and Supabase Storage, 72 assertions (2026-08-27)
-- [ ] **Contact form protection live: Turnstile + honeypot + rate limit (fail closed) + Slack** — code paths implemented and unit/E2E covered; the live widget, verification keys and vendor credentials are unprovisioned, so the form fails closed
+- [ ] **Contact form protection live: Turnstile + honeypot + rate limit (fail closed) + Slack** — the non-interactive `katbose.dev` widget, public build variable, Worker secret binding and Slack contact binding are provisioned, and the client/server code now enforces `action=contact`, canonical-hostname validation and single-use token reset. A fresh production token success plus replay rejection, live rate limiting, Supabase persistence and Slack delivery remain unverified.
 - [x] **Privacy policy published** — `https://katbose.dev/privacy` returns 200 from the production Worker (2026-08-27)
 - [x] CI green **and enforced**: all four checks pass on `main` and the `main-protection` ruleset requires them as status checks (`quality`, `database`, `e2e`, `gitleaks`), with pull requests mandatory, force pushes and deletion blocked, squash-only merges, an empty bypass list, and strict up-to-date branches (2026-08-27; configuration recorded in [11-testing-and-ci.md](11-testing-and-ci.md) §11.2)
 - [x] axe (WCAG 2.2 AA) and keyboard E2E pass on every current page **in the Workers runtime** (CI `e2e`, 35 tests under `opennextjs-cloudflare preview`, 2026-08-27)

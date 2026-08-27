@@ -2,8 +2,9 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { ContactFormSchema, ContactSchema, type ContactFormInput } from "@katbose/shared";
-import { useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
+import { TurnstileWidget, type TurnstileWidgetHandle } from "./turnstile-widget";
 
 type Status = "idle" | "success" | "error";
 
@@ -14,9 +15,15 @@ const DEFAULT_VALUES: ContactFormInput = {
   website: "",
 };
 
-export function ContactForm({ fallbackEmail }: Readonly<{ fallbackEmail: string }>) {
+interface ContactFormProps {
+  fallbackEmail: string;
+  turnstileSiteKey: string;
+}
+
+export function ContactForm({ fallbackEmail, turnstileSiteKey }: Readonly<ContactFormProps>) {
   const [status, setStatus] = useState<Status>("idle");
   const [message, setMessage] = useState("");
+  const turnstileRef = useRef<TurnstileWidgetHandle>(null);
   const {
     clearErrors,
     register,
@@ -28,6 +35,14 @@ export function ContactForm({ fallbackEmail }: Readonly<{ fallbackEmail: string 
     resolver: zodResolver(ContactFormSchema),
     defaultValues: DEFAULT_VALUES,
   });
+
+  const handleTurnstileError = useCallback(() => {
+    setError("root.turnstile", { message: "Complete the bot check." });
+  }, [setError]);
+
+  const handleTurnstileVerified = useCallback(() => {
+    clearErrors("root.turnstile");
+  }, [clearErrors]);
 
   const submit = handleSubmit(async (input, event) => {
     setStatus("idle");
@@ -57,6 +72,10 @@ export function ContactForm({ fallbackEmail }: Readonly<{ fallbackEmail: string 
     } catch {
       setStatus("error");
       setMessage(`Something went wrong — please email ${fallbackEmail} directly.`);
+    } finally {
+      // Siteverify tokens are single-use, including when the downstream handler
+      // fails after redemption. Every retry must start with a fresh token.
+      turnstileRef.current?.reset();
     }
   });
 
@@ -112,6 +131,12 @@ export function ContactForm({ fallbackEmail }: Readonly<{ fallbackEmail: string 
         Website
         <input autoComplete="off" tabIndex={-1} {...register("website")} />
       </label>
+      <TurnstileWidget
+        ref={turnstileRef}
+        onError={handleTurnstileError}
+        onVerified={handleTurnstileVerified}
+        siteKey={turnstileSiteKey}
+      />
       {errors.root?.["turnstile"] && (
         <p className="field-error" role="alert">
           {errors.root["turnstile"].message}
