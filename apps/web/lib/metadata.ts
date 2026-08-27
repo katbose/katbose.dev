@@ -2,6 +2,17 @@ import { SITE_IDENTITY } from "@katbose/shared";
 import type { Metadata } from "next";
 import { getRoute, type PublicPath } from "./routes";
 
+// Referenced explicitly rather than relying on Next's opengraph-image file
+// convention: because every page sets `openGraph` here, the convention's
+// implicit image was never merged and no page ever emitted og:image. Resolved
+// against `metadataBase` in app/layout.tsx.
+export const OG_IMAGE = {
+  url: "/opengraph-image.png",
+  width: 1200,
+  height: 630,
+  alt: `${SITE_IDENTITY.name} — ${SITE_IDENTITY.role}`,
+} as const;
+
 export function createPageMetadata(path: PublicPath): Metadata {
   const route = getRoute(path);
   const title =
@@ -20,7 +31,13 @@ export function createPageMetadata(path: PublicPath): Metadata {
       type: "website",
       url,
       siteName: SITE_IDENTITY.name,
+      images: [OG_IMAGE],
     },
-    twitter: { card: "summary_large_image", title, description: route.description },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description: route.description,
+      images: [OG_IMAGE.url],
+    },
   };
 }
