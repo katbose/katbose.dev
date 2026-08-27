@@ -293,4 +293,38 @@ the historical `?view=agent` aside is superseded by #71: `/agent` is canonical.
 
 | # | Status | Decision | Reasoning |
 | --- | --- | --- | --- |
-| 87 | **Current normative** | *Relationship: clarifies #50/#69/#76/#81.* **Payload-managed profile portrait and favicon:** the `Profile` global owns a required `profileImage` upload relation plus meaningful `profileImageAlt`; a `SiteSettings` global owns the favicon upload relation. Both use validated, immutable objects in the existing public `media` bucket and the approved same-zone delivery path. Phase 1 owns the portrait slot, reserved geometry, metadata integration and bundled project-owned fallbacks; Phase 2 owns the Payload fields, upload validation, storage hooks and signed revalidation. | This adds editor-controlled identity assets without a new vendor, browser Supabase access or runtime external CDN. Profile uploads allow signature-verified PNG/JPEG/WebP within the size/dimension contract; favicon uploads are signature-verified square PNG only, with SVG rejected. New immutable keys provide cache busting, while last-good ISR/metadata and bundled defaults prevent CMS failure or an unset relation from producing a broken portrait or browser icon. Neither upstream asset is copied. |
+| 87 | **Current normative** | *Relationship: clarifies #50/#69/#76/#81 (see also #88 for the runtime baseline).* **Payload-managed profile portrait and favicon:** the `Profile` global owns a required `profileImage` upload relation plus meaningful `profileImageAlt`; a `SiteSettings` global owns the favicon upload relation. Both use validated, immutable objects in the existing public `media` bucket and the approved same-zone delivery path. Phase 1 owns the portrait slot, reserved geometry, metadata integration and bundled project-owned fallbacks; Phase 2 owns the Payload fields, upload validation, storage hooks and signed revalidation. | This adds editor-controlled identity assets without a new vendor, browser Supabase access or runtime external CDN. Profile uploads allow signature-verified PNG/JPEG/WebP within the size/dimension contract; favicon uploads are signature-verified square PNG only, with SVG rejected. New immutable keys provide cache busting, while last-good ISR/metadata and bundled defaults prevent CMS failure or an unset relation from producing a broken portrait or browser icon. Neither upstream asset is copied. |
+
+---
+
+## 16.20 Runtime baseline refresh at scaffold time (2026-08-27)
+
+| # | Status | Decision | Reasoning |
+| --- | --- | --- | --- |
+| 88 | **Current normative** | *Relationship: supersedes the version numbers in #68; its Windows/WSL2 fallback and exact-pinning rules are unchanged.* **Runtime baseline is the current Active LTS line: Node.js 24 (`>=24.17.0 <25.0.0`, `.nvmrc` 24) with Corepack-managed pnpm 11.24.0. Only LTS Node lines may be used, and exactly one Corepack-owned pnpm install is permitted.** CI pins `node-version: 24`. | #68 named Node 22 and pnpm 10 when the plan was written. At scaffold time Node 22 has left Active LTS and only receives maintenance updates, while Node 24 is Active LTS with support through April 2028, so "always LTS" now resolves to 24. pnpm 11 is the current stable major and the release the lockfile was generated with. Two competing pnpm installs (an npm-global copy plus a Corepack shim) were found to shadow each other and can silently violate the `packageManager` pin, so the npm-global copy is removed and Corepack is the single owner. `engines` enforces the LTS range so a non-LTS runtime fails fast instead of drifting. |
+
+**Additional historical annotations:** #68's "Node.js 22 LTS, Corepack-managed pnpm 10" version pair
+is superseded by #88; its baseline intent (single package manager, exact pins, committed lockfile,
+WSL2 fallback for OpenNext on Windows) remains current. #55's npm-based Spike A workaround remains
+historical and is not implementation guidance.
+
+---
+
+## 16.21 Repository-root agent files after scaffold (2026-08-27)
+
+| # | Status | Decision | Reasoning |
+| --- | --- | --- | --- |
+| 89 | **Current normative** | *Relationship: amends #71.* **Repository-root `llms.txt` and `robots.txt` are kept permanently, but only as exported copies of the generated routes.** `app/llms.txt/route.ts` and `app/robots.ts` remain the single source, derived from the typed route manifest. The root files are never hand-edited, are not served to visitors (they are outside `public/`), and are refreshed from the served response whenever the manifest changes. A verification test compares them against the served output and fails on drift. | #71 assumed the root snapshot would be deleted once the scaffold existed. Keeping repo-visible copies is genuinely useful—they document the agent surface for anyone reading the repository on GitHub without building it. The risk #71 guarded against is a *hand-maintained* duplicate diverging from what the site serves, so the copies are defined as build exports rather than authored files. Placing them in `public/` was rejected: static files there would shadow or conflict with the generated routes and reintroduce two sources of truth. |
+
+---
+
+## 16.22 Phase 1 dependency naming at implementation (2026-08-27)
+
+| # | Status | Decision | Reasoning |
+| --- | --- | --- | --- |
+| 90 | **Current normative** | *Relationship: clarifies the stack naming in PLAN/README and implements #58.* **Use the official `motion` package (Motion, formerly Framer Motion), exact-pinned and loaded through `LazyMotion` + `domAnimation`; keep React Hook Form + shared Zod for forms; inline selected `simple-icons` path data at build time.** | `motion` is the current package/name for the same animation library family previously documented as Framer Motion, so this is a naming/package clarification rather than an architectural change. Exact pins preserve the locked supply-chain policy; `LazyMotion` preserves the byte budget; React Hook Form prevents client/server field drift; selected simple-icons paths satisfy #58 without a runtime CDN. |
+
+**Implementation-status annotations (historical decision text remains unchanged):** #56's
+“documentation-first until the real scaffold lands” condition has ended; the Phase 1 scaffold now
+exists. #71's planning-snapshot sentence is amended by #89. #76's pending package-integration work
+is complete at repository-source level, while published-package byte parity remains unverified.

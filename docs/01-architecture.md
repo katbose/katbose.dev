@@ -177,22 +177,24 @@ Rules:
 
 ## 1.6 Repository structure
 
-Monorepo, pnpm workspaces:
+Monorepo, pnpm workspaces. Entries marked **planned** are architecture targets for later phases,
+not claims that the directory exists in the current Phase 1 checkout:
 
 ```text
 katbose-portfolio/
 ├── apps/
 │   ├── web/                  # Next.js public site → Cloudflare Workers via OpenNext
-│   ├── cms/                  # Payload CMS → Render, production only (render.yaml blueprint)
-│   └── dashboard/            # Private analytics dashboard → Render, production only
+│   ├── cms/                  # planned Phase 2: Payload CMS → Render
+│   └── dashboard/            # planned Phase 5: private analytics dashboard
 ├── packages/
-│   └── shared/               # shared types, Zod schemas, constants, utils
-├── supabase/migrations/      # public-schema + RLS migrations, run in order
-├── scripts/                  # export-content.ts, backup helpers, retention purge
+│   ├── shared/               # shared types, Zod schemas, constants, utils
+│   └── katbose-card/         # integrated source for the published `katbose` package
+├── supabase/                 # migrations, local config and pgTAP security tests
+├── scripts/                  # planned operational exports, backups and retention purge
 ├── e2e/                      # Playwright specs
-├── .github/workflows/        # ci, nightly-reconciliation, weekly-backup, secret-scan
+├── .github/workflows/        # current CI/migration/secret scan; scheduled jobs are later-phase
 ├── docs/                     # this documentation set
-├── render.yaml               # Render blueprint (no secret values)
+├── render.yaml               # planned Phase 2 Render blueprint
 ├── pnpm-workspace.yaml
 └── PLAN.md
 ```
@@ -272,7 +274,7 @@ directly from the browser, and the client never holds a service role key.
 
 ## 1.9 Final implementation boundaries
 
-- **Baseline:** Node.js 22 LTS, Corepack-managed pnpm 10, strict TypeScript, no application `any`,
+- **Baseline:** Node.js 24 Active LTS, Corepack-managed pnpm 11, strict TypeScript, no application `any`,
   exact package versions and committed lockfile. Native Windows is supported; WSL2 from a short
   Linux path is the fallback for OpenNext symlink/path/command-length failures.
 - **Workers Builds:** repository root is the build root; install is
@@ -282,7 +284,8 @@ directly from the browser, and the client never holds a service role key.
   complete before a migration-bearing commit reaches deployment-triggering `main`.
 - **Phase ownership:** Phase 1 owns the web/runtime and Spike A remote image gate; CMS domain/Access
   and Payload belong to Phase 2; AI Search to Phase 3; resume security to Phase 4; dashboard
-  domain/Access to Phase 5. The npm package is published but monorepo integration is pending.
+  domain/Access to Phase 5. The published npm package has integrated monorepo source; release parity
+  must still be checked before the next publish.
 - **Rendering boundary:** Server Components own pages, content fetches, metadata, `/agent` and
   derived Markdown. Client Components are leaf islands for theme, intro, clock, bottom bar, forms,
   Turnstile and bounded motion, receiving validated serializable props only.

@@ -23,14 +23,14 @@
 The plan describes required resources; it does **not** claim every account already exists. Create
 or confirm them only when their phase needs them:
 
-| Resource | Provision/confirm by | Needed for | Status (2026-08-24) |
+| Resource | Provision/confirm by | Needed for | Status (2026-08-27) |
 | --- | --- | --- | --- |
 | `katbose.dev` registration + Cloudflare DNS zone | Before Spike A's remote/domain pass and certainly before production deploy | Worker custom domain, trusted `CF-Connecting-IP`, CMS/dashboard subdomains | Domain ownership and DNS-zone status must be confirmed before the remote Spike A pass; no purchase or availability claim is recorded here |
-| Cloudflare Workers + Images + Turnstile + Access | Workers/Images for Spike A; Turnstile/Access before their Phase 1 gates | Web runtime, image transforms, bot checks and admin protection | Not confirmed here |
-| npm package `katbose` | Before shipping `packages/katbose-card` | `npx katbose` distribution | Created and published; user-confirmed 2026-08-24 |
-| Local Supabase CLI | Spike B | Free local Postgres/Storage/migration proof | Not confirmed here |
+| Cloudflare Workers + Images + Turnstile + Access | Workers/Images for Spike A; Turnstile/Access before their Phase 1 gates | Web runtime, image transforms, bot checks and admin protection | Worker/image/contact boundaries exist in code; live resources, widget, secrets and dashboard configuration are not confirmed |
+| npm package `katbose` | Before shipping `packages/katbose-card` | `npx katbose` distribution | Published (user-confirmed 2026-08-24) and monorepo source integrated; registry byte parity not independently checked |
+| Local Supabase CLI | Spike B | Free local Postgres/Storage/migration proof | Config, migrations and pgTAP tests committed; execution blocked on this machine because Docker is unavailable |
 | Production Supabase project | Before first protected production migration | Production Postgres and Storage | Not confirmed here |
-| Upstash, PostHog, Sentry and Slack workspace | While implementing their Phase 1 route/observability items | Rate limits, analytics, errors and alerts | Not confirmed here |
+| Upstash, PostHog, Sentry and Slack workspace | While implementing their Phase 1 route/observability items | Rate limits, analytics, errors and alerts | Repository integrations exist; live projects, channels/webhooks and delivery are not confirmed |
 | Render | Spike B / Phase 2 deployment | Payload CMS; dashboard waits until Phase 5 | Not confirmed here |
 | Cloudflare AI Search instance | Spike C / Phase 3 | Items API, cited chat and reconciliation | Not confirmed here |
 | Cal.com | **Confirmed:** `https://cal.com/katbose/meet` | Scheduling link on Home and Contact | Confirmed |
@@ -64,7 +64,7 @@ Render.
 | `SENTRY_AUTH_TOKEN` | **No** | Source map upload at build time | Quarterly |
 | `SLACK_ALERTS_WEBHOOK_URL` | **No** | `#katbose-alerts` | On compromise |
 | `SLACK_CONTACT_WEBHOOK_URL` | **No** | `#contact-form` | On compromise |
-| `CONTACT_FALLBACK_EMAIL` | Yes | Shown when the form fails closed (`im@katbose.dev`) | — |
+| `CONTACT_FALLBACK_EMAIL` | Rendered, not client env | Server-side fallback passed as a serializable form prop (`im@katbose.dev`) | — |
 | `NEXT_PUBLIC_CAL_LINK` | Yes | Cal.com booking link, rendered as a plain outbound link (`https://cal.com/katbose/meet`, [19-design-reference.md](19-design-reference.md)) | — |
 
 AI Search is a Wrangler `ai_search` binding in `apps/web/wrangler.jsonc`, not an application

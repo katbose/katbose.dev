@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title">
+  <title id="title">Kat Bose profile fallback</title>
+  <rect width="512" height="512" rx="256" fill="Canvas"/>
+  <circle cx="256" cy="190" r="92" fill="CanvasText" opacity="0.18"/>
+  <path d="M96 470c16-104 78-156 160-156s144 52 160 156" fill="CanvasText" opacity="0.18"/>
+  <text x="256" y="292" fill="CanvasText" font-family="system-ui, sans-serif" font-size="112" font-weight="700" text-anchor="middle">KB</text>
+</svg>

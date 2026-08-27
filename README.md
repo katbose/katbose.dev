@@ -14,10 +14,10 @@ operations of the site. **[PLAN.md](PLAN.md)** is the index and summary;
 
 | | |
 | --- | --- |
-| **Master plan** | v1.6 — **Final architecture lock; approved for Phase 1 implementation** (last updated 2026-08-26) |
-| **Code** | Application scaffold pending. The `katbose` npm package is published; monorepo integration is pending. |
+| **Master plan** | v1.6 — **Final architecture lock; Phase 1 repository implementation in progress** (last updated 2026-08-27) |
+| **Code** | The local Phase 1 web foundation is implemented: 20 Next routes, the typed Home/agent systems, security boundaries, migrations/tests, CI workflows, and `packages/katbose-card` source are present. Live services and deployment gates remain intentionally unclaimed. |
 | **Roadmap** | 5 phases · Foundation → Content → AI Search → Resume Security → Analytics & Ops |
-| **Validation** | Spike A local runtime pass complete; Spike A remote image pass, Spike B and Spike C remain fail-stop gates. |
+| **Validation** | Frozen dependency resolution, typecheck, Oxlint, Oxfmt, 28 Vitest tests, the 20-route Next.js production build, and 35 Playwright/axe tests against `next start` pass locally. Native Windows/OneDrive OpenNext bundling still hits the documented pnpm-symlink access limit; Workers-runtime CI/WSL validation, local Supabase pgTAP execution, registered-zone images, live vendors, and deployment remain open. |
 
 Architecture and Phase 1 implementation choices are closed. Validation spikes prove external or
 experimental integrations; they do not reopen settled architecture. A failed gate stops its
@@ -63,7 +63,7 @@ It is **not** a knowledge base — reference notes live in a
 | Layer | Choice |
 | --- | --- |
 | Frontend | Next.js (App Router) · TypeScript · Tailwind CSS · Base UI · pnpm |
-| Forms & motion | React Hook Form + Zod · Framer Motion (budget-controlled) |
+| Forms & motion | React Hook Form + Zod · Motion (`motion`, formerly Framer Motion; budget-controlled) |
 | CMS | **Payload CMS** on Render |
 | Data | **Supabase** — Postgres (`public` + `payload` schemas) + Storage/CDN origin |
 | Image delivery | Cloudflare Images transforms over immutable Supabase media originals |
@@ -164,17 +164,17 @@ Old epochs may coexist until purge and are never correlated. → [docs/05](docs/
 katbose-portfolio/
 ├── apps/
 │   ├── web/                  # Next.js public site → Cloudflare Workers via OpenNext
-│   ├── cms/                  # Payload CMS → Render, production only (render.yaml blueprint)
-│   └── dashboard/            # Private analytics dashboard → Render, production only
+│   ├── cms/                  # planned Phase 2: Payload CMS → Render
+│   └── dashboard/            # planned Phase 5: private analytics dashboard
 ├── packages/
 │   ├── shared/               # shared types, Zod schemas, constants, utils
-│   └── katbose-card/         # source integration pending; npm package already published
-├── supabase/migrations/      # public-schema + RLS migrations, run in order
-├── scripts/                  # export-content.ts, backup helpers, retention purge
+│   └── katbose-card/         # integrated source for the published `katbose` package
+├── supabase/                 # migrations, local config and pgTAP security tests
+├── scripts/                  # planned operational exports, backups and retention purge
 ├── e2e/                      # Playwright specs
-├── .github/workflows/        # ci, nightly-reconciliation, weekly-backup, secret-scan
+├── .github/workflows/        # current CI/migration/secret scan; scheduled jobs are later-phase
 ├── docs/                     # this documentation set (01–20)
-├── render.yaml               # Render blueprint (no secret values)
+├── render.yaml               # planned Phase 2 Render blueprint (no secret values)
 ├── pnpm-workspace.yaml
 └── PLAN.md
 ```
@@ -200,7 +200,7 @@ katbose-portfolio/
 | [13](docs/13-seo-and-agent-readability.md) | **SEO & Agent Readability** | Core Web Vitals targets, JSON-LD, `robots.txt`, `llms.txt`, `humans.txt`, utility pages |
 | [14](docs/14-privacy-and-compliance.md) | **Privacy & Compliance** | Data inventory, no-cookie-banner rationale, retention, privacy policy, i18n out of scope |
 | [15](docs/15-roadmap-and-checklist.md) | **Roadmap & Checklist** | Five phases with build lists and non-negotiable production gates |
-| [16](docs/16-decision-log.md) | **Decision Log** | Decisions through #87 with status vocabulary, historical annotations and reasoning |
+| [16](docs/16-decision-log.md) | **Decision Log** | Decisions through #90 with status vocabulary, historical annotations and reasoning |
 | [17](docs/17-env-vars.md) | **Environment Variables** | Full secrets inventory per surface, generation, rotation calendar |
 | [18](docs/18-knowledge-base.md) | **Knowledge Base** | Separate repository, TIE boundary, future indexing |
 | [19](docs/19-design-reference.md) | **Design Reference** | justaditya.com/Hackyfolio as primary visual reference, micro-interaction catalogue, intro loader, `npx katbose`, compatibility analysis |
@@ -224,7 +224,7 @@ Full build lists and gates: [docs/15](docs/15-roadmap-and-checklist.md).
 
 ## Getting started (reading this repo)
 
-This is a documentation-first project. To understand the whole platform, read in this order:
+This is a documentation-led implementation project. To understand the whole platform, read in this order:
 
 1. **This README** — orientation.
 2. **[PLAN.md](PLAN.md)** — the master plan: vision, principles, stack, domains, the four core

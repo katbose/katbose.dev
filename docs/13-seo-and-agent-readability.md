@@ -28,8 +28,8 @@
   ([01-architecture.md](01-architecture.md) §1.4.1)
 - **`next/font`** with self-hosted fonts, `font-display: swap`, and a minimal family set —
   typography is a core principle, so subset carefully rather than loading many weights
-- **Minimal JavaScript** — Framer Motion used sparingly and lazily; no animation library on pages
-  that do not animate
+- **Minimal JavaScript** — Motion (the `motion` package, formerly Framer Motion) is used sparingly
+  through `LazyMotion`/`domAnimation`; no animation library loads on pages that do not animate
 - **Route-level code splitting**; heavy features (Ask AI, syntax highlighting) load on demand
 - **No layout shift** from late-loading widgets — Turnstile and analytics reserve space or load
   outside the flow
@@ -128,13 +128,15 @@ to be found and cited, including by the tools recruiters increasingly use.
 
 `/agent` is the canonical crawlable Markdown representation of public portfolio content. A typed
 route manifest drives navigation, `/agent`, sitemap metadata and the generated `/llms.txt` Route
-Handler; no handwritten runtime duplicate is allowed. Until the scaffold exists, repository-root
-`llms.txt` is explicitly a checked-in planning snapshot and must match this sample:
+Handler; no handwritten runtime duplicate is allowed. Repository-root `llms.txt` and `robots.txt` are
+retained as **exported copies of the served output** (decision #89): they are regenerated from the
+running routes, never hand-edited, and are not served to visitors. The sample below is the shape the
+generated output follows:
 
 ```text
 # Kat Bose — katbose.dev
 
-> Checked-in planning snapshot. Once the web scaffold exists, `/llms.txt` is generated from the typed route manifest; `/agent` is the canonical agent-readable view.
+> Generated from the typed public route manifest.
 
 ## Pages
 - [Agent view](https://katbose.dev/agent): Canonical plain-Markdown representation of public portfolio content
@@ -152,8 +154,8 @@ Handler; no handwritten runtime duplicate is allowed. Until the scaffold exists,
 - GitHub: https://github.com/katbose
 ```
 
-The generation test fails if a public route lacks agent metadata or if the checked-in planning
-snapshot differs from this sample before scaffold replacement.
+The generation test fails if a public route lacks agent metadata, or if the repository-root exported
+copies differ from the response the routes actually serve.
 
 ---
 

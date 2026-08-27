@@ -2,14 +2,15 @@
 
 **Version:** 1.6
 **Status:** Final architecture lock; approved for Phase 1 implementation
-**Last updated:** 2026-08-26
+**Last updated:** 2026-08-27
 
 This is the entry point for the design, architecture and operations of `katbose.dev`. Architecture
 and Phase 1 implementation choices are closed. Spike A's remote image check, Spike B and Spike C
 remain fail-stop execution gates for their dependent work; a failed gate creates a new decision
-rather than an undocumented workaround. The `katbose` package is published, but its monorepo
-integration remains Phase 1 work. v1.0 was the brainstorm; v1.1 closed production-readiness gaps;
-v1.2 split the specification; v1.6 is the final implementation lock.
+rather than an undocumented workaround. The published `katbose` package now has integrated
+monorepo source; byte-for-byte registry/repository parity remains an explicit release check. v1.0
+was the brainstorm; v1.1 closed production-readiness gaps; v1.2 split the specification; v1.6 is
+the final implementation lock.
 
 **Everything discussed lives in [`docs/`](docs/). This file is the index and the summary.**
 
@@ -34,7 +35,7 @@ v1.2 split the specification; v1.6 is the final implementation lock.
 | 13 | [SEO & Agent Readability](docs/13-seo-and-agent-readability.md) | Core Web Vitals targets, JSON-LD, robots.txt, `llms.txt`, humans.txt, utility pages |
 | 14 | [Privacy & Compliance](docs/14-privacy-and-compliance.md) | Data inventory, no-cookie-banner rationale, retention, privacy policy outline, i18n out of scope |
 | 15 | [Roadmap & Checklist](docs/15-roadmap-and-checklist.md) | Five phases with build lists and non-negotiable production gates |
-| 16 | [Decision Log](docs/16-decision-log.md) | Decisions through #87 with status vocabulary, historical annotations and reasoning |
+| 16 | [Decision Log](docs/16-decision-log.md) | Decisions through #90 with status vocabulary, historical annotations and reasoning |
 | 17 | [Environment Variables](docs/17-env-vars.md) | Full secrets inventory per surface, generation, rotation calendar |
 | 18 | [Knowledge Base](docs/18-knowledge-base.md) | Separate repository, TIE boundary, future indexing |
 | 19 | [Design Reference](docs/19-design-reference.md) | justaditya.com/Hackyfolio as primary visual reference, micro-interaction catalogue, intro loader, `npx katbose`, compatibility analysis |
@@ -80,7 +81,7 @@ It is **not** a knowledge base — that lives in a [separate repository](docs/18
 | Layer | Choice |
 | --- | --- |
 | Frontend | Next.js (App Router) · TypeScript · Tailwind CSS · Base UI · pnpm |
-| Forms | React Hook Form + Zod · Framer Motion (minimal) |
+| Forms | React Hook Form + Zod · Motion (`motion`, formerly Framer Motion; minimal bytes) |
 | CMS | Payload CMS on **Render** |
 | Data | Supabase — Postgres (`public` + `payload` schemas) + Storage/CDN origin |
 | Image delivery | Cloudflare Images transformations over immutable Supabase media originals |

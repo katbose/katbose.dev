@@ -1,16 +1,15 @@
-User-agent: *
+User-Agent: *
 Allow: /
 Disallow: /api/
 Disallow: /resume-unavailable
 
-# AI agents welcome
-User-agent: GPTBot
+User-Agent: GPTBot
 Allow: /
 
-User-agent: ClaudeBot
+User-Agent: ClaudeBot
 Allow: /
 
-User-agent: PerplexityBot
+User-Agent: PerplexityBot
 Allow: /
 
 Sitemap: https://katbose.dev/sitemap.xml

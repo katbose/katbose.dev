@@ -76,7 +76,8 @@ directly into the existing agent-readability goal ([13-seo-and-agent-readability
 - `generateMarkdown` renders the same validated manifest + Payload data at canonical `/agent`—one
   source, two presentations, no drift.
 - The typed route manifest also generates `/llms.txt`, navigation and sitemap metadata. The
-  repository-root `llms.txt` remains a planning snapshot only until scaffold generation exists.
+  repository-root `llms.txt` is a checked-in export verified against the canonical generator; it is
+  never a second authored source (decision #89).
 - The bottom-bar control links/transitions to `/agent`; a query-string view is not canonical.
 
 ### Stack confirmation
@@ -88,7 +89,7 @@ observed facts inform anatomy while project constraints remain normative.
 | --- | --- | --- |
 | Next.js (App Router), TypeScript | Same | ✔ aligned |
 | Tailwind CSS 4 | Tailwind (version pinned at scaffold time) | ✔ aligned |
-| framer-motion 12 | Framer Motion, "minimal usage" | ✔ see §19.5 — budget clarified |
+| framer-motion 12 | Motion (`motion`, formerly Framer Motion), budget-controlled | ✔ same library family; current package naming locked by #90 |
 | Hackyfolio typography and light/dark palette | DM Sans and the Tailwind `gray` ramp, measured and recreated in project-owned tokens (decisions #57, #60) | ✔ resolved — [20](20-design-system.md) §20.4, §20.5 |
 | lucide-react icons | lucide-react for UI icons; brand marks come from build-time `simple-icons` (decision #58) | ✔ resolved — [20](20-design-system.md) §20.11 |
 | next-themes (dark/light) | Adopted directly — see below | ✔ same toggle UX as justaditya.com |
@@ -168,7 +169,7 @@ Every interaction below ships with a `prefers-reduced-motion` fallback (mandator
 Rules that keep this within the performance budget ([13](13-seo-and-agent-readability.md) §13.2):
 
 - Only `transform`, `opacity` and `filter` are animated — never layout properties.
-- framer-motion is imported via `LazyMotion`/`domAnimation` so the full library never ships.
+- Motion is imported from `motion/react` via `LazyMotion`/`domAnimation` so the full library never ships.
 - Reveal animations run **once** (`viewport: { once: true }`) — no scroll-linked re-triggering.
 - Anything below the fold animates on intersection; nothing animates during initial paint except
   the intro loader (§19.4), which is bounded.
@@ -238,7 +239,7 @@ untouched. The table maps each Hackyfolio concept to its home in this architectu
 | GitHub contributions graph | Deferred in Phase 1; if enabled later, server fetch only with timeout, ISR cache and calm fallback | [08](08-resilience.md) |
 | Bottom bar navigation | Replaces a traditional header as primary nav — must still satisfy skip-link, focus-visible and keyboard specs | [12](12-accessibility.md) |
 | One long page | Home page only; dedicated routes stay | [PLAN.md](../PLAN.md) navigation table |
-| framer-motion everywhere | Allowed, with the §19.3 budget rules; "minimal usage" in PLAN.md is reinterpreted as "minimal *bytes and main-thread cost*, not minimal delight" | [13](13-seo-and-agent-readability.md) §13.2 |
+| Motion everywhere | Allowed, with the §19.3 budget rules; "minimal usage" in PLAN.md means minimal *bytes and main-thread cost*, not minimal delight | [13](13-seo-and-agent-readability.md) §13.2 |
 
 Points of friction found and resolved:
 

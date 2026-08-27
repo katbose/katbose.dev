@@ -298,7 +298,7 @@ Budget rules, inherited from 19 §19.3 and 13 §13.2:
 
 - Only `transform`, `opacity` and `filter` animate. Never a layout property. The one exception is
   the `<Collapsible>` height animation, which is measured and runs on a contained element.
-- Framer Motion is imported through `LazyMotion` + `domAnimation`; the full library never ships.
+- Motion (`motion`, formerly Framer Motion) is imported through `LazyMotion` + `domAnimation`; the full library never ships.
 - Reveals run once (`viewport: { once: true }`). Nothing is scroll-linked.
 - Nothing animates during initial paint except the intro loader; its total sequence, including
   exit, is ≤2s.
@@ -495,8 +495,9 @@ Contract rules:
    Unknown rich-text nodes fail visibly in tests rather than being silently dropped. Strict
    TypeScript applies and application code contains no `any`.
 4. **One route manifest, derived outputs.** The route manifest drives navigation, canonical
-   `/agent`, sitemap metadata and generated `/llms.txt`. The root `llms.txt` is only a planning
-   snapshot until the scaffold exists.
+   `/agent`, sitemap metadata and generated `/llms.txt`. Repository-root `llms.txt` and `robots.txt`
+   are checked-in exports verified against the canonical generators (decision #89), never authored
+   runtime duplicates.
 5. **Every section degrades.** Empty data renders `<EmptyState>`; an uncached failure renders
    `<CmsUnavailableFallback>` without taking down the page.
 6. **GitHub is deferred in Phase 1.** If deliberately enabled later, it is fetched server-side with

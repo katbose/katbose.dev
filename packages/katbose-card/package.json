@@ -1,0 +1,16 @@
+{
+  "name": "katbose",
+  "version": "0.0.1",
+  "description": "Kat Bose's offline terminal business card",
+  "license": "MIT",
+  "bin": {
+    "katbose": "src/index.js"
+  },
+  "files": [
+    "src/index.js"
+  ],
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  }
+}

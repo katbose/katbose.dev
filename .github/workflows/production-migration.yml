@@ -1,0 +1,113 @@
+name: production-migration
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: Type APPLY PRODUCTION MIGRATIONS to continue
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-migration
+  cancel-in-progress: false
+
+jobs:
+  migrate:
+    name: Backup and apply committed migrations
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: production
+    steps:
+      - name: Require protected main ref
+        env:
+          SELECTED_REF: ${{ github.ref }}
+        run: test "$SELECTED_REF" = "refs/heads/main"
+
+      - name: Require explicit confirmation
+        env:
+          CONFIRMATION: ${{ inputs.confirmation }}
+        run: test "$CONFIRMATION" = "APPLY PRODUCTION MIGRATIONS"
+
+      - name: Check out selected ref
+        uses: actions/checkout@v4
+
+      - name: Use Node.js 24 LTS
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Enable pinned Corepack pnpm
+        run: |
+          corepack enable
+          test "$(pnpm --version)" = "11.24.0"
+
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Require committed migrations
+        shell: bash
+        run: |
+          if ! compgen -G "supabase/migrations/*.sql" > /dev/null; then
+            echo "No committed Supabase migrations found at supabase/migrations/*.sql" >&2
+            exit 1
+          fi
+
+      - name: Install backup tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes age postgresql-client rclone
+
+      - name: Create and verify encrypted off-primary backup
+        id: backup
+        shell: bash
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          BACKUP_AGE_RECIPIENT: ${{ secrets.BACKUP_AGE_RECIPIENT }}
+          R2_RCLONE_CONFIG: ${{ secrets.R2_RCLONE_CONFIG }}
+        run: |
+          set -euo pipefail
+          backup_name="pre-migration-${GITHUB_SHA::12}-$(date -u +%Y%m%dT%H%M%SZ).dump"
+          dump_path="$RUNNER_TEMP/$backup_name"
+          encrypted_path="$GITHUB_WORKSPACE/$backup_name.age"
+          rclone_config="$RUNNER_TEMP/rclone.conf"
+          remote_dir="r2:katbose-backups/pre-migration"
+
+          pg_dump --dbname="$SUPABASE_DB_URL" --format=custom --no-owner --no-privileges --file="$dump_path"
+          test -s "$dump_path"
+          pg_restore --list "$dump_path" > /dev/null
+
+          age --recipient "$BACKUP_AGE_RECIPIENT" --output "$encrypted_path" "$dump_path"
+          rm --force "$dump_path"
+          test -s "$encrypted_path"
+
+          printf '%s' "$R2_RCLONE_CONFIG" > "$rclone_config"
+          chmod 600 "$rclone_config"
+          rclone --config "$rclone_config" copyto "$encrypted_path" "$remote_dir/$backup_name.age"
+          local_checksum="$(sha256sum "$encrypted_path" | cut -d ' ' -f 1)"
+          remote_checksum="$(rclone --config "$rclone_config" cat "$remote_dir/$backup_name.age" | sha256sum | cut -d ' ' -f 1)"
+          test "$local_checksum" = "$remote_checksum"
+
+          echo "artifact_name=$backup_name" >> "$GITHUB_OUTPUT"
+          echo "encrypted_path=$encrypted_path" >> "$GITHUB_OUTPUT"
+
+      - name: Retain encrypted backup artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.backup.outputs.artifact_name }}
+          path: ${{ steps.backup.outputs.encrypted_path }}
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Install pinned Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: 2.116.0
+
+      - name: Apply committed migrations
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: supabase db push --db-url "$SUPABASE_DB_URL"

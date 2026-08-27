@@ -62,38 +62,39 @@ around silently.
 
 **Build**
 
-- [ ] Monorepo scaffold: pnpm workspaces, `apps/web`, `packages/shared`
-- [ ] **Validate the OpenNext Cloudflare Worker — ISR/revalidation, Draft Mode cookies, Node-compatible crypto and dynamic OG images — before building on it** ([01-architecture.md](01-architecture.md) §1.2)
+- [x] Monorepo scaffold: pnpm workspaces, `apps/web`, `packages/shared`
+- [ ] **Validate the current OpenNext Cloudflare Worker build/runtime — ISR/revalidation, Draft Mode cookies, Node-compatible crypto and dynamic OG images** ([01-architecture.md](01-architecture.md) §1.2); the historical Spike A passed, but the current scaffold's Windows/OneDrive build remains blocked pending Linux/CI proof
 - [ ] Connect Cloudflare Workers Builds to protected `main`; production deploys from Workers Builds, not GitHub Actions
 - [ ] Provision/confirm only the accounts needed for Phase 1 and record no credentials in Git ([17-env-vars.md](17-env-vars.md) §17.1.1)
-- [ ] TypeScript strict, Oxlint, Oxfmt, Vitest, Playwright configured
-- [ ] Tailwind + Base UI, design tokens, typography scale, contrast-checked light + dark palettes with a `next-themes` toggle (defaults to system preference)
-- [ ] Theme control is a two-state light ⇄ dark toggle in the top-right; clean first visit resolves from the OS preference
-- [ ] Layout, navigation, footer, skip link, mobile menu with focus trap
-- [ ] Home section stack per the design reference ([19-design-reference.md](19-design-reference.md)): typed section manifest + registry renderer, bottom bar with human/agent toggle, micro-interaction catalogue with reduced-motion fallbacks
-- [ ] Hero profile-portrait slot with reserved 1:1 geometry plus project-owned portrait and favicon
-      fallbacks; asset props use the future Payload schemas without requiring the Phase 2 CMS
-- [ ] Intro loader (multilingual "Hello", ≤2s, once per session, skipped under reduced motion)
+- [x] TypeScript strict, Oxlint, Oxfmt, Vitest, Playwright configured
+- [x] Tailwind + Base UI, design tokens, typography scale, contrast-checked light + dark palettes with a `next-themes` toggle (defaults to system preference)
+- [x] Theme control is a two-state light ⇄ dark toggle in the top-right; clean first visit resolves from the OS preference
+- [x] Layout, navigation, footer, skip link, mobile menu with focus trap
+- [x] Home section stack per the design reference ([19-design-reference.md](19-design-reference.md)): typed section manifest + registry renderer, bottom bar with human/agent toggle, micro-interaction catalogue with reduced-motion fallbacks
+- [x] Hero profile-portrait slot with reserved 1:1 geometry plus project-owned portrait and 32/48/180/192/512 PNG favicon fallbacks; asset props use future Payload schemas without requiring Phase 2
+- [x] Intro loader (multilingual "Hello", ≤2s, once per session, skipped under reduced motion)
 - [x] `katbose` npm package published (user-confirmed 2026-08-24)
-- [ ] Integrate `packages/katbose-card` into the pnpm monorepo and keep source aligned with releases
-- [ ] Pages: Home (hero, about, featured projects, experience preview, latest blog, latest TIE, contact CTA), Projects, Experience, Resume, Contact
-- [ ] Utility pages: `not-found.tsx`, `error.tsx`, `global-error.tsx`, `/privacy`, `/resume-unavailable`
-- [ ] Canonical `/agent`, plus `robots.txt`, `humans.txt`, generated `/llms.txt`, `sitemap.xml` and `rss.xml` from the typed route manifest
-- [ ] SEO baseline: metadata, Open Graph, JSON-LD (`Person`, `BreadcrumbList`, `WebSite`) and a
-      deterministic bundled favicon until Phase 2 activates Payload `SiteSettings`
-- [ ] Static CSP and security headers in `next.config.ts`; no middleware/nonces; no runtime external media/CDN origins
-- [ ] Image CDN path: immutable Supabase originals, Cloudflare Images fixed variants, cache headers and transform-error fallback
-- [ ] Sentry + PostHog wired; Slack `#katbose-alerts` and `#contact-form` created
-- [ ] Public-table migrations pass locally; the protected explicit migration workflow takes a backup and applies them before a migration-bearing commit reaches deployment-triggering `main`
+- [x] Integrate `packages/katbose-card` source into the pnpm monorepo
+- [ ] Compare repository package contents with the published release before claiming source/release parity
+- [x] Pages: Home (hero, about, featured projects, experience preview, latest blog, latest TIE, contact CTA), Projects, Experience, Resume, Contact
+- [x] Utility pages: `not-found.tsx`, `error.tsx`, `global-error.tsx`, `/privacy`, `/resume-unavailable`
+- [x] Canonical `/agent`, plus `robots.txt`, `humans.txt`, generated `/llms.txt`, `sitemap.xml` and `rss.xml` from shared typed generators
+- [x] SEO baseline: metadata, Open Graph, JSON-LD (`Person`, `BreadcrumbList`, `WebSite`) and deterministic bundled PNG favicons until Phase 2 activates Payload `SiteSettings`
+- [x] Static CSP and security headers in `next.config.ts`; no middleware/nonces; no runtime external media/CDN origins
+- [x] Image delivery implementation: immutable Supabase originals, Cloudflare Images fixed variants, cache headers and transform-error fallback; registered-zone proof remains a gate below
+- [x] Sentry + PostHog repository wiring
+- [ ] Create and live-verify Slack `#katbose-alerts` and `#contact-form`, Sentry and PostHog projects
+- [x] Author public-table migrations, pgTAP/role tests and the protected backup-first production migration workflow in the working tree
+- [ ] Run public-table migrations and pgTAP tests against local Supabase (blocked locally until Docker is available)
 
 **Gate**
 
-- [ ] **Env var inventory documented; service role key confirmed absent from the client bundle**
+- [x] **Env var inventory documented; documented server-secret identifiers absent from the built client static chunks (local scan 2026-08-27)**
 - [ ] **All current and default client-role grants on schemas, tables, sequences and functions revoked/controlled; RLS enabled/forced with restrictive denies on every application table; catalog + anon/authenticated CRUD tests pass; resume bucket private**
 - [ ] **Contact form protection live: Turnstile + honeypot + rate limit (fail closed) + Slack**
 - [ ] **Privacy policy published**
 - [ ] CI green: typecheck, lint, unit, OpenNext build, Workers-runtime E2E; gitleaks passing; branch protection on `main`
-- [ ] axe (WCAG 2.2 AA) and keyboard E2E passing on every existing page
+- [x] axe (WCAG 2.2 AA) and keyboard E2E pass on every current page against the Next production server (35-test local suite, 2026-08-27); Workers-runtime execution remains part of the unchecked CI gate above
 - [ ] Design-reference gates pass ([19-design-reference.md](19-design-reference.md) §19.7): reduced-motion fallbacks, CLS = 0 with the intro loader and profile fallback, canonical `/agent` + generated `/llms.txt` from one route manifest, bottom-bar keyboard specs, no copied upstream files
 - [ ] Spike A registered-zone image transform/cache/original-fallback probe passes
 - [ ] Deployed to Cloudflare Workers via OpenNext from protected `main`

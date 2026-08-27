@@ -1,18 +1,20 @@
 # Kat Bose — katbose.dev
 
-> Checked-in planning snapshot. Once the web scaffold exists, `/llms.txt` is generated from the typed route manifest; `/agent` is the canonical agent-readable view.
+> Generated from the typed public route manifest.
 
 ## Pages
-- [Agent view](https://katbose.dev/agent): Canonical plain-Markdown representation of public portfolio content
-- [Projects](https://katbose.dev/projects): Project case studies with architecture, challenges and lessons learned
-- [Experience](https://katbose.dev/experience): Professional timeline
-- [Blog](https://katbose.dev/blog): Long-form technical articles
-- [TIE](https://katbose.dev/tie): Short engineering notes (Things I Explore)
-- [Resume](https://katbose.dev/resume): Full resume, viewable online
-- [Ask AI](https://katbose.dev/ask-ai): Semantic search over public site content with validated citations
+- [Home](https://katbose.dev/): Kat Bose's portfolio and engineering work.
+- [Projects](https://katbose.dev/projects): Selected software projects and engineering decisions.
+- [Experience](https://katbose.dev/experience): Professional experience and areas of impact.
+- [Blog](https://katbose.dev/blog): Long-form technical writing.
+- [TIE](https://katbose.dev/tie): Short notes on things I explore.
+- [Resume](https://katbose.dev/resume): Recruiter-first resume overview and download entry point.
+- [Ask AI](https://katbose.dev/ask-ai): Resilient semantic search over public portfolio content.
+- [Contact](https://katbose.dev/contact): Send Kat a message or book a conversation.
+- [Privacy](https://katbose.dev/privacy): Plain-language data and privacy policy.
+- [Agent view](https://katbose.dev/agent): Canonical agent-readable portfolio view.
 
 ## Contact
-- [Contact form](https://katbose.dev/contact)
 - Email: im@katbose.dev
 - LinkedIn: https://linkedin.com/in/katbose
 - GitHub: https://github.com/katbose

@@ -111,7 +111,7 @@ Applied to every component, checked in review:
 - **Images** have meaningful `alt` text; decorative images use `alt=""`. The homepage portrait
   has fixed width/height, a reserved 1:1 box and the Payload-provided identity description; its
   bundled fallback uses the same accessible name and geometry
-- **`prefers-reduced-motion`** disables or reduces every Framer Motion animation
+- **`prefers-reduced-motion`** disables or reduces every Motion animation
 - **Zoom to 200%** does not break layout or hide content
 - **Code blocks** are keyboard-scrollable and copy buttons are reachable and labelled
 

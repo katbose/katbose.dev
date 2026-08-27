@@ -1,0 +1,48 @@
+{
+  "name": "web",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "build": "next build && opennextjs-cloudflare build --skipNextBuild",
+    "build:next": "next build",
+    "cf-typegen": "wrangler types --env-interface CloudflareEnv cloudflare-env.d.ts",
+    "dev": "next dev",
+    "deploy": "pnpm build && opennextjs-cloudflare deploy",
+    "preview": "pnpm build && opennextjs-cloudflare preview",
+    "test": "vitest run",
+    "test:e2e:workers": "pnpm --dir ../.. exec playwright test --config playwright.config.ts",
+    "test:spike:workers": "pnpm --dir ../.. exec playwright test --config playwright.config.ts --grep @spike",
+    "typecheck": "tsc --project tsconfig.json"
+  },
+  "dependencies": {
+    "@base-ui/react": "1.7.0",
+    "@hookform/resolvers": "5.9.1",
+    "@katbose/shared": "workspace:*",
+    "@sentry/nextjs": "10.71.0",
+    "@supabase/supabase-js": "2.112.4",
+    "@upstash/ratelimit": "2.0.8",
+    "@upstash/redis": "1.38.3",
+    "motion": "13.1.1",
+    "next": "16.3.3",
+    "next-themes": "0.4.6",
+    "posthog-js": "1.421.0",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "react-hook-form": "7.86.0",
+    "simple-icons": "16.28.0",
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "@opennextjs/cloudflare": "1.20.3",
+    "@tailwindcss/postcss": "4.3.3",
+    "@types/node": "24.13.3",
+    "@types/react": "19.2.18",
+    "@types/react-dom": "19.2.5",
+    "@vitest/coverage-v8": "4.1.11",
+    "postcss": "8.5.26",
+    "rclone.js": "0.6.6",
+    "tailwindcss": "4.3.3",
+    "vitest": "4.1.11",
+    "wrangler": "4.126.0"
+  }
+}

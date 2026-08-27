@@ -139,6 +139,12 @@ POST /api/contact
    7. respond 200
 ```
 
+**Phase 1 repository status (2026-08-27):** the shared React Hook Form/Zod fields, standard
+`cf-turnstile-response` boundary, honeypot, server-side `siteverify`, fail-closed Upstash limiter,
+service-role insert and non-blocking Slack wrapper are implemented. The live widget, managed
+verification infrastructure, vendor credentials and end-to-end delivery are external gates and are
+not claimed complete; without them the form fails closed and presents the direct-email fallback.
+
 ```ts
 // apps/web/app/api/contact/route.ts (core)
 const ContactSchema = z.object({

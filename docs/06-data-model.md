@@ -51,9 +51,9 @@ then the one production project from the protected `main` release workflow.
 ```sql
 create table contact_submissions (
   id uuid primary key default gen_random_uuid(),
-  name text not null,
-  email text not null,
-  message text not null,
+  name text not null check (name = btrim(name) and char_length(name) between 1 and 100),
+  email text not null check (email = btrim(email) and char_length(email) between 1 and 200),
+  message text not null check (message = btrim(message) and char_length(message) between 10 and 5000),
   created_at timestamptz default now()
 );
 
@@ -99,7 +99,9 @@ create policy "deny_client_roles" on download_logs as restrictive
 ```sql
 create table resume_versions (
   id uuid primary key default gen_random_uuid(),
-  storage_path text not null,
+  storage_path text not null unique check (
+    storage_path = btrim(storage_path) and char_length(storage_path) > 0
+  ),
   uploaded_at timestamptz default now(),
   is_current boolean default false
 );
@@ -218,7 +220,9 @@ The `media` collection requires alt text, width, height and MIME type. Uploads a
 WebP and AVIF images up to 10 MB, write a unique/versioned object key, and set
 `Cache-Control: public, max-age=31536000, immutable`. Replacing an image means uploading a new
 key; overwriting a cached object is forbidden. The private `resume` bucket deliberately keeps
-short-lived signed responses and does not inherit this cache policy.
+short-lived signed responses and does not inherit this cache policy. Its migration fails loudly if
+Supabase Storage is unavailable and deterministically restores the restrictive client-role policy;
+a successful migration may never silently omit this boundary.
 
 ---
 

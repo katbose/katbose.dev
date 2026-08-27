@@ -8,6 +8,7 @@ node_modules/
 .wrangler/
 test-results/
 playwright-report/
+*.tsbuildinfo
 package-lock.json
 
 # Environment & secrets
@@ -18,4 +19,5 @@ package-lock.json
 # OS / editor noise
 Thumbs.db
 .DS_Store
+.vscode/
 

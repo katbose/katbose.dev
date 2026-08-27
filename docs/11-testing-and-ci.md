@@ -36,7 +36,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
-        with: { node-version: 22, cache: pnpm }
+        with: { node-version: 24, cache: pnpm }
       - run: pnpm install --frozen-lockfile
       - run: pnpm typecheck
       - run: pnpm lint
@@ -51,7 +51,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
-        with: { node-version: 22, cache: pnpm }
+        with: { node-version: 24, cache: pnpm }
       - run: pnpm install --frozen-lockfile
       - run: pnpm exec playwright install --with-deps chromium
       - run: pnpm test:e2e:workers
@@ -85,15 +85,16 @@ Workers Build variables and secrets are configured in Cloudflare. GitHub Actions
 non-deployment secrets it needs for CI, backups and scheduled jobs. A merge into protected `main`
 is the production release event; the Workers Build then deploys the resulting OpenNext Worker.
 
-**All workflows in the repo:**
+**Workflow ownership:**
 
-| Workflow | Trigger | Purpose |
-| --- | --- | --- |
-| `ci.yml` | PR, push to `main` | Typecheck, lint, unit, OpenNext build, Workers-runtime E2E |
-| Cloudflare Workers Builds | Push to protected `main` | OpenNext production build and Worker deployment |
-| `secret-scan.yml` | PR, push | gitleaks |
-| `nightly-reconciliation.yml` | 02:00 daily | DLQ retry + index sweep |
-| `weekly-backup.yml` | Sundays 03:00 | `pg_dump`, media sync, content export |
+| Workflow | Trigger | Purpose | Repository status |
+| --- | --- | --- | --- |
+| `ci.yml` | PR, push to `main` | Typecheck, lint, unit, OpenNext build, database tests, Workers-runtime E2E | committed; not yet observed on GitHub |
+| Cloudflare Workers Builds | Push to protected `main` | OpenNext production build and Worker deployment | external configuration unverified |
+| `secret-scan.yml` | PR, push | gitleaks | committed; not yet observed on GitHub |
+| `production-migration.yml` | explicit dispatch from `main` | encrypted backup + committed migration application | committed; never run here |
+| `nightly-reconciliation.yml` | 02:00 daily | DLQ retry + index sweep | planned Phase 3 |
+| `weekly-backup.yml` | Sundays 03:00 | `pg_dump`, media sync, content export | planned Phase 2/operations |
 
 ---
 
@@ -247,7 +248,7 @@ each variable — see [17-env-vars.md](17-env-vars.md). Real values never enter 
 - **Registry/content:** manifest and Lexical fixtures pass exhaustive Zod schemas; unknown variants
   fail; slugs/URLs reject reserved, unsafe and non-HTTPS values.
 - **Agent routes:** canonical `/agent`, generated `/llms.txt`, navigation and sitemap derive from one
-  route manifest; root planning snapshot matches docs/13 until scaffold replacement.
+  route manifest; repository-root exports match the canonical generators.
 - **Backups:** all pagination is exhausted, counts/checksums match, ciphertext reaches off-primary R2
   and a scratch restore succeeds without primary-provider access.
 - **Design/accessibility:** WCAG 2.2 AA, four font weights, strong control borders, pinned responsive

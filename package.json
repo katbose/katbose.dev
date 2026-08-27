@@ -1,0 +1,27 @@
+{
+  "name": "katbose-dev",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "build": "pnpm --filter web build",
+    "dev": "pnpm --filter web dev",
+    "format": "oxfmt apps packages e2e package.json playwright.config.ts tsconfig.base.json pnpm-workspace.yaml",
+    "format:check": "oxfmt --check apps packages e2e package.json playwright.config.ts tsconfig.base.json pnpm-workspace.yaml",
+    "lint": "oxlint --deny-warnings apps packages e2e",
+    "test": "pnpm --recursive --if-present test",
+    "test:e2e:workers": "pnpm --filter web test:e2e:workers",
+    "typecheck": "pnpm --recursive --if-present typecheck"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "4.13.0",
+    "@playwright/test": "1.62.1",
+    "oxfmt": "0.65.0",
+    "oxlint": "1.80.0",
+    "typescript": "7.0.2"
+  },
+  "engines": {
+    "node": ">=24.17.0 <25.0.0",
+    "pnpm": "11.24.0"
+  },
+  "packageManager": "pnpm@11.24.0"
+}

@@ -1,0 +1,3 @@
+# Exported copies of generated routes must match the served bytes exactly (decision #89).
+llms.txt text eol=lf
+robots.txt text eol=lf
