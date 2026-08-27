@@ -56,10 +56,15 @@ jobs:
             exit 1
           fi
 
-      - name: Install backup tools
+      - name: Install PostgreSQL 17 backup tools
         run: |
           sudo apt-get update
-          sudo apt-get install --yes age postgresql-client rclone
+          sudo apt-get install --yes age postgresql-client-17 rclone
+          pg_dump_bin="/usr/lib/postgresql/17/bin/pg_dump"
+          pg_restore_bin="/usr/lib/postgresql/17/bin/pg_restore"
+          test -x "$pg_dump_bin"
+          test -x "$pg_restore_bin"
+          test "$("$pg_dump_bin" --version | grep -oE '[0-9]+' | head -n 1)" = "17"
 
       - name: Create and verify encrypted off-primary backup
         id: backup
@@ -76,9 +81,9 @@ jobs:
           rclone_config="$RUNNER_TEMP/rclone.conf"
           remote_dir="r2:katbose-backups/pre-migration"
 
-          pg_dump --dbname="$SUPABASE_DB_URL" --format=custom --no-owner --no-privileges --file="$dump_path"
+          /usr/lib/postgresql/17/bin/pg_dump --dbname="$SUPABASE_DB_URL" --format=custom --no-owner --no-privileges --file="$dump_path"
           test -s "$dump_path"
-          pg_restore --list "$dump_path" > /dev/null
+          /usr/lib/postgresql/17/bin/pg_restore --list "$dump_path" > /dev/null
 
           age --recipient "$BACKUP_AGE_RECIPIENT" --output "$encrypted_path" "$dump_path"
           rm --force "$dump_path"
