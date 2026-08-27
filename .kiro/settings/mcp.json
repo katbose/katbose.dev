@@ -14,7 +14,8 @@
       "autoApprove": [
         "workers_list",
         "kv_namespaces_list",
-        "r2_buckets_list"
+        "r2_buckets_list",
+        "r2_bucket_create"
       ]
     },
     "cloudflare-builds": {
@@ -37,6 +38,11 @@
       "autoApprove": [
         "search_cloudflare_documentation"
       ]
+    },
+    "posthog": {
+      "url": "https://mcp.posthog.com/mcp",
+      "disabled": false,
+      "autoApprove": []
     }
   }
 }
