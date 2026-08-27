@@ -62,7 +62,24 @@ jobs:
 Workers-compatible runtime. Supabase and CMS dependencies are local or mocked; the production
 project and live rate limiters are never used by CI.
 
-**Branch protection:** CI must be green before merging or deploying `main`.
+**Branch protection:** CI must be green before merging or deploying `main`. Enforced by the
+`main-protection` repository ruleset (active since 2026-08-27, empty bypass list, targeting the
+default branch):
+
+| Rule | Setting | Why |
+| --- | --- | --- |
+| Required status checks | `quality`, `database`, `e2e`, `gitleaks` | The four jobs that must prove a change |
+| Strict up-to-date branches | Required | A PR cannot pass against a stale base and still merge something that breaks `main` |
+| Pull request required | Yes, **0 approvals** | Single-maintainer project: GitHub forbids self-approval, so any non-zero count would make merging impossible. The status checks, not a review count, are the real gate |
+| Require last-push approval | Off | Would require a second person; a permanent deadlock for one maintainer |
+| Allowed merge methods | Squash only | Keeps `main` linear without a separate linear-history rule |
+| Block force pushes / restrict deletions | On | `main` history is append-only |
+| Require deployments to succeed | **Off** | Cloudflare Workers Builds deploys *after* `main` moves (#52/#75); requiring a deployment first inverts that order and deadlocks the pipeline |
+| Require signed commits | Off | Deferred until commit signing is configured locally; enabling it first would reject every push |
+
+Consequence: all work reaches `main` through a branch and a pull request. The
+`production-migration.yml` dispatch is unaffected — it targets `main` and asserts
+`refs/heads/main`.
 
 ### 11.2.1 Production deployment — Cloudflare Workers Builds
 
