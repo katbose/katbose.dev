@@ -25,12 +25,12 @@ or confirm them only when their phase needs them:
 
 | Resource | Provision/confirm by | Needed for | Status (2026-08-27) |
 | --- | --- | --- | --- |
-| `katbose.dev` registration + Cloudflare DNS zone | Before Spike A's remote/domain pass and certainly before production deploy | Worker custom domain, trusted `CF-Connecting-IP`, CMS/dashboard subdomains | Domain ownership and DNS-zone status must be confirmed before the remote Spike A pass; no purchase or availability claim is recorded here |
+| `katbose.dev` registration + Cloudflare DNS zone | Before Spike A's remote/domain pass and certainly before production deploy | Worker custom domain, trusted `CF-Connecting-IP`, CMS/dashboard subdomains | Confirmed active with the production Worker bound to the apex custom domain; parking records were removed and Cloudflare nameservers are authoritative |
 | Cloudflare Workers + Images + Turnstile + Access | Workers/Images for Spike A; Turnstile/Access before their Phase 1 gates | Web runtime, image transforms, bot checks and admin protection | The existing non-interactive Turnstile widget is restricted to `katbose.dev`; its public build variable and Worker secret binding are configured. Fresh-token success and replay rejection through the deployed contact route remain unverified. Access remains phase-scoped and unconfirmed. |
 | npm package `katbose` | Before shipping `packages/katbose-card` | `npx katbose` distribution | Published (user-confirmed 2026-08-24) and monorepo source integrated; registry byte parity not independently checked |
-| Local Supabase CLI | Spike B | Free local Postgres/Storage/migration proof | Config, migrations and pgTAP tests committed; execution blocked on this machine because Docker is unavailable |
-| Production Supabase project | Before first protected production migration | Production Postgres and Storage | Not confirmed here |
-| Upstash, PostHog, Sentry and Slack workspace | While implementing their Phase 1 route/observability items | Rate limits, analytics, errors and alerts | Repository integrations exist; live projects, channels/webhooks and delivery are not confirmed |
+| Local Supabase CLI | Spike B | Free local Postgres/Storage/migration proof | Config, migrations and pgTAP tests are committed and pass in CI against Postgres 17.6/Supabase Storage (72 assertions); Docker remains unavailable on this workstation |
+| Production Supabase project | Before first protected production migration | Production Postgres and Storage | `katbose-db` (`ap-south-1`, PostgreSQL 17.6) is active and healthy; it has no application migrations, tables or storage buckets because the protected backup-first workflow has not completed |
+| Upstash, PostHog, Sentry and Slack workspace | While implementing their Phase 1 route/observability items | Rate limits, analytics, errors and alerts | PostHog EU ingestion and production-host events are verified. The Slack contact Worker secret binding exists, but delivery is unverified. Upstash live behavior, Sentry, and the alerts-channel path remain unverified |
 | Render | Spike B / Phase 2 deployment | Payload CMS; dashboard waits until Phase 5 | Not confirmed here |
 | Cloudflare AI Search instance | Spike C / Phase 3 | Items API, cited chat and reconciliation | Not confirmed here |
 | Cal.com | **Confirmed:** `https://cal.com/katbose/meet` | Scheduling link on Home and Contact | Confirmed |
@@ -126,13 +126,13 @@ services:
 
 | Secret | Used by |
 | --- | --- |
-| `SUPABASE_DB_URL` | `weekly-backup.yml` (`pg_dump`) |
+| `SUPABASE_DB_URL` | `weekly-backup.yml` and `production-migration.yml` (`pg_dump`); use the IPv4-reachable session-pooler URL for GitHub-hosted runners |
 | `NEXTJS_RECONCILE_ENDPOINT` | `nightly-reconciliation.yml` |
 | `WEBHOOK_SHARED_SECRET` | `nightly-reconciliation.yml` |
 | `CMS_URL` | `weekly-backup.yml` (all-page content export) |
 | `CONTENT_BACKUP_REPO_TOKEN` | Optional convenience push of portable exports to the private repo |
-| `R2_RCLONE_CONFIG` | Normative encrypted off-primary R2 backup target |
-| `BACKUP_AGE_RECIPIENT` | Encrypts every backup before upload; private identity is held off CI |
+| `R2_RCLONE_CONFIG` | `weekly-backup.yml` and `production-migration.yml`; configures the encrypted off-primary R2 target. The credential is a bucket-scoped R2 token, so rclone runs with `--s3-no-check-bucket` |
+| `BACKUP_AGE_RECIPIENT` | `weekly-backup.yml` and `production-migration.yml`; encrypts every backup before upload while the private identity stays off CI |
 
 ---
 
