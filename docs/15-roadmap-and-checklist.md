@@ -28,7 +28,10 @@ commands in [11-testing-and-ci.md](11-testing-and-ci.md) §11.2.2 pass:
 - [x] Prove ISR/revalidation, Draft Mode cookies, Node-compatible crypto and dynamic OG images
       (ISR stale-while-revalidate with the R2 incremental cache binding; `__prerender_bypass`
       round-trip; `timingSafeEqual` from `node:crypto`; `ImageResponse` PNG — all verified in
-      `workerd`, not `next dev`)
+      `workerd`, not `next dev`. **Superseded for OG images:** the dynamic `ImageResponse` route was
+      replaced by a committed static PNG because `@vercel/og`'s WASM runtime pushed the Worker over
+      the 3 MiB free-plan script limit. Per-post dynamic OG images return as Phase 2 work and need
+      their own decision on how to fit the budget.)
 - [ ] After `katbose.dev` is on Cloudflare, prove Supabase media original → same-zone proxy →
       `/cdn-cgi/image` transform/cache → `onerror=redirect` original fallback; a forced
       transform failure still displays the image
