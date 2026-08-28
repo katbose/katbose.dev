@@ -319,7 +319,7 @@ node "$CONTRACT_SCRIPT" create \
 node "$CONTRACT_SCRIPT" verify "$SET_DIR" >/dev/null
 
 # Archive once, then encrypt before any bytes leave the runner.
-tar --create --directory "$SET_DIR" . | zstd --threads=0 --quiet --output "$PLAINTEXT_ARCHIVE"
+tar --create --directory "$SET_DIR" . | zstd --threads=0 --quiet -o "$PLAINTEXT_ARCHIVE"
 test -s "$PLAINTEXT_ARCHIVE"
 age --recipient "$BACKUP_AGE_RECIPIENT" --output "$ENCRYPTED_ARCHIVE" "$PLAINTEXT_ARCHIVE"
 rm -f -- "$PLAINTEXT_ARCHIVE"

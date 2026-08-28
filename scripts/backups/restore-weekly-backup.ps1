@@ -112,8 +112,9 @@ try {
   Invoke-NativeCommand "age" @(
     "--decrypt", "--identity", $ageIdentity, "--output", $compressedArchive, $encryptedArchive
   )
+  # zstd names its output with -o; there is no --output.
   Invoke-NativeCommand "zstd" @(
-    "--decompress", "--quiet", "--output", $tarArchive, $compressedArchive
+    "--decompress", "--quiet", "-o", $tarArchive, $compressedArchive
   )
 
   # Reject links, devices, absolute paths, traversal and Windows-invalid

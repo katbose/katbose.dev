@@ -295,6 +295,25 @@ describe("PostgreSQL connection handling", () => {
   });
 });
 
+describe("external tool invocations", () => {
+  // zstd names its output file with -o only. --output is silently wrong until
+  // the moment a real backup is compressed.
+  it.each([
+    ["create-weekly-backup.sh"],
+    ["restore-weekly-backup.sh"],
+    ["restore-weekly-backup.ps1"],
+  ])("%s does not pass --output to zstd", (script) => {
+    // Comments are stripped so prose about the flag cannot trip the check, and
+    // each form is matched per invocation so `age --output` stays allowed.
+    const source = readFileSync(backupScript(script), "utf8").replace(/^[ \t]*#.*$/gm, "");
+    const shellInvocation = /zstd[^\n]*--output/.test(source);
+    const powershellInvocation = /"zstd"\s*@\([^)]*--output[^)]*\)/.test(source);
+
+    expect(shellInvocation || powershellInvocation, "zstd accepts -o, never --output").toBe(false);
+    expect(source, "the script should still invoke zstd").toMatch(/zstd/);
+  });
+});
+
 describe("restore scripts", () => {
   // A restore that validates the manifest and the marker separately can accept
   // a set assembled from two different runs. Both clients must cross-check them.
