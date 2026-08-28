@@ -4,6 +4,7 @@ import posthog from "posthog-js";
 import { usePathname } from "next/navigation";
 import { useReportWebVitals } from "next/web-vitals";
 import { useEffect, type ReactNode } from "react";
+import { sanitizeTelemetryProperties } from "@/lib/monitoring/redact";
 
 export function PostHogProvider({ children }: Readonly<{ children: ReactNode }>) {
   const pathname = usePathname();
@@ -17,6 +18,9 @@ export function PostHogProvider({ children }: Readonly<{ children: ReactNode }>)
         persistence: "memory",
         capture_pageview: false,
         disable_session_recording: true,
+        // Required by docs/09-observability.md §9.2: no captured property may
+        // carry a preview secret or bot token to the vendor.
+        sanitize_properties: sanitizeTelemetryProperties,
       });
     }
   }, []);

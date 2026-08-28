@@ -463,15 +463,44 @@ button:disabled {
   border-radius: var(--radius-sm);
   text-align: left;
 }
-.accordion [role="region"] {
-  padding: var(--space-3);
-}
 .collapsible {
   display: grid;
   gap: var(--space-3);
 }
 .collapsible > button {
   justify-self: start;
+}
+
+/*
+ * Disclosure and accordion panels unfold smoothly instead of snapping open.
+ *
+ * Base UI publishes the measured content height as --collapsible-panel-height
+ * and --accordion-panel-height, and marks the transition boundaries with
+ * [data-starting-style] / [data-ending-style], so the height is animatable
+ * without hard-coding a max-height guess.
+ *
+ * Padding lives on .panel-inner rather than the panel: padding on the animating
+ * element keeps the closed panel visibly taller than zero.
+ */
+.collapsible-panel,
+.accordion-panel {
+  overflow: hidden;
+  transition: height var(--dur-base) var(--ease-out);
+}
+.collapsible-panel {
+  height: var(--collapsible-panel-height);
+}
+.accordion-panel {
+  height: var(--accordion-panel-height);
+}
+.collapsible-panel[data-starting-style],
+.collapsible-panel[data-ending-style],
+.accordion-panel[data-starting-style],
+.accordion-panel[data-ending-style] {
+  height: 0;
+}
+.accordion-panel .panel-inner {
+  padding: var(--space-3);
 }
 .marquee {
   overflow: hidden;
@@ -502,10 +531,35 @@ button:disabled {
   gap: var(--space-1);
 }
 
+/*
+ * Human <-> agent content crossfade (docs/19-design-reference.md §19.3).
+ *
+ * Armed by ModeSwitchLink only when the visitor moves between / and /agent, so
+ * a cold visit never pays for it and Largest Contentful Paint is unaffected.
+ */
+[data-mode-crossfade] .site-shell > main {
+  animation: mode-crossfade var(--dur-crossfade) var(--ease-out) both;
+}
+@keyframes mode-crossfade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .bottom-bar::before {
     animation: none;
     opacity: 0;
+  }
+  [data-mode-crossfade] .site-shell > main {
+    animation: none;
+  }
+  .collapsible-panel,
+  .accordion-panel {
+    transition: none;
   }
   .marquee {
     overflow: visible;

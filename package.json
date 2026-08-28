@@ -7,6 +7,7 @@
     "dev": "pnpm --filter web dev",
     "format": "oxfmt apps packages e2e scripts package.json playwright.config.ts tsconfig.base.json pnpm-workspace.yaml",
     "format:check": "oxfmt --check apps packages e2e scripts package.json playwright.config.ts tsconfig.base.json pnpm-workspace.yaml",
+    "lighthouse": "pnpm --filter web build && node scripts/lighthouse/run-lighthouse-gate.mjs",
     "lint": "oxlint --deny-warnings apps packages e2e scripts",
     "test": "pnpm --recursive --if-present test",
     "test:e2e:workers": "pnpm --filter web test:e2e:workers",
@@ -14,6 +15,7 @@
   },
   "devDependencies": {
     "@axe-core/playwright": "4.13.0",
+    "@lhci/cli": "0.15.1",
     "@playwright/test": "1.62.1",
     "oxfmt": "0.65.0",
     "oxlint": "1.80.0",

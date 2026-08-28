@@ -32,6 +32,13 @@ pnpm add posthog-js posthog-node
   are deliberately revisited first
 - `sanitize_properties` redacts `?secret=` from any captured URL
 
+**As implemented:** redaction lives in `apps/web/lib/monitoring/redact.ts` and is shared by the
+PostHog `sanitize_properties` hook and both Sentry `beforeSend` handlers, so a secret cannot be
+stripped on one surface and forwarded on another. It sweeps every string property rather than only
+`$current_url`, and it is idempotent. `posthog-node` is **not** installed: server events go to the
+documented capture endpoint with a plain `fetch`, keeping the analytics SDK out of the Worker
+script budget (decision [#97](16-decision-log.md)).
+
 ```ts
 // apps/web/lib/monitoring/posthog-config.ts
 posthog.init(process.env.NEXT_PUBLIC_POSTHOG_KEY!, {
