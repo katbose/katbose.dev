@@ -115,7 +115,7 @@ test("@spike a forged bypass cookie does not enable Draft Mode", async ({ reques
 });
 
 test("@spike timingSafeEqual from node:crypto works under nodejs_compat", async ({ request }) => {
-  const secret = "0123456789abcdef0123456789abcdef";
+  const secret = "test-fixture-value-not-a-real-secret";
   const compare = async (expected: string, provided: string) => {
     const response = await request.post(CONSTANT_TIME_PROBE_PATH, { data: { expected, provided } });
     expect(response.ok()).toBe(true);

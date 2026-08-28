@@ -91,7 +91,7 @@ beforeEach(() => {
   insertedRows = [];
   afterCallbacks.length = 0;
   vi.clearAllMocks();
-  vi.stubEnv("IP_PSEUDONYM_KEY", "0123456789abcdef0123456789abcdef");
+  vi.stubEnv("IP_PSEUDONYM_KEY", "test-fixture-hmac-key-not-a-real-secret");
   vi.stubEnv("IP_PSEUDONYM_EPOCH", "1");
   vi.mocked(verifyTurnstileToken).mockResolvedValue(true);
   vi.mocked(checkContactRateLimit).mockResolvedValue({ allowed: true, degraded: false });

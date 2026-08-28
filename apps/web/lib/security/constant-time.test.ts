@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { constantTimeEquals } from "@/lib/security/constant-time";
 
-const SECRET = "0123456789abcdef0123456789abcdef";
+const SECRET = "test-fixture-value-not-a-real-secret";
 
 describe("constantTimeEquals", () => {
   it("accepts only a byte-identical value", () => {
