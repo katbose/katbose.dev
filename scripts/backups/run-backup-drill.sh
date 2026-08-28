@@ -65,7 +65,7 @@ done
 }
 
 readonly DRILL_DB_URL="postgresql://${SUPABASE_DB_USER}:${SUPABASE_DB_PASSWORD}@${SUPABASE_DB_HOST}:${SUPABASE_DB_PORT}/postgres"
-readonly SCRATCH_DB_URL="postgresql://${SUPABASE_DB_USER}:${SUPABASE_DB_PASSWORD}@${SUPABASE_DB_HOST}:${SUPABASE_DB_PORT}/${SCRATCH_DATABASE}"
+readonly DRILL_SCRATCH_DB_URL="postgresql://${SUPABASE_DB_USER}:${SUPABASE_DB_PASSWORD}@${SUPABASE_DB_HOST}:${SUPABASE_DB_PORT}/${SCRATCH_DATABASE}"
 
 WORK_DIR="$(mktemp -d "${RUNNER_TEMP}/katbose-backup-drill.XXXXXX")"
 readonly WORK_DIR
@@ -93,7 +93,7 @@ drill_psql() {
 }
 
 scratch_psql() {
-  "$PSQL_BIN" "$SCRATCH_DB_URL" --tuples-only --no-align --set=ON_ERROR_STOP=1 "$@"
+  "$PSQL_BIN" "$DRILL_SCRATCH_DB_URL" --tuples-only --no-align --set=ON_ERROR_STOP=1 "$@"
 }
 
 assert_equal() {
@@ -109,9 +109,9 @@ assert_equal() {
 
 step "Generating a throwaway age identity"
 age-keygen --output "$AGE_IDENTITY" 2>/dev/null
-BACKUP_AGE_RECIPIENT="$(age-keygen -y "$AGE_IDENTITY")"
-readonly BACKUP_AGE_RECIPIENT
-echo "  recipient: $BACKUP_AGE_RECIPIENT"
+DRILL_AGE_RECIPIENT="$(age-keygen -y "$AGE_IDENTITY")"
+readonly DRILL_AGE_RECIPIENT
+echo "  recipient: $DRILL_AGE_RECIPIENT"
 
 step "Writing loopback rclone configuration"
 cat > "$SUPABASE_CONFIG" <<EOF
@@ -217,7 +217,7 @@ for attempt in $(seq 1 "$DRILL_ITERATIONS"); do
   SUPABASE_PROJECT_REF="$DRILL_PROJECT_REF" \
   SUPABASE_STORAGE_RCLONE_CONFIG="$(cat "$SUPABASE_CONFIG")" \
   R2_RCLONE_CONFIG="$(cat "$R2_CONFIG")" \
-  BACKUP_AGE_RECIPIENT="$BACKUP_AGE_RECIPIENT" \
+  BACKUP_AGE_RECIPIENT="$DRILL_AGE_RECIPIENT" \
   GITHUB_RUN_ATTEMPT="$attempt" \
   GITHUB_OUTPUT="" \
   GITHUB_STEP_SUMMARY="" \
@@ -283,7 +283,7 @@ drill_psql --command="create database ${SCRATCH_DATABASE};" > /dev/null
 BACKUP_SET_ID="$TARGET_SET" \
 BACKUP_AGE_IDENTITY="$AGE_IDENTITY" \
 R2_RCLONE_CONFIG="$(cat "$R2_CONFIG")" \
-SCRATCH_DB_URL="$SCRATCH_DB_URL" \
+SCRATCH_DB_URL="$DRILL_SCRATCH_DB_URL" \
 RESTORE_CONFIRMATION="RESTORE BACKUP TO SCRATCH" \
 RESTORE_DATABASE_MODE="full" \
   bash "$SCRIPT_DIR/restore-weekly-backup.sh"
@@ -316,7 +316,7 @@ refusal="$(
   SUPABASE_PROJECT_REF="$DRILL_PROJECT_REF" \
   SUPABASE_STORAGE_RCLONE_CONFIG="$(cat "$SUPABASE_CONFIG")" \
   R2_RCLONE_CONFIG="$(cat "$R2_CONFIG")" \
-  BACKUP_AGE_RECIPIENT="$BACKUP_AGE_RECIPIENT" \
+  BACKUP_AGE_RECIPIENT="$DRILL_AGE_RECIPIENT" \
   GITHUB_RUN_ATTEMPT="99" \
     bash "$SCRIPT_DIR/create-weekly-backup.sh" 2>&1
 )"
