@@ -172,23 +172,31 @@ drill_psql --command="
     public.ai_query_logs;
 " > /dev/null
 
-drill_psql --set=payload="$DB_PAYLOAD" --set=path="${DRILL_BUCKET}/${OBJECT_KEY}" --command="
-  insert into public.contact_submissions (name, email, message)
-  values ('KatBose Drill', 'drill@katbose.dev', :'payload');
+# psql interpolates :'variable' for file input but not for --command, and
+# passing the payload as a variable keeps it out of the SQL text entirely.
+readonly SEED_SQL="$WORK_DIR/seed.sql"
+cat > "$SEED_SQL" <<'SQL'
+insert into public.contact_submissions (name, email, message)
+values ('KatBose Drill', 'drill@katbose.dev', :'payload');
 
-  insert into public.download_logs (storage_path, success, ip_pseudonym, ip_epoch)
-  values (:'path', true, 'drill-pseudonym', 'epoch-1'),
-         (:'path', false, null, null);
+insert into public.download_logs (storage_path, success, ip_pseudonym, ip_epoch)
+values (:'path', true, 'drill-pseudonym', 'epoch-1'),
+       (:'path', false, null, null);
 
-  insert into public.resume_versions (storage_path, is_current)
-  values (:'path', true);
+insert into public.resume_versions (storage_path, is_current)
+values (:'path', true);
 
-  insert into public.dead_letter_queue (collection, doc_id, slug, operation, attempts)
-  values ('blog-posts', 'doc-1', 'drill-post', 'upsert', 2);
+insert into public.dead_letter_queue (collection, doc_id, slug, operation, attempts)
+values ('blog-posts', 'doc-1', 'drill-post', 'upsert', 2);
 
-  insert into public.ai_query_logs (query, flagged, answered)
-  values ('what does the drill prove', false, true);
-" > /dev/null
+insert into public.ai_query_logs (query, flagged, answered)
+values ('what does the drill prove', false, true);
+SQL
+
+"$PSQL_BIN" "$DRILL_DB_URL" --tuples-only --no-align --set=ON_ERROR_STOP=1 \
+  --set=payload="$DB_PAYLOAD" \
+  --set=path="${DRILL_BUCKET}/${OBJECT_KEY}" \
+  --file "$SEED_SQL" > /dev/null
 
 declare -A EXPECTED_ROWS=(
   [contact_submissions]=1
