@@ -65,6 +65,16 @@ async function waitForServer(origin, child) {
   throw new Error(`Preview server was not reachable at ${origin} within ${READINESS_TIMEOUT_MS}ms`);
 }
 
+/** Runs one `lhci` stage, returning its exit code. */
+async function runStage(stage, { tolerateFailure = false } = {}) {
+  const child = spawnStep("pnpm", ["exec", "lhci", stage]);
+  const [code] = await once(child, "exit");
+  if (code !== 0 && !tolerateFailure) {
+    throw new Error(`lhci ${stage} failed with exit code ${code}`);
+  }
+  return code;
+}
+
 async function stopServer(child) {
   if (child.exitCode !== null || child.signalCode !== null) return;
   child.kill("SIGTERM");
@@ -90,9 +100,16 @@ async function main() {
 
   try {
     await waitForServer(origin, server);
-    const audit = spawnStep("pnpm", ["exec", "lhci", "autorun"]);
-    const [code] = await once(audit, "exit");
-    if (code !== 0) throw new Error(`Lighthouse gate failed with exit code ${code}`);
+    // Deliberately not `lhci autorun`: that asserts before it uploads, so a
+    // failed gate publishes no report and the failure cannot be diagnosed from
+    // CI. Running the stages in order guarantees the reports exist whatever the
+    // assertions decide.
+    await runStage("collect");
+    await runStage("upload");
+    const assertCode = await runStage("assert", { tolerateFailure: true });
+    if (assertCode !== 0) {
+      throw new Error(`Lighthouse assertions failed with exit code ${assertCode}`);
+    }
     process.stdout.write("Lighthouse gate passed. Reports are in .lighthouseci\n");
   } finally {
     await stopServer(server);

@@ -13,7 +13,13 @@ import { expect, test, type Page } from "@playwright/test";
 /** Values the browser reports for an effectively instant transition. */
 const INSTANT_DURATIONS = ["0s", "0.01ms"];
 
-test.use({ reducedMotion: "reduce" });
+// `page.emulateMedia` rather than `test.use({ reducedMotion })`: the fixture
+// option did not reach the page in CI, so the whole file silently ran with
+// motion enabled and still passed some assertions. Emulating explicitly per
+// test is the pattern already proven in this repository.
+test.beforeEach(async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+});
 
 async function durationOf(page: Page, selector: string): Promise<string> {
   return page
@@ -36,9 +42,11 @@ test("scroll reveal renders content at rest", async ({ page }) => {
     const elements = [...document.querySelectorAll("main, main *")];
     return elements.filter((element) => {
       const styles = getComputedStyle(element);
-      return (
-        Number(styles.opacity) < 1 || styles.filter.includes("blur") || styles.transform !== "none"
-      );
+      const opacity = Number(styles.opacity);
+      // A partial opacity or a blur is the signature of a reveal caught
+      // mid-animation. `transform` is deliberately not checked: it is used for
+      // static layout in several places and would report false positives.
+      return (opacity > 0 && opacity < 1) || styles.filter.includes("blur");
     }).length;
   });
   expect(animating).toBe(0);

@@ -285,7 +285,7 @@ lighter form than Hackyfolio ships. See the two subsections under §19.2 above.
 These fold into the existing Phase 1 gate ([15-roadmap-and-checklist.md](15-roadmap-and-checklist.md)):
 
 - [ ] All §19.3 interactions disabled correctly under `prefers-reduced-motion` (axe + manual pass)
-- [ ] Lighthouse ≥ 95 measured with the intro loader and all interactions enabled; CLS = 0
+- [ ] Lighthouse ≥ 95 measured with the intro loader and all interactions enabled; CLS = 0. `e2e/layout-stability.spec.ts` treats `< 0.001` as zero: a real browser reports sub-pixel values around 1e-5 from font-metric rounding that no visitor can perceive and no markup change can remove, while a genuine unreserved image scores far above the bound (decision [#100](16-decision-log.md))
 - [ ] Hero portrait reserves 80→96px 1:1 geometry, uses KatBose's Payload alt text or the bundled
       fallback, and never references the upstream portrait; favicon metadata has the same no-copy rule
 - [ ] Canonical `/agent` and generated `/llms.txt` derive from the typed route manifest—grep proves no handwritten runtime duplicate
