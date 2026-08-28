@@ -50,7 +50,9 @@
       "disabled": false,
       "autoApprove": [
         "create_pull_request",
-        "pull_request_read"
+        "pull_request_read",
+        "list_pull_requests",
+        "list_branches"
       ]
     },
     "chrome-devtools": {
