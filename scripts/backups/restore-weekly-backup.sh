@@ -178,6 +178,13 @@ if [[ "$RESTORE_DATABASE_MODE" == "full" ]]; then
     echo "Full restore requires Supabase-compatible anon, authenticated and service_role roles" >&2
     exit 1
   fi
+  # Supabase owns schema public with a real role rather than pg_database_owner,
+  # so the archive contains CREATE SCHEMA public. Every fresh database already
+  # has that schema, which would abort the restore. Dropping it first lets the
+  # archive recreate it with the source owner and ACLs. RESTRICT refuses to
+  # cascade, so anything unexpected in the schema stops the restore instead.
+  "$PSQL_BIN" --set=ON_ERROR_STOP=1 --quiet \
+    --command="drop schema if exists public restrict;" > /dev/null
 else
   if [[ "$(printf '%s\n' "${target_tables[@]}")" != "$(printf '%s\n' "${expected_tables[@]}")" ]]; then
     echo "Data-only restore requires the exact migration-created application table set" >&2

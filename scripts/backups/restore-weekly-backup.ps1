@@ -191,6 +191,16 @@ select count(*) from pg_catalog.pg_roles where rolname in ('anon', 'authenticate
     throw "Full restore requires Supabase-compatible anon, authenticated and service_role roles"
   }
 
+  # Supabase owns schema public with a real role rather than pg_database_owner,
+  # so the archive contains CREATE SCHEMA public. Every fresh database already
+  # has that schema, which would abort the restore. Dropping it first lets the
+  # archive recreate it with the source owner and ACLs. RESTRICT refuses to
+  # cascade, so anything unexpected in the schema stops the restore instead.
+  Invoke-NativeCommand "psql" @(
+    $scratchDatabaseUrl, "--quiet", "--set=ON_ERROR_STOP=1",
+    "--command=drop schema if exists public restrict;"
+  )
+
   Invoke-NativeCommand "pg_restore" @(
     "--exit-on-error", "--single-transaction", "--no-owner", "--no-privileges",
     "--dbname=$scratchDatabaseUrl", $applicationDump
