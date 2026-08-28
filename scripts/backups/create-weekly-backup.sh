@@ -71,10 +71,11 @@ if [[ ! "$SUPABASE_PROJECT_REF" =~ ^[a-z0-9]{20}$ ]]; then
   echo "Invalid Supabase project reference" >&2
   exit 1
 fi
-if ! BACKUP_TARGET_PROFILE="$BACKUP_TARGET_PROFILE" \
-  node --input-type=module - "$SUPABASE_PROJECT_REF" <<'NODE'
+# The profile travels as an argument: it is readonly here, so bash would refuse
+# a command-prefix environment assignment.
+if ! node --input-type=module - "$SUPABASE_PROJECT_REF" "$BACKUP_TARGET_PROFILE" <<'NODE'
 const expectedRef = process.argv[2];
-const profile = process.env.BACKUP_TARGET_PROFILE;
+const profile = process.argv[3];
 const LOOPBACK_HOSTS = new Set(["127.0.0.1", "localhost", "[::1]", "::1"]);
 try {
   const databaseUrl = new URL(process.env.SUPABASE_DB_URL);
