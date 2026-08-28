@@ -5,9 +5,9 @@
   "scripts": {
     "build": "pnpm --filter web build",
     "dev": "pnpm --filter web dev",
-    "format": "oxfmt apps packages e2e package.json playwright.config.ts tsconfig.base.json pnpm-workspace.yaml",
-    "format:check": "oxfmt --check apps packages e2e package.json playwright.config.ts tsconfig.base.json pnpm-workspace.yaml",
-    "lint": "oxlint --deny-warnings apps packages e2e",
+    "format": "oxfmt apps packages e2e scripts package.json playwright.config.ts tsconfig.base.json pnpm-workspace.yaml",
+    "format:check": "oxfmt --check apps packages e2e scripts package.json playwright.config.ts tsconfig.base.json pnpm-workspace.yaml",
+    "lint": "oxlint --deny-warnings apps packages e2e scripts",
     "test": "pnpm --recursive --if-present test",
     "test:e2e:workers": "pnpm --filter web test:e2e:workers",
     "typecheck": "pnpm --recursive --if-present typecheck"
