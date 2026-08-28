@@ -109,9 +109,9 @@ is the production release event; the Workers Build then deploys the resulting Op
 | `ci.yml` | PR, push to `main` | Typecheck, lint, unit, OpenNext build, database tests, Workers-runtime E2E | **all three jobs green on 2026-08-27** (`quality` 1m08s, `database` 2m05s, `e2e` 1m48s) |
 | Cloudflare Workers Builds | Push to protected `main` | OpenNext production build and Worker deployment | external configuration unverified |
 | `secret-scan.yml` | PR, push | gitleaks | **green on 2026-08-27** (7s); initially failed on `.env.example` placeholders, resolved by the root `.gitleaks.toml` allowlist ([05-security.md](05-security.md) §5.3) |
-| `production-migration.yml` | explicit dispatch from `main` | encrypted backup + committed migration application | committed; never run here |
+| `production-migration.yml` | explicit dispatch from `main` | encrypted backup + committed migration application | **successful on 2026-08-27** (run `33114400303`); the database was already current because the then-enabled Supabase GitHub production deployment had applied the migrations first. That auto-deploy is now disabled so future schema changes remain backup-first |
 | `nightly-reconciliation.yml` | 02:00 daily | DLQ retry + index sweep | planned Phase 3 |
-| `weekly-backup.yml` | Sundays 03:00 | `pg_dump`, media sync, content export | planned Phase 2/operations |
+| `weekly-backup.yml` | Sundays 03:00 UTC + manual dispatch from `main` | PostgreSQL 17 custom dump + all authenticated Supabase Storage buckets → manifest → zstd → age → private R2 | implementation committed; not operational until the Storage S3 secret, 21-day R2 lock, first complete run and scratch restore are verified. Portable JSON/MDX joins the set in Phase 2 |
 
 ---
 
