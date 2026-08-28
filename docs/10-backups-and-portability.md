@@ -282,6 +282,19 @@ for R2, and the age identity is generated and discarded inside the job. The dril
 Row counts alone cannot detect silently corrupted column data, which is why the drill compares
 digests on both the database payload and the Storage object.
 
+**First green drill: 2026-08-28**, GitHub Actions run `33190795456`. It published three sets, pruned
+the oldest, and restored 5 tables / 6 rows into `katbose_restore_drill` with both 1 KiB digests
+matching. Building it surfaced five defects that made a successful backup impossible, only one of
+which was visible by reading the code:
+
+| Defect | Effect |
+| --- | --- |
+| Contract rejected the creator's whole-second `CREATED_AT` | Every run failed after export, before publication |
+| Connection URI exported into `PGDATABASE` | libpq treated it as a literal database name, so `pg_dump` and `psql` fell back to the default local socket |
+| `pg_restore` invoked without `--dbname` | Wrote a script to stdout instead of restoring |
+| `zstd --output` | zstd only accepts `-o`, so compression aborted |
+| Archive contains `CREATE SCHEMA public` | Restore aborted, because every fresh database already has that schema |
+
 Two things the drill deliberately does not prove, because they need infrastructure it has no access
 to: `RESTORE_DATABASE_MODE=data-only`, which requires a second full Supabase project with the
 managed `storage` schema present, and R2 bucket-lock semantics, which no local S3 server replicates.
