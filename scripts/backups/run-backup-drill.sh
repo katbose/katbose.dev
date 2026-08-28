@@ -143,7 +143,12 @@ rclone --config "$R2_CONFIG" mkdir "r2:katbose-backups"
 step "Seeding a 1 KiB database payload and a 1 KiB Storage object"
 # 1024 printable characters with no surrounding whitespace, so the
 # contact_submissions length and btrim checks both accept it.
-DB_PAYLOAD="$(yes 'katbose-drill-payload' | head -c 1024 | tr '\n' '.')"
+# Built in-shell rather than through `yes | head`, whose SIGPIPE trips pipefail.
+DB_PAYLOAD=""
+while ((${#DB_PAYLOAD} < 1024)); do
+  DB_PAYLOAD+="katbose-drill-payload."
+done
+DB_PAYLOAD="${DB_PAYLOAD:0:1024}"
 readonly DB_PAYLOAD
 assert_equal "seeded database payload is 1 KiB" "1024" "${#DB_PAYLOAD}"
 DB_PAYLOAD_SHA="$(printf '%s' "$DB_PAYLOAD" | sha256sum | cut -d ' ' -f 1)"
@@ -227,10 +232,12 @@ mapfile -t remaining_sets < <(
     | LC_ALL=C sort
 )
 assert_equal "retained set count" "$RETAIN_SETS" "${#remaining_sets[@]}"
-if printf '%s\n' "${remaining_sets[@]}" | grep --fixed-strings --line-regexp --quiet "${PUBLISHED_SETS[0]}"; then
-  echo "DRILL FAILED: retention kept the oldest set ${PUBLISHED_SETS[0]}" >&2
-  exit 1
-fi
+for remaining in "${remaining_sets[@]}"; do
+  if [[ "$remaining" == "${PUBLISHED_SETS[0]}" ]]; then
+    echo "DRILL FAILED: retention kept the oldest set ${PUBLISHED_SETS[0]}" >&2
+    exit 1
+  fi
+done
 echo "  ok: oldest set ${PUBLISHED_SETS[0]} was pruned"
 # A pruned prefix must leave no residual payload behind.
 assert_equal "pruned prefix is empty" "0" \

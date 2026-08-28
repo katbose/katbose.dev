@@ -53,8 +53,14 @@ jobs:
           Set-StrictMode -Version Latest
           $ErrorActionPreference = "Stop"
           Install-Module PSScriptAnalyzer -Force -Scope CurrentUser -AcceptLicense
-          $findings = Invoke-ScriptAnalyzer -Path scripts/backups -Recurse -Severity Error,Warning
-          if ($findings) {
+          # PSUseSingularNouns targets exported cmdlet naming; Get-QueryRows is an
+          # internal helper that genuinely returns a collection of rows.
+          # @() keeps .Count valid when exactly one finding is returned.
+          $findings = @(
+            Invoke-ScriptAnalyzer -Path scripts/backups -Recurse -Severity Error, Warning `
+              -ExcludeRule PSUseSingularNouns
+          )
+          if ($findings.Count -gt 0) {
             $findings | Format-Table -AutoSize | Out-String | Write-Host
             throw "PSScriptAnalyzer reported $($findings.Count) finding(s)"
           }
