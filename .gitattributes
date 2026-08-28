@@ -1,3 +1,10 @@
 # Exported copies of generated routes must match the served bytes exactly (decision #89).
 llms.txt text eol=lf
 robots.txt text eol=lf
+
+# Shell scripts run on Linux runners and in recovery drills. A CRLF committed
+# from a Windows checkout makes `#!/usr/bin/env bash` unresolvable and breaks
+# every backup and restore script, so their line endings are a rule rather than
+# a Git heuristic. The PowerShell restore is pinned for the same consistency.
+*.sh text eol=lf
+*.ps1 text eol=lf

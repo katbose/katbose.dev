@@ -130,7 +130,7 @@ done < "$archive_listing"
 
 zstd --decompress --stdout "$PLAINTEXT_ARCHIVE" \
   | tar --extract --no-same-owner --no-same-permissions --file=- --directory "$EXTRACTED_SET"
-node "$CONTRACT_SCRIPT" verify "$EXTRACTED_SET" >/dev/null
+node "$CONTRACT_SCRIPT" verify-pair "$EXTRACTED_SET" "$COMPLETE_MARKER" >/dev/null
 application_dump="$EXTRACTED_SET/application.dump"
 "$PG_RESTORE_BIN" --list "$application_dump" >/dev/null
 mapfile -t expected_tables < <(

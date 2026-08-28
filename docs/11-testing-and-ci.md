@@ -111,7 +111,7 @@ is the production release event; the Workers Build then deploys the resulting Op
 | `secret-scan.yml` | PR, push | gitleaks | **green on 2026-08-27** (7s); initially failed on `.env.example` placeholders, resolved by the root `.gitleaks.toml` allowlist ([05-security.md](05-security.md) §5.3) |
 | `production-migration.yml` | explicit dispatch from `main` | encrypted backup + committed migration application | **successful on 2026-08-27** (run `33114400303`); the database was already current because the then-enabled Supabase GitHub production deployment had applied the migrations first. That auto-deploy is now disabled so future schema changes remain backup-first |
 | `nightly-reconciliation.yml` | 02:00 daily | DLQ retry + index sweep | planned Phase 3 |
-| `weekly-backup.yml` | Sundays 03:00 UTC + manual dispatch from `main` | PostgreSQL 17 custom dump + all authenticated Supabase Storage buckets → manifest → zstd → age → private R2 | implementation committed; not operational until the Storage S3 secret, 21-day R2 lock, first complete run and scratch restore are verified. Portable JSON/MDX joins the set in Phase 2 |
+| `weekly-backup.yml` | Sundays 03:00 UTC + manual dispatch from `main` | PostgreSQL 17 custom dump + all authenticated Supabase Storage buckets → manifest → zstd → age → private R2 | implementation committed and now covered by `backup-set-contract.test.ts`; **not operational.** As verified on 2026-08-28 the workflow is active but has no runs, `SUPABASE_STORAGE_RCLONE_CONFIG` is absent at both production-environment and repository scope, the `production` environment has no deployment-branch restriction, and `katbose-backups` has no bucket-lock rules. Portable JSON/MDX joins the set in Phase 2 |
 
 ---
 
@@ -155,7 +155,16 @@ that must not regress silently:
 // identity assets — reject bad magic bytes/type/size/dimensions and SVG favicon; replacement gets
 //     a new immutable key, complete favicon variants and the correct signed revalidation targets
 // seed guard — seed:dev throws when NODE_ENV=production or ALLOW_DEV_SEED is not true
+// backup-set contract — the whole-second CREATED_AT that create-weekly-backup.sh emits is
+//     accepted, persisted timestamps are canonical, a tampered payload and a marker from
+//     another run are refused, and retention keeps the newest sets and fails closed
 ```
+
+`apps/web/tests/backup-set-contract.test.ts` executes `scripts/backups/backup-set.mjs` as a
+subprocess against staged fixtures. It exists because that contract had no automated coverage and
+shipped a defect that would have failed every scheduled run: the validator accepted only
+`Date#toISOString()` output while the creator emits whole-second precision. Nothing else in the
+repository runs the backup scripts, so a green pipeline was not evidence they worked.
 
 ---
 

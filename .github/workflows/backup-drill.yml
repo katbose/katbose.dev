@@ -1,0 +1,160 @@
+name: backup-drill
+
+# Proves the real backup and restore scripts work end to end. It uses no
+# secrets and never contacts a hosted provider: a local Supabase project
+# supplies PostgreSQL 17 and Storage, a local S3 server stands in for R2, and
+# the age identity is generated and discarded inside the job.
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/backup-drill.yml"
+      - "scripts/backups/**"
+      - "supabase/migrations/**"
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/backup-drill.yml"
+      - "scripts/backups/**"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  scripts:
+    name: Static analysis of backup scripts
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Check shell syntax
+        shell: bash
+        run: |
+          set -euo pipefail
+          for script in scripts/backups/*.sh; do
+            bash -n "$script"
+            echo "syntax ok: $script"
+          done
+
+      - name: Run ShellCheck
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install --yes shellcheck
+          shellcheck --severity=warning --shell=bash scripts/backups/*.sh
+
+      - name: Run PSScriptAnalyzer
+        shell: pwsh
+        run: |
+          Set-StrictMode -Version Latest
+          $ErrorActionPreference = "Stop"
+          Install-Module PSScriptAnalyzer -Force -Scope CurrentUser -AcceptLicense
+          $findings = Invoke-ScriptAnalyzer -Path scripts/backups -Recurse -Severity Error,Warning
+          if ($findings) {
+            $findings | Format-Table -AutoSize | Out-String | Write-Host
+            throw "PSScriptAnalyzer reported $($findings.Count) finding(s)"
+          }
+          Write-Host "PSScriptAnalyzer reported no errors or warnings."
+
+  drill:
+    name: End-to-end backup and restore drill
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Use Node.js 24 LTS
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Install PostgreSQL 17 and backup tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install --yes age ca-certificates curl jq postgresql-common rclone zstd
+          sudo install --directory /usr/share/postgresql-common/pgdg
+          sudo curl --fail --silent --show-error \
+            --output /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc \
+            https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          source /etc/os-release
+          sudo tee /etc/apt/sources.list.d/pgdg.sources > /dev/null <<EOF
+          Types: deb
+          URIs: https://apt.postgresql.org/pub/repos/apt
+          Suites: ${VERSION_CODENAME}-pgdg
+          Components: main
+          Signed-By: /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc
+          EOF
+          sudo apt-get update
+          sudo apt-get install --yes postgresql-client-17
+          test "$(/usr/lib/postgresql/17/bin/pg_dump --version | grep -oE '[0-9]+' | head -n 1)" = "17"
+
+      - name: Install pinned Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: 2.116.0
+
+      - name: Start local Supabase
+        run: supabase start
+
+      - name: Reset schema from committed migrations
+        run: supabase db reset
+
+      - name: Start an S3 server as the R2 stand-in
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --detach --name katbose-drill-s3 \
+            --publish 127.0.0.1:9000:9000 \
+            --env MINIO_ROOT_USER=drillrootuser \
+            --env MINIO_ROOT_PASSWORD=drillrootpassword \
+            minio/minio server /data
+          for _ in $(seq 1 60); do
+            if curl --fail --silent --show-error http://127.0.0.1:9000/minio/health/live > /dev/null; then
+              echo "S3 stand-in is ready"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "S3 stand-in did not become ready" >&2
+          docker logs katbose-drill-s3 >&2 || true
+          exit 1
+
+      - name: Resolve local Supabase S3 credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          supabase status -o env > "$RUNNER_TEMP/supabase-status.env"
+          echo "Available keys:"
+          cut -d= -f1 "$RUNNER_TEMP/supabase-status.env" | sed 's/^/  /'
+          set -a
+          # shellcheck disable=SC1091 # generated at runtime by the Supabase CLI
+          source "$RUNNER_TEMP/supabase-status.env"
+          set +a
+          if [[ -z "${S3_PROTOCOL_ACCESS_KEY_ID:-}" || -z "${S3_PROTOCOL_ACCESS_KEY_SECRET:-}" ]]; then
+            echo "Supabase CLI did not report S3 protocol credentials" >&2
+            exit 1
+          fi
+          # Local, ephemeral development credentials for a throwaway instance.
+          echo "::add-mask::$S3_PROTOCOL_ACCESS_KEY_SECRET"
+          {
+            echo "SUPABASE_S3_ACCESS_KEY=$S3_PROTOCOL_ACCESS_KEY_ID"
+            echo "SUPABASE_S3_SECRET_KEY=$S3_PROTOCOL_ACCESS_KEY_SECRET"
+          } >> "$GITHUB_ENV"
+
+      - name: Run the end-to-end backup and restore drill
+        shell: bash
+        env:
+          OBJECT_STORE_ACCESS_KEY: drillrootuser
+          OBJECT_STORE_SECRET_KEY: drillrootpassword
+        run: bash scripts/backups/run-backup-drill.sh
+
+      - name: Collect S3 server logs on failure
+        if: failure()
+        run: docker logs katbose-drill-s3 || true

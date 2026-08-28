@@ -23,13 +23,14 @@
 The plan describes required resources; it does **not** claim every account already exists. Create
 or confirm them only when their phase needs them:
 
-| Resource | Provision/confirm by | Needed for | Status (2026-08-27) |
+| Resource | Provision/confirm by | Needed for | Status (verified through 2026-08-28) |
 | --- | --- | --- | --- |
 | `katbose.dev` registration + Cloudflare DNS zone | Before Spike A's remote/domain pass and certainly before production deploy | Worker custom domain, trusted `CF-Connecting-IP`, CMS/dashboard subdomains | Confirmed active with the production Worker bound to the apex custom domain; parking records were removed and Cloudflare nameservers are authoritative |
 | Cloudflare Workers + Images + Turnstile + Access | Workers/Images for Spike A; Turnstile/Access before their Phase 1 gates | Web runtime, image transforms, bot checks and admin protection | The existing non-interactive Turnstile widget is restricted to `katbose.dev`; its public build variable and Worker secret binding are configured. Fresh-token success and replay rejection through the deployed contact route remain unverified. Access remains phase-scoped and unconfirmed. |
 | npm package `katbose` | Before shipping `packages/katbose-card` | `npx katbose` distribution | Published (user-confirmed 2026-08-24) and monorepo source integrated; registry byte parity not independently checked |
 | Local Supabase CLI | Spike B | Free local Postgres/Storage/migration proof | Config, migrations and pgTAP tests are committed and pass in CI against Postgres 17.6/Supabase Storage (72 assertions); Docker remains unavailable on this workstation |
 | Production Supabase project | Before first protected production migration | Production Postgres and Storage | `katbose-db` (`ap-south-1`, PostgreSQL 17.6) is active and healthy; both committed migrations are recorded, all five public tables have forced RLS/restrictive client-role denies, and the private `resume` bucket exists. Supabase GitHub **Deploy to production** is disabled, so future migrations remain owned by the backup-first workflow |
+| Encrypted weekly backup controls | Before the first weekly run | Off-primary database/Storage recovery | `katbose-backups` exists. As verified on 2026-08-28, `SUPABASE_DB_URL`, `BACKUP_AGE_RECIPIENT` and `R2_RCLONE_CONFIG` exist in the `production` environment, but `SUPABASE_STORAGE_RCLONE_CONFIG` is absent at environment and repository scope; the environment has no deployment-branch restriction or approval rule, the bucket has no lock rules, the active workflow has no runs, and no scratch restore has passed |
 | Upstash, PostHog, Sentry and Slack workspace | While implementing their Phase 1 route/observability items | Rate limits, analytics, errors and alerts | PostHog EU ingestion and production-host events are verified. The Slack contact Worker secret binding exists, but delivery is unverified. Upstash live behavior, Sentry, and the alerts-channel path remain unverified |
 | Render | Spike B / Phase 2 deployment | Payload CMS; dashboard waits until Phase 5 | Not confirmed here |
 | Cloudflare AI Search instance | Spike C / Phase 3 | Items API, cited chat and reconciliation | Not confirmed here |
@@ -127,7 +128,7 @@ services:
 | Secret | Used by |
 | --- | --- |
 | `SUPABASE_DB_URL` | `weekly-backup.yml` and `production-migration.yml` (`pg_dump`); use the IPv4-reachable session-pooler URL for GitHub-hosted runners |
-| `SUPABASE_STORAGE_RCLONE_CONFIG` | `weekly-backup.yml`; multiline rclone remote named `supabase` for the authenticated Supabase Storage S3 endpoint. Generated S3 keys are server-only, bypass Storage RLS and have full access to every bucket, so this secret exists only in the protected `production` environment |
+| `SUPABASE_STORAGE_RCLONE_CONFIG` | `weekly-backup.yml`; multiline rclone remote named `supabase` for the authenticated Supabase Storage S3 endpoint. Generated S3 keys are server-only, bypass Storage RLS and have full access to every bucket, so this secret must be stored only in the `production` environment after it is restricted to protected branches |
 | `NEXTJS_RECONCILE_ENDPOINT` | `nightly-reconciliation.yml` |
 | `WEBHOOK_SHARED_SECRET` | `nightly-reconciliation.yml` |
 | `CMS_URL` | Planned Phase 2 input for `weekly-backup.yml` all-page JSON/MDX export; not referenced until Payload exists |
