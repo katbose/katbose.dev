@@ -190,9 +190,9 @@ katbose-portfolio/
 │   ├── shared/               # shared types, Zod schemas, constants, utils
 │   └── katbose-card/         # integrated source for the published `katbose` package
 ├── supabase/                 # migrations, local config and pgTAP security tests
-├── scripts/                  # planned operational exports, backups and retention purge
+├── scripts/                  # backup-set contracts and restore tooling; later phases add content export and retention purge
 ├── e2e/                      # Playwright specs
-├── .github/workflows/        # current CI/migration/secret scan; scheduled jobs are later-phase
+├── .github/workflows/        # CI, migration, secret scan and weekly backup; Phase 3 adds reconciliation
 ├── docs/                     # this documentation set
 ├── render.yaml               # planned Phase 2 Render blueprint
 ├── pnpm-workspace.yaml

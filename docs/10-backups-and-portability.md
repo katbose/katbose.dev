@@ -12,150 +12,211 @@ self-managed and automated from day one, not added after the first incident.
 
 Three things must survive a total loss of every vendor account:
 
-1. **The database** — content, logs, pointers
-2. **Media** — images uploaded through Payload
-3. **The writing itself** — in a format that does not need Payload to read
+1. **The database** — content, logs, pointers and Supabase Storage metadata
+2. **Storage objects** — media and every immutable resume version
+3. **The writing itself** — a portable format that does not need Payload to read
+
+The database and every current Supabase Storage bucket are implemented by the baseline weekly
+workflow. The portable JSON/MDX export is activated with Payload in Phase 2; until then there is no
+CMS endpoint or authored content to export, and the Phase 2 backup gate remains open.
 
 ---
 
-## 10.2 Weekly backup job
+## 10.2 Weekly complete sets
 
-```yaml
-# .github/workflows/weekly-backup.yml
-name: weekly-backup
-on:
-  schedule:
-    - cron: "0 3 * * 0"   # Sundays 03:00
-  workflow_dispatch: {}
+`.github/workflows/weekly-backup.yml` runs at 03:00 UTC every Sunday (08:30 Asia/Kolkata) and can be
+dispatched manually from protected `main`. It uses the `production` GitHub environment, asserts
+`refs/heads/main` before checkout and persists no Git credential. Its implementation is split into:
 
-jobs:
-  backup:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
+- `scripts/backups/create-weekly-backup.sh` — source export, verification, encryption, publication
+  and retention
+- `scripts/backups/backup-set.mjs` — manifest, completion-marker and retention contracts
+- `scripts/backups/restore-weekly-backup.ps1` — Windows/PowerShell 7 restore drill
+- `scripts/backups/restore-weekly-backup.sh` — Linux/macOS restore drill
 
-      - name: Create, encrypt and upload database backup
-        env:
-          AGE_RECIPIENT: ${{ secrets.BACKUP_AGE_RECIPIENT }}
-          R2_CONFIG: ${{ secrets.R2_RCLONE_CONFIG }}
-        run: |
-          pg_dump "${{ secrets.SUPABASE_DB_URL }}" | gzip > "backup-$(date +%F).sql.gz"
-          age -r "$AGE_RECIPIENT" -o "backup-$(date +%F).sql.gz.age" "backup-$(date +%F).sql.gz"
-          rm "backup-$(date +%F).sql.gz"
-          rclone --config "$R2_CONFIG" copy "backup-$(date +%F).sql.gz.age" r2:katbose-backups/database/
+Every run creates a unique immutable set ID:
 
-      # Optional convenience copy; R2 remains the durable target.
-      - uses: actions/upload-artifact@v4
-        with:
-          name: encrypted-db-backup
-          path: backup-*.sql.gz.age
-          retention-days: 30
+```text
+weekly-YYYYMMDDTHHMMSSZ-GITHUB_RUN_ID-GITHUB_RUN_ATTEMPT
 ```
 
-The dump covers both the `public` and `payload` schemas, because they live in the same database —
-one of the main reasons for [that decision](01-architecture.md).
+The plaintext staging set contains:
 
-**Normative durable target:** encrypt each backup before upload and retain the last four weekly
-sets in a private, off-primary Cloudflare R2 bucket with least-privilege credentials and versioning.
-GitHub artifacts and the private export repository are convenience/portable copies, not the only
-durable backup and not a substitute for R2. Restore tooling must decrypt without depending on the
-primary Supabase, Render, or GitHub account.
-
-**Verify early:** confirm that `pg_dump` from a GitHub Actions runner can actually reach the
-Supabase connection string in use. Supabase's direct connections are IPv6-first and Actions
-runners are IPv4-only, so the dump generally needs the **session pooler** connection string —
-test this once during Phase 2 setup, not on the day a restore is needed.
-
----
-
-## 10.3 Media sync
-
-Payload uploads live in Supabase Storage. The same weekly workflow mirrors the media bucket to a
-secondary location (R2 or a private repository) using the Supabase CLI or `rclone`. The resume
-bucket is included; it is only a few KB per version.
-
----
-
-## 10.4 Content export — the real anti-lock-in measure
-
-Every collection is exported weekly in two formats:
-
-- **JSON** — complete fidelity, for restoring into Payload
-- **MDX** — human-readable and portable, for restoring into anything
-
-```ts
-// scripts/export-content.ts (shape)
-const COLLECTIONS = ["blog-posts", "tie", "projects", "experience"] as const;
-
-for (const collection of COLLECTIONS) {
-  const docs: unknown[] = [];
-  let page = 1;
-  let totalPages = 1;
-  do {
-    const response = await fetch(
-      `${process.env.CMS_URL}/api/${collection}?limit=100&depth=2&page=${page}`,
-    );
-    if (!response.ok) throw new Error(`Export failed: ${collection} page ${page}`);
-    const batch = ExportPageSchema.parse(await response.json());
-    docs.push(...batch.docs);
-    totalPages = batch.totalPages;
-    page += 1;
-  } while (page <= totalPages);
-
-  await writeValidatedJsonAndMdx(collection, docs);
-}
+```text
+database.dump                    # PostgreSQL 17 custom-format archive
+storage-buckets.json             # source object count and byte count per bucket
+storage/<bucket>/<objects...>    # every Supabase Storage object
+manifest.json                    # SHA-256 and byte size of every staged file
 ```
 
-Every collection, Storage listing and R2 upload is paginated to exhaustion; fixed `limit=1000`
-requests are forbidden. Export schemas validate all pages before publishing a backup set, and the
-manifest records counts/checksums so truncated sets fail verification.
+The workflow then produces one compressed and encrypted payload and one non-sensitive completion
+marker:
 
-Encrypted JSON/MDX exports are uploaded with the database/media set to private off-primary R2.
-A private `katbose-content-backup` repository may additionally receive the readable export as a
-convenience/portable copy, but it is not the normative durable target.
+```text
+r2:katbose-backups/weekly/<set-id>/
+├── <set-id>.tar.zst.age
+└── complete.json
+```
 
-This is also why [02-content-model.md](02-content-model.md) mandates conservative field design:
-every exotic custom block is a special case in the serialiser and a future migration cost.
+`complete.json` records only the set ID, creation time, Git SHA, encrypted object name, byte size and
+SHA-256. It is written **last**, after the encrypted payload has been read back from R2 and matched
+byte-for-byte. A prefix without a valid marker is incomplete and is never eligible for restore or
+retention decisions.
+
+### 10.2.1 Database path
+
+The workflow installs the PostgreSQL 17 client from PGDG, matching the production PostgreSQL major.
+It runs `pg_dump --format=custom --no-owner --no-privileges`, rejects an empty archive and requires
+`pg_restore --list` to succeed before encryption. Custom format is the one backup format across the
+repository because it is compressed, validates structurally and permits selective or parallel
+restore.
+
+`SUPABASE_DB_URL` must be the IPv4-reachable **session-pooler** connection string. Supabase direct
+connections are IPv6-first while GitHub-hosted runners are IPv4-only.
+
+### 10.2.2 Storage path
+
+Object bytes are not stored in PostgreSQL; the dump contains only `storage.buckets` and
+`storage.objects` metadata. The workflow therefore uses Supabase's
+[server-side S3 endpoint](https://supabase.com/docs/guides/storage/s3/authentication) through an
+rclone remote named `supabase`. It enumerates every bucket to exhaustion, requires the private
+`resume` bucket, copies public and private objects, runs `rclone check --download`, and requires
+source and destination object/byte counts to match. Any missing object or unreadable private bucket
+fails the run; warnings never produce a green incomplete backup.
+
+Supabase-generated S3 keys bypass Storage RLS and have full access across Storage buckets. They are
+more narrowly scoped than a Supabase service-role key but are still privileged server credentials.
+The multiline `SUPABASE_STORAGE_RCLONE_CONFIG` secret therefore exists only in the GitHub
+`production` environment and is never available to application code:
+
+```ini
+[supabase]
+type = s3
+provider = Other
+access_key_id = replace-with-supabase-s3-access-key
+secret_access_key = replace-with-supabase-s3-secret-key
+endpoint = https://ersangtaqrggqldfdbxq.storage.supabase.co/storage/v1/s3
+region = ap-south-1
+```
+
+Generate the pair from **Supabase Dashboard → Storage → Configuration → S3** and save the secret
+once. Do not substitute a public object URL: it cannot read `resume` and does not prove a private
+backup.
+
+### 10.2.3 Encryption, publication and retention
+
+The set is compressed with zstd, encrypted with age and only then uploaded. CI receives the public
+`BACKUP_AGE_RECIPIENT`; the private identity stays offline in at least two independently controlled
+copies. Possession of GitHub or R2 credentials therefore does not reveal backup contents.
+
+R2 is the normative durable target. The workflow also retains the ciphertext and marker as a
+30-day GitHub artifact for convenience, but the artifact is not a backup substitute. After a new
+marker is verified, retention validates all existing markers and keeps at least the newest four
+complete sets. Invalid markers or a missing current marker fail closed without deleting anything.
+A lock-blocked deletion retains an extra set and emits a warning rather than weakening immutability.
+
+Cloudflare R2 does not implement S3 bucket versioning (`GetBucketVersioning`/`PutBucketVersioning`
+are unsupported in the [R2 S3 compatibility table](https://developers.cloudflare.com/r2/api/s3/api/)).
+The replacement is unique non-overwriting keys plus an R2
+[bucket-lock rule](https://developers.cloudflare.com/r2/buckets/bucket-locks/) on `weekly/` for 21
+days. That protects the three newest scheduled copies from deletion while allowing the fifth weekly
+run to prune an older unlocked set. The lock is a remote security control and must be verified
+separately; committing the workflow alone does not enable it.
 
 ---
 
-## 10.5 Restore procedure
+## 10.3 Content export — the anti-lock-in layer
+
+Once Payload exists, every collection and global is exported weekly in two forms:
+
+- **JSON** — complete fidelity for restoring into Payload
+- **MDX** — human-readable and portable for restoring into another CMS or a static site
+
+The exporter must fetch every page until `totalPages`, validate every response before publication,
+and add collection/global counts plus per-file checksums to the same set manifest. It covers Blog,
+TIE, Projects, Experience, Profile and SiteSettings; media object bytes remain owned by the Storage
+path above. A fixed `limit=1000` request is forbidden.
+
+Encrypted JSON/MDX exports join the database and Storage payload in private off-primary R2. A
+private `katbose-content-backup` repository may additionally receive readable exports, but it is a
+portable convenience copy, not the durable target. This is also why
+[02-content-model.md](02-content-model.md) mandates conservative field design: every exotic block is
+a special case in a future serializer.
+
+**Current status (2026-08-28):** Payload and `CMS_URL` do not exist, so this exporter is deliberately
+not fabricated or marked complete. The weekly database/Storage baseline may run first; the full
+Phase 2 gate requires adding and exercising the JSON/MDX path.
+
+---
+
+## 10.4 Restore procedure
+
+Restores require Node.js 24, age, rclone, zstd, tar and PostgreSQL 17 client tools. They always
+target a disposable **scratch database**, never production. The scripts require the literal
+`RESTORE_CONFIRMATION=RESTORE BACKUP TO SCRATCH`, download the marker and ciphertext from R2,
+verify SHA-256, decrypt with the offline age identity, reject archive traversal paths, verify every
+manifest entry, validate `database.dump`, then run PostgreSQL 17 `pg_restore --clean --if-exists
+--exit-on-error`.
+
+### Windows / PowerShell 7
+
+```powershell
+$env:BACKUP_SET_ID = "weekly-YYYYMMDDTHHMMSSZ-RUN-ID-1"
+$env:BACKUP_AGE_IDENTITY = "D:\offline\katbose-backups.agekey"
+$env:R2_RCLONE_CONFIG = Get-Content "D:\offline\r2-rclone.conf" -Raw
+$env:SCRATCH_DB_URL = "postgresql://postgres:password@localhost:5432/katbose_restore"
+$env:RESTORE_CONFIRMATION = "RESTORE BACKUP TO SCRATCH"
+
+pwsh scripts/backups/restore-weekly-backup.ps1
+```
+
+### Linux / macOS
 
 ```bash
-# 1. Download the encrypted set from off-primary R2
-# 2. Decrypt with the offline-held age identity and restore to scratch
-age --decrypt -i "$BACKUP_AGE_IDENTITY" \
-  -o backup-YYYY-MM-DD.sql.gz backup-YYYY-MM-DD.sql.gz.age
-gunzip -c backup-YYYY-MM-DD.sql.gz | psql "$SCRATCH_DB_URL"
-# 3. Restore media/resume objects and verify manifest counts/checksums
-# 4. Point local Payload at scratch; verify content and exactly one current resume
+export BACKUP_SET_ID="weekly-YYYYMMDDTHHMMSSZ-RUN-ID-1"
+export BACKUP_AGE_IDENTITY="/offline/katbose-backups.agekey"
+export R2_RCLONE_CONFIG="$(cat /offline/r2-rclone.conf)"
+export SCRATCH_DB_URL="postgresql://postgres:password@localhost:5432/katbose_restore"
+export RESTORE_CONFIRMATION="RESTORE BACKUP TO SCRATCH"
+
+bash scripts/backups/restore-weekly-backup.sh
 ```
 
-**Restore drill:** perform this once immediately after setup, and again whenever the schema changes
-materially. An untested backup is not a backup — this is a checklist item in Phase 2, not an
-optional exercise.
+Both scripts remove decrypted material on exit. By default, they verify the archived Storage
+objects without writing them anywhere. A full provider-loss drill additionally sets
+`TARGET_STORAGE_RCLONE_CONFIG` to a scratch Supabase S3 remote named `supabase`; every bucket is
+then copied and checked against the archive.
+
+Perform the first real drill immediately after the first successful weekly run, whenever the schema
+changes materially, and quarterly thereafter. Record the set ID, target, table/object counts and
+result. An archive that only passes `pg_restore --list` is structurally readable; it is not a proven
+restore until the scratch `pg_restore` succeeds.
 
 ---
 
-## 10.6 Recovery scenarios
+## 10.5 Recovery scenarios
 
 | Scenario | Recovery |
 | --- | --- |
 | Accidental content delete | Restore that document from the latest JSON export, or re-create from MDX |
-| Bad migration on prod | Restore the weekly dump into a scratch DB, extract the affected tables |
-| Supabase project lost | New project → apply `supabase/migrations/` → restore dump → re-point Render and redeploy the web app |
-| Payload/Render lost | New Render service from `render.yaml` → same database → back online |
-| Vendor abandonment (Payload) | Rebuild the site around the MDX exports; no content is trapped |
-| Search index corrupted | No backup needed — the nightly reconciliation sweep rebuilds it from the CMS |
+| Bad migration on production | Restore the newest weekly dump into scratch and extract the affected tables |
+| Supabase project lost | Create a project, restore the database, recreate project-level settings and copy every archived Storage bucket through S3 |
+| Payload/Render lost | Create `katbose-cms` from `render.yaml`, reconnect the restored database and redeploy |
+| Payload abandoned | Rebuild around the JSON/MDX exports; writing is not trapped in Payload |
+| Search index corrupted | Rebuild it from the CMS through reconciliation; it is derived data |
 
-The search index is deliberately treated as **derived data**, never as a source of truth.
+Project-level API keys, Auth settings, Edge Function deployment state and provider account settings
+are configuration, not database rows. Recreate them from repository configuration and the secret
+inventory during a total-project recovery.
 
 ---
 
-## 10.7 What is not backed up
+## 10.6 What is not backed up
 
 - **PostHog and Sentry data** — telemetry, acceptable to lose
-- **Upstash counters** — ephemeral by design, losing them just resets rate-limit windows
-- **The Cloudflare AI Search index** — regenerated by reconciliation
+- **Upstash counters** — ephemeral; losing them resets rate-limit windows
+- **Cloudflare AI Search index** — regenerated by reconciliation
+- **GitHub/Cloudflare/Supabase account configuration** — recreated from repository docs and provider
+  settings; credentials are rotated, never restored from a backup
 
-Documenting these explicitly prevents a false sense of loss later.
+Documenting these explicitly prevents a false sense of coverage.

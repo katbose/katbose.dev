@@ -1,0 +1,80 @@
+name: weekly-backup
+
+on:
+  schedule:
+    - cron: "0 3 * * 0" # Sundays 03:00 UTC (08:30 Asia/Kolkata)
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: weekly-backup
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    name: Create and verify encrypted weekly set
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    environment: production
+    steps:
+      - name: Require protected main ref
+        env:
+          SELECTED_REF: ${{ github.ref }}
+        run: test "$SELECTED_REF" = "refs/heads/main"
+
+      - name: Check out selected ref
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Use Node.js 24 LTS
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Install PostgreSQL 17 and backup tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install --yes age ca-certificates curl jq postgresql-common rclone zstd
+          sudo install --directory /usr/share/postgresql-common/pgdg
+          sudo curl --fail --silent --show-error \
+            --output /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc \
+            https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          source /etc/os-release
+          sudo tee /etc/apt/sources.list.d/pgdg.sources > /dev/null <<EOF
+          Types: deb
+          URIs: https://apt.postgresql.org/pub/repos/apt
+          Suites: ${VERSION_CODENAME}-pgdg
+          Components: main
+          Signed-By: /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc
+          EOF
+          sudo apt-get update
+          sudo apt-get install --yes postgresql-client-17
+          test "$(/usr/lib/postgresql/17/bin/pg_dump --version | grep -oE '[0-9]+' | head -n 1)" = "17"
+          test "$(/usr/lib/postgresql/17/bin/pg_restore --version | grep -oE '[0-9]+' | head -n 1)" = "17"
+
+      - name: Create, publish and retain complete backup set
+        id: backup
+        shell: bash
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          SUPABASE_PROJECT_REF: ersangtaqrggqldfdbxq
+          SUPABASE_STORAGE_RCLONE_CONFIG: ${{ secrets.SUPABASE_STORAGE_RCLONE_CONFIG }}
+          BACKUP_AGE_RECIPIENT: ${{ secrets.BACKUP_AGE_RECIPIENT }}
+          R2_RCLONE_CONFIG: ${{ secrets.R2_RCLONE_CONFIG }}
+        run: bash scripts/backups/create-weekly-backup.sh
+
+      - name: Retain encrypted convenience artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.backup.outputs.set_id }}
+          path: |
+            ${{ steps.backup.outputs.encrypted_path }}
+            ${{ steps.backup.outputs.marker_path }}
+          if-no-files-found: error
+          retention-days: 30

@@ -112,6 +112,7 @@ around silently.
 **Build**
 
 - [ ] Payload on Render via `render.yaml`, pointed at the Supabase `payload` schema
+- [x] Baseline weekly database + all-bucket Storage backup implementation committed: PostgreSQL 17 custom archive, exhaustive authenticated S3 copy/check, per-file manifest, zstd + age, R2 readback verification, completion marker and newest-four retention. Activation remains open until the privileged Storage S3 secret, 21-day R2 lock, first run and scratch restore are verified; JSON/MDX export waits for Payload
 - [ ] **Validate the Payload Postgres adapter against Supabase with a non-default schema before building on it**
 - [ ] Payload migrations, draft/publish flows, media upload, `pg_dump` and scratch restore prove the `payload` schema boundary
 - [ ] Local-only idempotent seed supplies one `[Fixture]` Blog, TIE, Project and Experience, plus
@@ -210,7 +211,7 @@ around silently.
 | Cadence | Task |
 | --- | --- |
 | Daily | Purge telemetry older than 90 days |
-| Weekly | 10-minute review: alerts, DLQ depth, flagged AI queries, Sentry, resume funnel |
+| Weekly | 10-minute review: alerts, latest complete backup age, DLQ depth, flagged AI queries, Sentry, resume funnel |
 | Monthly | Search Console, dependency updates, broken-link sweep |
 | Quarterly | Rotate HMAC pseudonym key/epoch; restore drill; review accepted risks |
 | Yearly | Re-read this plan end to end and retire anything that is no longer true |
