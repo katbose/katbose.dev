@@ -50,7 +50,7 @@ function Get-QueryScalar {
     [Parameter(Mandatory)][string]$Sql
   )
 
-  $rows = Get-QueryRows -ConnectionString $ConnectionString -Sql $Sql
+  $rows = @(Get-QueryRows -ConnectionString $ConnectionString -Sql $Sql)
   if ($rows.Count -ne 1) {
     throw "Expected exactly one row from: $Sql"
   }
@@ -112,17 +112,29 @@ try {
   Invoke-NativeCommand "age" @(
     "--decrypt", "--identity", $ageIdentity, "--output", $compressedArchive, $encryptedArchive
   )
+  # zstd names its output with -o; there is no --output.
   Invoke-NativeCommand "zstd" @(
-    "--decompress", "--quiet", "--output", $tarArchive, $compressedArchive
+    "--decompress", "--quiet", "-o", $tarArchive, $compressedArchive
   )
 
-  # Reject absolute paths and traversal before extraction. The age recipient
-  # provides confidentiality; this preflight keeps a tampered object-store
-  # payload inside the work directory.
+  # Reject links, devices, absolute paths, traversal and Windows-invalid
+  # names before extraction. The public age recipient is not an authority
+  # boundary, so archive contents must remain inside this work directory.
+  $archiveEntries = & tar --list --verbose --file=$tarArchive
+  if ($LASTEXITCODE -ne 0) {
+    throw "tar failed to inspect the decrypted archive"
+  }
+  foreach ($archiveEntry in $archiveEntries) {
+    if ([string]::IsNullOrEmpty($archiveEntry) -or $archiveEntry[0] -notin @('-', 'd')) {
+      throw "Unsafe non-file archive entry: $archiveEntry"
+    }
+  }
+
   $archivePaths = & tar --list --file=$tarArchive
   if ($LASTEXITCODE -ne 0) {
     throw "tar failed to list the decrypted archive"
   }
+  $invalidWindowsFileNameCharacters = [System.IO.Path]::GetInvalidFileNameChars()
   foreach ($archivePath in $archivePaths) {
     $normalized = $archivePath -replace '^\./', ''
     $segments = $normalized -split '/'
@@ -133,12 +145,24 @@ try {
     ) {
       throw "Unsafe path in backup archive: $archivePath"
     }
+    foreach ($segment in $segments) {
+      if ([string]::IsNullOrEmpty($segment) -or $segment -eq ".") {
+        continue
+      }
+      if (
+        $segment.IndexOfAny($invalidWindowsFileNameCharacters) -ge 0 -or
+        $segment -match '[. ]$' -or
+        $segment -match '^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])(\..*)?$'
+      ) {
+        throw "Archive path is not portable to Windows: $archivePath"
+      }
+    }
   }
 
   Invoke-NativeCommand "tar" @(
     "--extract", "--file=$tarArchive", "--directory=$extractedSet"
   )
-  Invoke-NativeCommand "node" @($contractScript, "verify", $extractedSet)
+  Invoke-NativeCommand "node" @($contractScript, "verify-pair", $extractedSet, $completeMarker)
 
   $applicationDump = Join-Path $extractedSet "application.dump"
   Invoke-NativeCommand "pg_restore" @("--list", $applicationDump)
@@ -159,6 +183,23 @@ select count(*) from pg_catalog.pg_tables where schemaname = 'public';
   if ($existingTables -ne "0") {
     throw "Restore requires an empty public schema in the scratch database; found $existingTables table(s)"
   }
+
+  $compatibleRoles = Get-QueryScalar -ConnectionString $scratchDatabaseUrl -Sql @"
+select count(*) from pg_catalog.pg_roles where rolname in ('anon', 'authenticated', 'service_role');
+"@
+  if ($compatibleRoles -ne "3") {
+    throw "Full restore requires Supabase-compatible anon, authenticated and service_role roles"
+  }
+
+  # Supabase owns schema public with a real role rather than pg_database_owner,
+  # so the archive contains CREATE SCHEMA public. Every fresh database already
+  # has that schema, which would abort the restore. Dropping it first lets the
+  # archive recreate it with the source owner and ACLs. RESTRICT refuses to
+  # cascade, so anything unexpected in the schema stops the restore instead.
+  Invoke-NativeCommand "psql" @(
+    $scratchDatabaseUrl, "--quiet", "--set=ON_ERROR_STOP=1",
+    "--command=drop schema if exists public restrict;"
+  )
 
   Invoke-NativeCommand "pg_restore" @(
     "--exit-on-error", "--single-transaction", "--no-owner", "--no-privileges",

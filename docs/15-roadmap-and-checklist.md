@@ -112,7 +112,7 @@ around silently.
 **Build**
 
 - [ ] Payload on Render via `render.yaml`, pointed at the Supabase `payload` schema
-- [x] Baseline weekly database + all-bucket Storage backup implementation committed: PostgreSQL 17 custom archive, exhaustive authenticated S3 copy/check, per-file manifest, zstd + age, R2 readback verification, completion marker and newest-four retention. Activation remains open until the privileged Storage S3 secret, 21-day R2 lock, first run and scratch restore are verified; JSON/MDX export waits for Payload
+- [x] Baseline weekly database + all-bucket Storage backup implementation: PostgreSQL 17 custom archive, exhaustive authenticated S3 copy/check, per-file manifest, zstd + age, R2 readback verification, completion marker and newest-four retention. **Proven end to end on 2026-08-28** by `backup-drill.yml` (run `33190795456`): the real creator and Bash restore ran against local Supabase and a local S3 stand-in, publishing three sets, pruning the oldest, and restoring 5 tables / 6 rows with a 1 KiB database payload and a 1 KiB Storage object both verified by SHA-256. Building that drill found five defects that made a successful backup impossible ([10-backups-and-portability.md](10-backups-and-portability.md) §10.7). Activation against production is tracked by the two gate items below; JSON/MDX export waits for Payload
 - [ ] **Validate the Payload Postgres adapter against Supabase with a non-default schema before building on it**
 - [ ] Payload migrations, draft/publish flows, media upload, `pg_dump` and scratch restore prove the `payload` schema boundary
 - [ ] Local-only idempotent seed supplies one `[Fixture]` Blog, TIE, Project and Experience, plus
@@ -135,7 +135,7 @@ around silently.
 - [ ] **Identity assets verified:** replacing the profile portrait and favicon creates new immutable
       URLs, revalidates Home/metadata, preserves alt/variant metadata and falls back cleanly when
       the CMS or relation is unavailable
-- [ ] **Encrypted backup workflow running:** `pg_dump` + all-page content export + media/resume sync to private off-primary R2; GitHub artifact/repo copies are convenience only
+- [ ] **Encrypted backup workflow running:** `pg_dump` + all-page content export + media/resume sync to private off-primary R2; GitHub artifact/repo copies are convenience only. Blocked on four external controls, all confirmed missing on 2026-08-28: restrict the `production` environment to protected branches, add `SUPABASE_STORAGE_RCLONE_CONFIG` to it, configure the 21-day `weekly/` bucket lock on `katbose-backups`, then produce one complete verified set
 - [ ] **One restore drill completed into a scratch database**
 - [ ] Content export verified to produce readable derived MDX for every collection
 - [ ] axe + keyboard tests extended to blog and TIE pages

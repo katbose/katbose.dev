@@ -12,8 +12,8 @@ self-managed and automated from day one, not added after the first incident.
 
 Three things must survive a total loss of every vendor account:
 
-1. **The database** — content, logs, pointers and Supabase Storage metadata
-2. **Storage objects** — media and every immutable resume version
+1. **The application database** — content, logs and pointers owned by application schemas
+2. **Storage** — object bodies plus the bucket settings needed to reconstruct media and resume data
 3. **The writing itself** — a portable format that does not need Payload to read
 
 The database and every current Supabase Storage bucket are implemented by the baseline weekly
@@ -43,10 +43,12 @@ weekly-YYYYMMDDTHHMMSSZ-GITHUB_RUN_ID-GITHUB_RUN_ATTEMPT
 The plaintext staging set contains:
 
 ```text
-database.dump                    # PostgreSQL 17 custom-format archive
-storage-buckets.json             # source object count and byte count per bucket
-storage/<bucket>/<objects...>    # every Supabase Storage object
-manifest.json                    # SHA-256 and byte size of every staged file
+application.dump                # PostgreSQL 17 custom archive of schema public
+database-tables.json            # public table names and exact source row counts
+migrations/*.sql                # committed Supabase migration snapshot
+storage-buckets.json            # bucket settings plus source object/byte counts
+storage/<bucket>/<objects...>   # every Supabase Storage object body
+manifest.json                   # SHA-256 and byte size of every staged file
 ```
 
 The workflow then produces one compressed and encrypted payload and one non-sensitive completion
@@ -66,28 +68,32 @@ retention decisions.
 ### 10.2.1 Database path
 
 The workflow installs the PostgreSQL 17 client from PGDG, matching the production PostgreSQL major.
-It runs `pg_dump --format=custom --no-owner --no-privileges`, rejects an empty archive and requires
-`pg_restore --list` to succeed before encryption. Custom format is the one backup format across the
-repository because it is compressed, validates structurally and permits selective or parallel
-restore.
+It runs `pg_dump --format=custom --schema=public --no-owner --no-privileges`, rejects an empty
+archive and requires `pg_restore --list` to succeed before encryption. The archive deliberately
+contains only application-owned relational objects in `public`; Supabase-managed `auth`, `storage`
+and extension schemas are recreated by the platform. Table names and source row counts are recorded
+separately in `database-tables.json` for post-restore verification. Custom format is the one backup
+format across the repository because it validates structurally and permits selective restore.
 
 `SUPABASE_DB_URL` must be the IPv4-reachable **session-pooler** connection string. Supabase direct
 connections are IPv6-first while GitHub-hosted runners are IPv4-only.
 
 ### 10.2.2 Storage path
 
-Object bytes are not stored in PostgreSQL; the dump contains only `storage.buckets` and
-`storage.objects` metadata. The workflow therefore uses Supabase's
-[server-side S3 endpoint](https://supabase.com/docs/guides/storage/s3/authentication) through an
-rclone remote named `supabase`. It enumerates every bucket to exhaustion, requires the private
-`resume` bucket, copies public and private objects, runs `rclone check --download`, and requires
-source and destination object/byte counts to match. Any missing object or unreadable private bucket
-fails the run; warnings never produce a green incomplete backup.
+Object bytes are not stored in the `public`-schema PostgreSQL archive. The workflow therefore uses
+Supabase's [server-side S3 endpoint](https://supabase.com/docs/guides/storage/s3/authentication)
+through an rclone remote named `supabase`. It separately records each bucket's `public`, file-size
+limit and allowed-MIME settings from `storage.buckets`; it does not dump the full managed
+`storage.objects` schema. It enumerates every bucket to exhaustion, requires the private `resume`
+bucket, copies public and private objects, runs `rclone check --download`, and requires source and
+destination object/byte counts to match. Any missing object or unreadable private bucket fails the
+run; warnings never produce a green incomplete backup.
 
 Supabase-generated S3 keys bypass Storage RLS and have full access across Storage buckets. They are
 more narrowly scoped than a Supabase service-role key but are still privileged server credentials.
-The multiline `SUPABASE_STORAGE_RCLONE_CONFIG` secret therefore exists only in the GitHub
-`production` environment and is never available to application code:
+The multiline `SUPABASE_STORAGE_RCLONE_CONFIG` secret must therefore be stored only in the GitHub
+`production` environment after that environment is restricted to protected branches; it must never
+be available to application code:
 
 ```ini
 [supabase]
@@ -151,12 +157,16 @@ Phase 2 gate requires adding and exercising the JSON/MDX path.
 
 ## 10.4 Restore procedure
 
-Restores require Node.js 24, age, rclone, zstd, tar and PostgreSQL 17 client tools. They always
-target a disposable **scratch database**, never production. The scripts require the literal
+Restores require Node.js 24, age, rclone, zstd, tar and PostgreSQL 17 client tools; the Bash
+implementation additionally requires Bash 4+, jq and sha256sum. They always target a disposable
+**scratch database**, never production. The scripts require the literal
 `RESTORE_CONFIRMATION=RESTORE BACKUP TO SCRATCH`, download the marker and ciphertext from R2,
-verify SHA-256, decrypt with the offline age identity, reject archive traversal paths, verify every
-manifest entry, validate `database.dump`, then run PostgreSQL 17 `pg_restore --clean --if-exists
---exit-on-error`.
+verify SHA-256, decrypt with the offline age identity, reject unsafe archive entry types and paths,
+verify every manifest entry and its marker identity, validate `application.dump`, and then restore
+with `pg_restore --exit-on-error --single-transaction --no-owner --no-privileges`. Full restore
+requires an empty `public` schema and Supabase-compatible `anon`, `authenticated` and `service_role`
+roles; it never uses `--clean`. The restored table set and every row count must exactly match the
+backup metadata.
 
 ### Windows / PowerShell 7
 
@@ -170,7 +180,18 @@ $env:RESTORE_CONFIRMATION = "RESTORE BACKUP TO SCRATCH"
 pwsh scripts/backups/restore-weekly-backup.ps1
 ```
 
-### Linux / macOS
+The PowerShell script is the native Windows full-restore drill. It is intentionally retained so
+recovery does not depend on WSL. The Bash script additionally supports
+`RESTORE_DATABASE_MODE=data-only` after migrations have been applied to a fresh target.
+
+Because Supabase Storage keys may legally contain characters Windows filenames cannot represent,
+the PowerShell script refuses an archive containing a path with `:`, `?`, `*`, `<`, `>`, `|`, a
+trailing dot or space, or a reserved device name such as `CON` or `LPT1`. That check fails before
+extraction with `Archive path is not portable to Windows`. The set is not corrupt: restore it with
+`restore-weekly-backup.sh` under Linux or WSL, and rename the offending object in Storage so future
+sets stay restorable on either platform.
+
+### Linux / Bash 4+ (macOS requires modern Bash and GNU tools)
 
 ```bash
 export BACKUP_SET_ID="weekly-YYYYMMDDTHHMMSSZ-RUN-ID-1"
@@ -183,9 +204,13 @@ bash scripts/backups/restore-weekly-backup.sh
 ```
 
 Both scripts remove decrypted material on exit. By default, they verify the archived Storage
-objects without writing them anywhere. A full provider-loss drill additionally sets
-`TARGET_STORAGE_RCLONE_CONFIG` to a scratch Supabase S3 remote named `supabase`; every bucket is
-then copied and checked against the archive.
+objects without writing them anywhere. A provider-loss exercise may additionally set
+`TARGET_STORAGE_RCLONE_CONFIG` to a disposable Supabase S3 remote named `supabase`; every archived
+object is then copied and checked. This optional object-copy step is **not** a complete or
+failure-atomic Storage recovery: destination buckets and their recorded visibility, size and MIME
+policy must be recreated first, destination emptiness must be verified by the operator, and the
+current one-way check does not reject unrelated destination objects. Never point it at production.
+Record these manual policy and target checks as part of the restore drill.
 
 Perform the first real drill immediately after the first successful weekly run, whenever the schema
 changes materially, and quarterly thereafter. Record the set ID, target, table/object counts and
@@ -220,3 +245,57 @@ inventory during a total-project recovery.
   settings; credentials are rotated, never restored from a backup
 
 Documenting these explicitly prevents a false sense of coverage.
+
+---
+
+## 10.7 Automated drill
+
+`create-weekly-backup.sh` binds every target to the hosted project named by `SUPABASE_PROJECT_REF`,
+which meant it could originally only ever run against production. Nothing exercised it, and it
+shipped a defect that would have failed every scheduled run. `BACKUP_TARGET_PROFILE` closes that
+gap:
+
+| Profile | Behaviour |
+| --- | --- |
+| `production` (default, and what the workflow uses) | Requires the hosted project's direct host or pooler user, and its `*.storage.supabase.co` S3 endpoint |
+| `local-drill` | Requires the database, Storage endpoint **and** object store to all be loopback |
+
+`local-drill` is a narrowing, not an escape hatch: it refuses any non-loopback target, so a drill
+can neither read a hosted project nor let retention delete a real set. Production behaviour is
+unchanged because the workflow never sets the variable.
+
+`.github/workflows/backup-drill.yml` runs `scripts/backups/run-backup-drill.sh` on every pull
+request touching `scripts/backups/**` or `supabase/migrations/**`. It uses **no secrets** and
+contacts no provider: local Supabase supplies PostgreSQL 17 and Storage, a local S3 server stands in
+for R2, and the age identity is generated and discarded inside the job. The drill:
+
+1. seeds all five `public` tables, including a 1 KiB message, and uploads a 1 KiB random object to
+   the private `resume` bucket
+2. runs the real creator three times with `RETAIN_COMPLETE_SETS=2`, then asserts the oldest set was
+   pruned and its prefix left no residual payload
+3. independently pulls the ciphertext, decrypts it with the throwaway identity and asserts the
+   archived object's SHA-256 and length match the source and the manifest
+4. runs the real Bash restore into a scratch database and asserts the table set, every row count,
+   the resume pointer, and the 1 KiB payload's SHA-256 read back from PostgreSQL
+5. asserts `local-drill` refuses a hosted Supabase host
+
+Row counts alone cannot detect silently corrupted column data, which is why the drill compares
+digests on both the database payload and the Storage object.
+
+**First green drill: 2026-08-28**, GitHub Actions run `33190795456`. It published three sets, pruned
+the oldest, and restored 5 tables / 6 rows into `katbose_restore_drill` with both 1 KiB digests
+matching. Building it surfaced five defects that made a successful backup impossible, only one of
+which was visible by reading the code:
+
+| Defect | Effect |
+| --- | --- |
+| Contract rejected the creator's whole-second `CREATED_AT` | Every run failed after export, before publication |
+| Connection URI exported into `PGDATABASE` | libpq treated it as a literal database name, so `pg_dump` and `psql` fell back to the default local socket |
+| `pg_restore` invoked without `--dbname` | Wrote a script to stdout instead of restoring |
+| `zstd --output` | zstd only accepts `-o`, so compression aborted |
+| Archive contains `CREATE SCHEMA public` | Restore aborted, because every fresh database already has that schema |
+
+Two things the drill deliberately does not prove, because they need infrastructure it has no access
+to: `RESTORE_DATABASE_MODE=data-only`, which requires a second full Supabase project with the
+managed `storage` schema present, and R2 bucket-lock semantics, which no local S3 server replicates.
+Both still require a production drill.

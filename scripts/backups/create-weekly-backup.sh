@@ -9,6 +9,12 @@ REPO_ROOT="$(cd -- "$SCRIPT_DIR/../.." && pwd)"
 readonly REPO_ROOT
 readonly CONTRACT_SCRIPT="$SCRIPT_DIR/backup-set.mjs"
 readonly RETAIN_COMPLETE_SETS="${RETAIN_COMPLETE_SETS:-4}"
+# `production` binds every target to the hosted Supabase project named by
+# SUPABASE_PROJECT_REF. `local-drill` instead requires every target -- database,
+# Storage and object store -- to be loopback, so a drill can neither read a
+# hosted project nor let retention delete a real backup set. Production never
+# sets this, so its behaviour is unchanged. See docs/10-backups-and-portability.md §10.7.
+readonly BACKUP_TARGET_PROFILE="${BACKUP_TARGET_PROFILE:-production}"
 readonly PG_DUMP_BIN="${PG_DUMP_BIN:-/usr/lib/postgresql/17/bin/pg_dump}"
 readonly PG_RESTORE_BIN="${PG_RESTORE_BIN:-/usr/lib/postgresql/17/bin/pg_restore}"
 readonly PSQL_BIN="${PSQL_BIN:-/usr/lib/postgresql/17/bin/psql}"
@@ -57,35 +63,73 @@ done
 [[ "$($PG_RESTORE_BIN --version | grep -oE '[0-9]+' | head -n 1)" == "17" ]]
 [[ "$($PSQL_BIN --version | grep -oE '[0-9]+' | head -n 1)" == "17" ]]
 
+if [[ "$BACKUP_TARGET_PROFILE" != "production" && "$BACKUP_TARGET_PROFILE" != "local-drill" ]]; then
+  echo "BACKUP_TARGET_PROFILE must be production or local-drill" >&2
+  exit 1
+fi
 if [[ ! "$SUPABASE_PROJECT_REF" =~ ^[a-z0-9]{20}$ ]]; then
   echo "Invalid Supabase project reference" >&2
   exit 1
 fi
-if ! node --input-type=module - "$SUPABASE_PROJECT_REF" <<'NODE'
+# The profile travels as an argument: it is readonly here, so bash would refuse
+# a command-prefix environment assignment.
+if ! node --input-type=module - "$SUPABASE_PROJECT_REF" "$BACKUP_TARGET_PROFILE" <<'NODE'
 const expectedRef = process.argv[2];
+const profile = process.argv[3];
+const LOOPBACK_HOSTS = new Set(["127.0.0.1", "localhost", "[::1]", "::1"]);
 try {
   const databaseUrl = new URL(process.env.SUPABASE_DB_URL);
   const username = decodeURIComponent(databaseUrl.username);
-  const directHost = databaseUrl.hostname === `db.${expectedRef}.supabase.co`;
-  const poolerUser = username === `postgres.${expectedRef}`;
-  if (!directHost && !poolerUser) throw new Error("project mismatch");
+  if (profile === "local-drill") {
+    if (!LOOPBACK_HOSTS.has(databaseUrl.hostname)) {
+      throw new Error("drill database is not loopback");
+    }
+  } else {
+    const directHost = databaseUrl.hostname === `db.${expectedRef}.supabase.co`;
+    const poolerUser = username === `postgres.${expectedRef}`;
+    if (!directHost && !poolerUser) throw new Error("project mismatch");
+  }
 } catch {
-  process.stderr.write("SUPABASE_DB_URL does not match SUPABASE_PROJECT_REF\n");
+  process.stderr.write(
+    profile === "local-drill"
+      ? "SUPABASE_DB_URL must be a loopback database under BACKUP_TARGET_PROFILE=local-drill\n"
+      : "SUPABASE_DB_URL does not match SUPABASE_PROJECT_REF\n",
+  );
   process.exit(1);
 }
 NODE
 then
   exit 1
 fi
+
+if [[ "$BACKUP_TARGET_PROFILE" == "local-drill" ]]; then
+  storage_endpoint_pattern="^[[:space:]]*endpoint[[:space:]]*=[[:space:]]*http://(127\\.0\\.0\\.1|localhost):[0-9]{1,5}/storage/v1/s3[[:space:]]*$"
+  storage_endpoint_expectation="a loopback Storage endpoint"
+else
+  storage_endpoint_pattern="^[[:space:]]*endpoint[[:space:]]*=[[:space:]]*https://${SUPABASE_PROJECT_REF}\\.storage\\.supabase\\.co/storage/v1/s3[[:space:]]*$"
+  storage_endpoint_expectation="SUPABASE_PROJECT_REF"
+fi
 if ! printf '%s' "$SUPABASE_STORAGE_RCLONE_CONFIG" \
   | tr -d '\r' \
-  | grep --extended-regexp --quiet \
-    "^[[:space:]]*endpoint[[:space:]]*=[[:space:]]*https://${SUPABASE_PROJECT_REF}\\.storage\\.supabase\\.co/storage/v1/s3[[:space:]]*$"; then
-  echo "SUPABASE_STORAGE_RCLONE_CONFIG does not match SUPABASE_PROJECT_REF" >&2
+  | grep --extended-regexp --quiet "$storage_endpoint_pattern"; then
+  echo "SUPABASE_STORAGE_RCLONE_CONFIG does not match $storage_endpoint_expectation" >&2
   exit 1
 fi
 
-export PGDATABASE="$SUPABASE_DB_URL"
+# Retention deletes older sets, so a drill must be unable to address real R2.
+if [[ "$BACKUP_TARGET_PROFILE" == "local-drill" ]]; then
+  if ! printf '%s' "$R2_RCLONE_CONFIG" \
+    | tr -d '\r' \
+    | grep --extended-regexp --quiet \
+      "^[[:space:]]*endpoint[[:space:]]*=[[:space:]]*http://(127\\.0\\.0\\.1|localhost):[0-9]{1,5}/?[[:space:]]*$"; then
+    echo "R2_RCLONE_CONFIG must use a loopback endpoint under BACKUP_TARGET_PROFILE=local-drill" >&2
+    exit 1
+  fi
+fi
+
+# shellcheck source=scripts/backups/pg-connection-env.sh
+source "$SCRIPT_DIR/pg-connection-env.sh"
+export_pg_environment "$SUPABASE_DB_URL"
 unset SUPABASE_DB_URL
 
 CREATED_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
@@ -275,7 +319,7 @@ node "$CONTRACT_SCRIPT" create \
 node "$CONTRACT_SCRIPT" verify "$SET_DIR" >/dev/null
 
 # Archive once, then encrypt before any bytes leave the runner.
-tar --create --directory "$SET_DIR" . | zstd --threads=0 --quiet --output "$PLAINTEXT_ARCHIVE"
+tar --create --directory "$SET_DIR" . | zstd --threads=0 --quiet -o "$PLAINTEXT_ARCHIVE"
 test -s "$PLAINTEXT_ARCHIVE"
 age --recipient "$BACKUP_AGE_RECIPIENT" --output "$ENCRYPTED_ARCHIVE" "$PLAINTEXT_ARCHIVE"
 rm -f -- "$PLAINTEXT_ARCHIVE"

@@ -130,7 +130,7 @@ done < "$archive_listing"
 
 zstd --decompress --stdout "$PLAINTEXT_ARCHIVE" \
   | tar --extract --no-same-owner --no-same-permissions --file=- --directory "$EXTRACTED_SET"
-node "$CONTRACT_SCRIPT" verify "$EXTRACTED_SET" >/dev/null
+node "$CONTRACT_SCRIPT" verify-pair "$EXTRACTED_SET" "$COMPLETE_MARKER" >/dev/null
 application_dump="$EXTRACTED_SET/application.dump"
 "$PG_RESTORE_BIN" --list "$application_dump" >/dev/null
 mapfile -t expected_tables < <(
@@ -142,7 +142,9 @@ if [[ "${#expected_tables[@]}" -eq 0 ]]; then
   exit 1
 fi
 
-export PGDATABASE="$SCRATCH_DB_URL"
+# shellcheck source=scripts/backups/pg-connection-env.sh
+source "$SCRIPT_DIR/pg-connection-env.sh"
+export_pg_environment "$SCRATCH_DB_URL"
 unset SCRATCH_DB_URL
 mapfile -t target_tables < <(
   "$PSQL_BIN" --tuples-only --no-align --set=ON_ERROR_STOP=1 --command="
@@ -153,7 +155,13 @@ mapfile -t target_tables < <(
   " | sed -e '/^$/d'
 )
 
-restore_arguments=(--exit-on-error --single-transaction --no-owner --no-privileges)
+# Without --dbname, pg_restore writes a script to stdout instead of connecting,
+# so the database name must be passed explicitly. It is not a secret; the
+# password stays in PGPASSWORD.
+restore_arguments=(
+  --exit-on-error --single-transaction --no-owner --no-privileges
+  --dbname="$PGDATABASE"
+)
 if [[ "$RESTORE_DATABASE_MODE" == "full" ]]; then
   if [[ "${#target_tables[@]}" -ne 0 ]]; then
     echo "Full restore requires an empty public schema in the scratch database" >&2
@@ -170,6 +178,13 @@ if [[ "$RESTORE_DATABASE_MODE" == "full" ]]; then
     echo "Full restore requires Supabase-compatible anon, authenticated and service_role roles" >&2
     exit 1
   fi
+  # Supabase owns schema public with a real role rather than pg_database_owner,
+  # so the archive contains CREATE SCHEMA public. Every fresh database already
+  # has that schema, which would abort the restore. Dropping it first lets the
+  # archive recreate it with the source owner and ACLs. RESTRICT refuses to
+  # cascade, so anything unexpected in the schema stops the restore instead.
+  "$PSQL_BIN" --set=ON_ERROR_STOP=1 --quiet \
+    --command="drop schema if exists public restrict;" > /dev/null
 else
   if [[ "$(printf '%s\n' "${target_tables[@]}")" != "$(printf '%s\n' "${expected_tables[@]}")" ]]; then
     echo "Data-only restore requires the exact migration-created application table set" >&2

@@ -24,12 +24,24 @@ function requireSetId(value) {
   return value;
 }
 
+// Accepts either whole-second precision, which is what `date -u
+// +%Y-%m-%dT%H:%M:%SZ` in create-weekly-backup.sh emits, or the canonical
+// millisecond form. Always returns the canonical form so every persisted and
+// compared timestamp has exactly one representation: retention orders sets by
+// this string, so two spellings of one instant must never coexist.
 function requireTimestamp(value) {
+  if (typeof value !== "string") {
+    fail(`Invalid ISO timestamp: ${String(value)}`);
+  }
   const parsed = new Date(value);
-  if (!Number.isFinite(parsed.getTime()) || parsed.toISOString() !== value) {
+  if (!Number.isFinite(parsed.getTime())) {
     fail(`Invalid ISO timestamp: ${value}`);
   }
-  return value;
+  const canonical = parsed.toISOString();
+  if (value !== canonical && value !== canonical.replace(".000Z", "Z")) {
+    fail(`Invalid ISO timestamp: ${value}`);
+  }
+  return canonical;
 }
 
 function requireSha256(value) {
@@ -313,7 +325,7 @@ function validateManifestShape(manifest) {
     fail("Unsupported backup manifest version");
   }
   requireSetId(manifest.setId);
-  requireTimestamp(manifest.createdAt);
+  manifest.createdAt = requireTimestamp(manifest.createdAt);
   if (typeof manifest.gitSha !== "string" || !/^[a-f0-9]{40}$/.test(manifest.gitSha)) {
     fail("Manifest gitSha must be a full Git commit SHA");
   }
@@ -335,9 +347,15 @@ function validateManifestShape(manifest) {
     schema: "public",
     tables: manifest.database.tables,
   });
-  validateBucketStats({ version: 1, buckets: manifest.storage?.buckets });
-  requireNonNegativeInteger(manifest.storage?.objects, "storage.objects");
-  requireNonNegativeInteger(manifest.storage?.bytes, "storage.bytes");
+  if (!manifest.storage || typeof manifest.storage !== "object") {
+    fail("Manifest storage metadata is missing");
+  }
+  manifest.storage.buckets = validateBucketStats({
+    version: 1,
+    buckets: manifest.storage.buckets,
+  });
+  requireNonNegativeInteger(manifest.storage.objects, "storage.objects");
+  requireNonNegativeInteger(manifest.storage.bytes, "storage.bytes");
   if (!Array.isArray(manifest.files) || manifest.files.length === 0) {
     fail("Manifest files must be a non-empty array");
   }
@@ -382,6 +400,7 @@ async function verifyManifest(setDirectory) {
   if (
     manifest.database.bytes !== inspected.databaseBytes ||
     JSON.stringify(manifest.database.tables) !== JSON.stringify(inspected.databaseTables) ||
+    JSON.stringify(manifest.storage.buckets) !== JSON.stringify(inspected.buckets) ||
     manifest.storage.objects !== actualObjects ||
     manifest.storage.bytes !== actualStorageBytes
   ) {
@@ -390,12 +409,25 @@ async function verifyManifest(setDirectory) {
   return manifest;
 }
 
+async function verifySetAgainstMarker(setDirectory, markerPath) {
+  const manifest = await verifyManifest(setDirectory);
+  const marker = validateMarker(await readJson(resolve(markerPath)));
+  if (
+    marker.setId !== manifest.setId ||
+    marker.createdAt !== manifest.createdAt ||
+    marker.gitSha !== manifest.gitSha
+  ) {
+    fail("Completion marker metadata differs from the backup manifest");
+  }
+  return { manifest, marker };
+}
+
 function validateMarker(marker) {
   if (!marker || marker.version !== MARKER_VERSION) {
     fail("Unsupported completion marker version");
   }
   requireSetId(marker.setId);
-  requireTimestamp(marker.createdAt);
+  marker.createdAt = requireTimestamp(marker.createdAt);
   if (typeof marker.gitSha !== "string" || !/^[a-f0-9]{40}$/.test(marker.gitSha)) {
     fail("Completion marker gitSha must be a full Git commit SHA");
   }
@@ -503,6 +535,13 @@ async function main() {
       result = await verifyManifest(args[0]);
       break;
     }
+    case "verify-pair": {
+      if (args.length !== 2) {
+        fail("Usage: backup-set.mjs verify-pair SET_DIR MARKER");
+      }
+      result = await verifySetAgainstMarker(...args);
+      break;
+    }
     case "create-marker": {
       if (args.length !== 5) {
         fail("Usage: backup-set.mjs create-marker ENCRYPTED SET_ID CREATED_AT GIT_SHA OUTPUT");
@@ -531,7 +570,7 @@ async function main() {
     }
     default:
       fail(
-        "Expected one of: create, verify, create-marker, verify-marker, verify-marker-stream, retention",
+        "Expected one of: create, verify, verify-pair, create-marker, verify-marker, verify-marker-stream, retention",
       );
   }
 
