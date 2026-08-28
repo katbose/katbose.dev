@@ -29,7 +29,7 @@ or confirm them only when their phase needs them:
 | Cloudflare Workers + Images + Turnstile + Access | Workers/Images for Spike A; Turnstile/Access before their Phase 1 gates | Web runtime, image transforms, bot checks and admin protection | The existing non-interactive Turnstile widget is restricted to `katbose.dev`; its public build variable and Worker secret binding are configured. Fresh-token success and replay rejection through the deployed contact route remain unverified. Access remains phase-scoped and unconfirmed. |
 | npm package `katbose` | Before shipping `packages/katbose-card` | `npx katbose` distribution | Published (user-confirmed 2026-08-24) and monorepo source integrated; registry byte parity not independently checked |
 | Local Supabase CLI | Spike B | Free local Postgres/Storage/migration proof | Config, migrations and pgTAP tests are committed and pass in CI against Postgres 17.6/Supabase Storage (72 assertions); Docker remains unavailable on this workstation |
-| Production Supabase project | Before first protected production migration | Production Postgres and Storage | `katbose-db` (`ap-south-1`, PostgreSQL 17.6) is active and healthy; it has no application migrations, tables or storage buckets because the protected backup-first workflow has not completed |
+| Production Supabase project | Before first protected production migration | Production Postgres and Storage | `katbose-db` (`ap-south-1`, PostgreSQL 17.6) is active and healthy; both committed migrations are recorded, all five public tables have forced RLS/restrictive client-role denies, and the private `resume` bucket exists. Supabase GitHub **Deploy to production** is disabled, so future migrations remain owned by the backup-first workflow |
 | Upstash, PostHog, Sentry and Slack workspace | While implementing their Phase 1 route/observability items | Rate limits, analytics, errors and alerts | PostHog EU ingestion and production-host events are verified. The Slack contact Worker secret binding exists, but delivery is unverified. Upstash live behavior, Sentry, and the alerts-channel path remain unverified |
 | Render | Spike B / Phase 2 deployment | Payload CMS; dashboard waits until Phase 5 | Not confirmed here |
 | Cloudflare AI Search instance | Spike C / Phase 3 | Items API, cited chat and reconciliation | Not confirmed here |
@@ -127,12 +127,20 @@ services:
 | Secret | Used by |
 | --- | --- |
 | `SUPABASE_DB_URL` | `weekly-backup.yml` and `production-migration.yml` (`pg_dump`); use the IPv4-reachable session-pooler URL for GitHub-hosted runners |
+| `SUPABASE_STORAGE_RCLONE_CONFIG` | `weekly-backup.yml`; multiline rclone remote named `supabase` for the authenticated Supabase Storage S3 endpoint. Generated S3 keys are server-only, bypass Storage RLS and have full access to every bucket, so this secret exists only in the protected `production` environment |
 | `NEXTJS_RECONCILE_ENDPOINT` | `nightly-reconciliation.yml` |
 | `WEBHOOK_SHARED_SECRET` | `nightly-reconciliation.yml` |
-| `CMS_URL` | `weekly-backup.yml` (all-page content export) |
-| `CONTENT_BACKUP_REPO_TOKEN` | Optional convenience push of portable exports to the private repo |
-| `R2_RCLONE_CONFIG` | `weekly-backup.yml` and `production-migration.yml`; configures the encrypted off-primary R2 target. The credential is a bucket-scoped R2 token, so rclone runs with `--s3-no-check-bucket` |
-| `BACKUP_AGE_RECIPIENT` | `weekly-backup.yml` and `production-migration.yml`; encrypts every backup before upload while the private identity stays off CI |
+| `CMS_URL` | Planned Phase 2 input for `weekly-backup.yml` all-page JSON/MDX export; not referenced until Payload exists |
+| `CONTENT_BACKUP_REPO_TOKEN` | Planned optional convenience push of portable exports to the private repo; R2 remains authoritative |
+| `R2_RCLONE_CONFIG` | `weekly-backup.yml` and `production-migration.yml`; multiline rclone remote named `r2` for the private `katbose-backups` bucket. The token is bucket-scoped, so rclone uses `--s3-no-check-bucket` |
+| `BACKUP_AGE_RECIPIENT` | `weekly-backup.yml` and `production-migration.yml`; public recipient that encrypts every backup while the private identity stays offline and out of GitHub |
+
+The weekly workflow uses the same `production` environment as the protected migration workflow and
+asserts `refs/heads/main` before checking out repository code. Generate the Storage pair from
+**Supabase Dashboard → Storage → Configuration → S3**, store it in the config shape documented in
+[10-backups-and-portability.md](10-backups-and-portability.md) §10.2.2, and keep the age private
+identity in at least two offline locations. Never add the age identity or a Supabase service-role key
+to GitHub to make a restore more convenient.
 
 ---
 
@@ -159,7 +167,8 @@ token.
 | Daily | Purge telemetry older than 90 days; this job is independent of key rotation |
 | Quarterly | Rotate `IP_PSEUDONYM_KEY`, increment `IP_PSEUDONYM_EPOCH`; never correlate epochs |
 | Quarterly | Rotate `PREVIEW_URL_SECRET`, `PREVIEW_INTERNAL_SECRET`, `WEBHOOK_SHARED_SECRET`, `SENTRY_AUTH_TOKEN` |
-| On compromise | Rotate the affected key immediately, then audit `download_logs` and `ai_query_logs` for abuse |
+| Quarterly | Rotate the Supabase Storage S3 pair and bucket-scoped R2 token; prove a new complete set and restore before revoking the old credentials |
+| On compromise | Rotate the affected key immediately, then audit application logs plus R2/Supabase access; an age recipient change does not decrypt old sets, so preserve the corresponding offline identity through their retention window |
 | On vendor change | Remove retired variables from every surface and from this document |
 
 **Pseudonym-key rotation order:**

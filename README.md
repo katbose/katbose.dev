@@ -170,9 +170,9 @@ katbose-portfolio/
 │   ├── shared/               # shared types, Zod schemas, constants, utils
 │   └── katbose-card/         # integrated source for the published `katbose` package
 ├── supabase/                 # migrations, local config and pgTAP security tests
-├── scripts/                  # planned operational exports, backups and retention purge
+├── scripts/                  # backup-set contracts and cross-platform restore tooling; content export/retention purge follow in later phases
 ├── e2e/                      # Playwright specs
-├── .github/workflows/        # current CI/migration/secret scan; scheduled jobs are later-phase
+├── .github/workflows/        # CI, migration, secret scan and weekly backup; reconciliation follows in Phase 3
 ├── docs/                     # this documentation set (01–20)
 ├── render.yaml               # planned Phase 2 Render blueprint (no secret values)
 ├── pnpm-workspace.yaml
@@ -194,13 +194,13 @@ katbose-portfolio/
 | [07](docs/07-rate-limiting.md) | **Rate Limiting & Forms** | Cloudflare + Upstash layers, per-route limits, fail-open/fail-closed matrix, contact form protection, Turnstile |
 | [08](docs/08-resilience.md) | **Resilience & Fallbacks** | ISR as a shield, graceful degradation, error boundaries, outage drills |
 | [09](docs/09-observability.md) | **Observability & Dashboard** | PostHog, Sentry, Slack alert catalogue, private dashboard, weekly review ritual |
-| [10](docs/10-backups-and-portability.md) | **Backups & Portability** | Weekly `pg_dump`, media sync, JSON/MDX export, restore drills |
+| [10](docs/10-backups-and-portability.md) | **Backups & Portability** | Encrypted weekly PostgreSQL/Storage sets, manifests, R2 retention, portable JSON/MDX plan and restore drills |
 | [11](docs/11-testing-and-ci.md) | **Testing & CI** | Workflows, unit/E2E scope, resume smoke test, pre-deploy manual checks |
 | [12](docs/12-accessibility.md) | **Accessibility** | WCAG 2.2 AA enforcement, axe in CI, keyboard specs, authoring rules |
 | [13](docs/13-seo-and-agent-readability.md) | **SEO & Agent Readability** | Core Web Vitals targets, JSON-LD, `robots.txt`, `llms.txt`, `humans.txt`, utility pages |
 | [14](docs/14-privacy-and-compliance.md) | **Privacy & Compliance** | Data inventory, no-cookie-banner rationale, retention, privacy policy, i18n out of scope |
 | [15](docs/15-roadmap-and-checklist.md) | **Roadmap & Checklist** | Five phases with build lists and non-negotiable production gates |
-| [16](docs/16-decision-log.md) | **Decision Log** | Decisions through #90 with status vocabulary, historical annotations and reasoning |
+| [16](docs/16-decision-log.md) | **Decision Log** | Decisions through #95 with status vocabulary, historical annotations and reasoning |
 | [17](docs/17-env-vars.md) | **Environment Variables** | Full secrets inventory per surface, generation, rotation calendar |
 | [18](docs/18-knowledge-base.md) | **Knowledge Base** | Separate repository, TIE boundary, future indexing |
 | [19](docs/19-design-reference.md) | **Design Reference** | justaditya.com/Hackyfolio as primary visual reference, micro-interaction catalogue, intro loader, `npx katbose`, compatibility analysis |

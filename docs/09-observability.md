@@ -100,7 +100,7 @@ Two channels, deliberately separate:
 | Channel | Receives |
 | --- | --- |
 | `#contact-form` | Contact form submissions only — leads must never be buried |
-| `#katbose-alerts` | Sentry new-issue and error-spike rules, content sync failures, DLQ writes, rate-limiter outages, abuse spikes, flagged AI queries, nightly reconciliation summary |
+| `#katbose-alerts` | Sentry new-issue and error-spike rules, content sync failures, DLQ writes, rate-limiter outages, abuse spikes, flagged AI queries, nightly reconciliation summary, backup failures and stale-backup warnings |
 
 Setup: Sentry → Settings → Integrations → Slack → connect workspace → alert rules ("new issue",
 "error rate spike") routed to `#katbose-alerts`. Sentry email alerts stay enabled as a backstop.
@@ -124,6 +124,8 @@ dead-letter events.
 | Resume abuse spike | 50+ blocked attempts in one hour | `#katbose-alerts` |
 | Ask AI global cap reached | Daily counter hits 50 | `#katbose-alerts` |
 | Flagged AI queries spike | > 10 flagged in a day | `#katbose-alerts` |
+| Weekly backup failed | Scheduled workflow fails or publishes no verified completion marker | GitHub Actions email immediately; `#katbose-alerts` when the Phase 5 external freshness monitor exists |
+| Backup stale | Newest valid R2 completion marker is older than 8 days | `#katbose-alerts` (Phase 5 external monitor; it must not depend on the workflow it watches) |
 | New contact submission | Every submission | `#contact-form` |
 
 Alert dispatch is always non-blocking — a failed Slack call must never fail a user's request.
@@ -148,7 +150,7 @@ infrastructure.
 | **TIE** | Most viewed notes |
 | **Ask AI** | Most searched topics, failed / no-answer queries, **flagged (injection-suspect) queries**, daily usage vs the 50/day cap |
 | **Visitors** | Countries, referrers, devices |
-| **Site health** | Lighthouse score, SEO score, latest deployment, uptime, broken links, **dead-letter queue depth**, last successful reconciliation |
+| **Site health** | Lighthouse score, SEO score, latest deployment, uptime, broken links, **dead-letter queue depth**, last successful reconciliation, newest complete backup age and last restore-drill result |
 
 The flagged-query panel and DLQ depth are the two widgets that exist for operational reasons
 rather than vanity — check them weekly.
@@ -160,10 +162,11 @@ rather than vanity — check them weekly.
 Ten minutes, once a week:
 
 1. `#katbose-alerts` — anything unresolved?
-2. Dashboard → DLQ depth should be 0, last reconciliation should be today
-3. Dashboard → flagged AI queries — any real probing?
-4. Sentry → unresolved issues
-5. PostHog → resume funnel and Ask AI usage trend
+2. GitHub Actions + private R2 — did the newest weekly run succeed, and is a valid completion marker less than 8 days old?
+3. Dashboard → DLQ depth should be 0, last reconciliation should be today
+4. Dashboard → flagged AI queries — any real probing?
+5. Sentry → unresolved issues
+6. PostHog → resume funnel and Ask AI usage trend
 
 Quarterly, add: rotate `IP_PSEUDONYM_KEY`, increment `IP_PSEUDONYM_EPOCH`, verify no cross-epoch
 correlation, and confirm the latest backup restores. The independent daily job—not this ritual—
