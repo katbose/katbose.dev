@@ -271,6 +271,30 @@ describe("backup-set contract", () => {
   });
 });
 
+describe("PostgreSQL connection handling", () => {
+  // libpq treats PGDATABASE from the environment as a literal database name, so
+  // exporting a connection URI there silently falls back to the local socket.
+  // Both shell clients must decompose the URI through the shared helper.
+  it.each([["create-weekly-backup.sh"], ["restore-weekly-backup.sh"]])(
+    "%s decomposes its connection URL instead of exporting a URI",
+    (script) => {
+      const source = readFileSync(backupScript(script), "utf8");
+
+      expect(source).toContain("pg-connection-env.sh");
+      expect(source).toContain("export_pg_environment");
+      expect(source, "a URI in PGDATABASE never reaches the configured host").not.toMatch(
+        /export PGDATABASE="\$(SUPABASE_DB_URL|SCRATCH_DB_URL)"/,
+      );
+    },
+  );
+
+  it("passes --dbname to pg_restore so it connects instead of emitting a script", () => {
+    const source = readFileSync(backupScript("restore-weekly-backup.sh"), "utf8");
+
+    expect(source).toMatch(/--dbname="\$PGDATABASE"/);
+  });
+});
+
 describe("restore scripts", () => {
   // A restore that validates the manifest and the marker separately can accept
   // a set assembled from two different runs. Both clients must cross-check them.

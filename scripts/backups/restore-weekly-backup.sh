@@ -142,7 +142,9 @@ if [[ "${#expected_tables[@]}" -eq 0 ]]; then
   exit 1
 fi
 
-export PGDATABASE="$SCRATCH_DB_URL"
+# shellcheck source=scripts/backups/pg-connection-env.sh
+source "$SCRIPT_DIR/pg-connection-env.sh"
+export_pg_environment "$SCRATCH_DB_URL"
 unset SCRATCH_DB_URL
 mapfile -t target_tables < <(
   "$PSQL_BIN" --tuples-only --no-align --set=ON_ERROR_STOP=1 --command="
@@ -153,7 +155,13 @@ mapfile -t target_tables < <(
   " | sed -e '/^$/d'
 )
 
-restore_arguments=(--exit-on-error --single-transaction --no-owner --no-privileges)
+# Without --dbname, pg_restore writes a script to stdout instead of connecting,
+# so the database name must be passed explicitly. It is not a secret; the
+# password stays in PGPASSWORD.
+restore_arguments=(
+  --exit-on-error --single-transaction --no-owner --no-privileges
+  --dbname="$PGDATABASE"
+)
 if [[ "$RESTORE_DATABASE_MODE" == "full" ]]; then
   if [[ "${#target_tables[@]}" -ne 0 ]]; then
     echo "Full restore requires an empty public schema in the scratch database" >&2

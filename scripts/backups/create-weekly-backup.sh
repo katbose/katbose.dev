@@ -127,7 +127,9 @@ if [[ "$BACKUP_TARGET_PROFILE" == "local-drill" ]]; then
   fi
 fi
 
-export PGDATABASE="$SUPABASE_DB_URL"
+# shellcheck source=scripts/backups/pg-connection-env.sh
+source "$SCRIPT_DIR/pg-connection-env.sh"
+export_pg_environment "$SUPABASE_DB_URL"
 unset SUPABASE_DB_URL
 
 CREATED_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
