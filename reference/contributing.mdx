@@ -1,0 +1,31 @@
+---
+title: "Contributing to the katbose.dev Repository"
+sidebarTitle: "Contributing"
+description: "Contributions to katbose.dev are done locally and validated before reaching main. There is no hosted dev environment. Run and test every migration locally first, and prefer boring technology over novelty."
+---
+
+katbose.dev is a documentation-led implementation project. All work happens locally and is validated through CI before it reaches the `main` branch. There is no hosted development environment.
+
+## Contribution guidelines
+
+- **Work locally and validate before reaching `main`.** There is no hosted dev environment.
+- **`main` is the only deployable branch.** The release workflow is protected.
+- **Prefer boring, well-understood technology over novelty.** Every tool must earn its place.
+
+## Migration discipline
+
+<Steps>
+  <Step title="Run the migration locally first">
+    Every public-table migration must be applied and tested locally before it touches production. The CI pipeline includes pgTAP assertions to verify RLS policies and schema correctness.
+  </Step>
+  <Step title="Take a backup before production migration">
+    Use the weekly backup scripts in `scripts/backups/` or create an ad-hoc encrypted dump before applying any migration to the production database.
+  </Step>
+  <Step title="Apply through the protected workflow">
+    Production migrations run through the protected `production-migration.yml` GitHub Actions workflow, not through the web deployment pipeline.
+  </Step>
+</Steps>
+
+<Warning>
+  No license is set yet. Content and design are © KatBose unless otherwise noted. Do not assume open-source licensing applies to any part of the repository.
+</Warning>

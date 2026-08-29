@@ -1,0 +1,106 @@
+---
+title: "Home, Contact, and Runtime Feature Modules"
+description: "Discover the config-driven home sections, the contact form with Turnstile bot protection, next-themes theming, motion budgets, and Sentry instrumentation in the katbose.dev web app."
+sidebarTitle: "Features"
+---
+
+The katbose.dev web app groups major UI surfaces into feature modules under `apps/web/features/`. Each module owns its components, schemas, and tests. This page covers the home page sections, the contact form, theming, motion, and server-side instrumentation.
+
+## Home sections
+
+The home page at `/` is config-driven. Section order, visibility, and data sources are declared in `apps/web/features/home/home.config.ts` and validated against `HomeSectionSchema` in `sections.ts`.
+
+### Configuration
+
+`HOME_SECTIONS` is a Zod-validated array. Each entry has an `id`, `enabled` flag, `type`, and `source` that tells `SectionRenderer` which data to pull from `PHASE_ONE_FALLBACK_CONTENT`.
+
+<CodeGroup>
+
+```ts home.config.ts
+export const HOME_SECTIONS = HomeSectionSchema.array().parse([
+  { id: "hero", enabled: true, type: "hero", source: "profile" },
+  { id: "experience", enabled: true, type: "experience", source: "experience" },
+  { id: "tech", enabled: true, type: "techStack", source: "profile.skills" },
+  { id: "story", enabled: true, type: "story", source: "profile.story" },
+  { id: "project", enabled: true, type: "projectSpotlight", source: "projects", limit: 1 },
+  { id: "thinking", enabled: true, type: "thinking", source: "blog", limit: 3 },
+  { id: "notes", enabled: true, type: "notes", source: "tie", limit: 3 },
+  { id: "education", enabled: true, type: "education", source: "profile.education" },
+  { id: "contact", enabled: true, type: "contact", source: "profile.contact" },
+]);
+```
+
+</CodeGroup>
+
+### Rendering pipeline
+
+1. `page.tsx` filters `HOME_SECTIONS` by `enabled` and maps each section through `SectionRenderer`.
+2. `SectionRenderer` switches on `section.type` and returns the matching layout with fallback content.
+3. `interactive-sections.tsx` provides client interactivity: `Accordion` for experience, `Collapsible` for tech stack and story, and `CountUp` for animated stats.
+4. `count-up.tsx` animates a number with `IntersectionObserver` and respects `prefers-reduced-motion`.
+
+Tests for the section config live in `sections.test.ts`.
+
+## Contact form
+
+The contact feature lives in `apps/web/features/contact/` and is used by the `/contact` page.
+
+### `contact-form.tsx`
+
+The form is built with `react-hook-form` and `@hookform/resolvers/zod`. It validates against `ContactFormSchema` from `@katbose/shared`, which omits the `turnstileToken` field so the token is collected by the widget rather than React Hook Form.
+
+<CodeGroup>
+
+```tsx contact-form.tsx
+"use client";
+
+import { zodResolver } from "@hookform/resolvers/zod";
+import { ContactFormSchema, ContactSchema, type ContactFormInput } from "@katbose/shared";
+import { useForm } from "react-hook-form";
+
+const DEFAULT_VALUES: ContactFormInput = {
+  name: "",
+  email: "",
+  message: "",
+  website: "",
+};
+
+export function ContactForm({ fallbackEmail, turnstileSiteKey }: Readonly<ContactFormProps>) {
+  const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<ContactFormInput>({
+    resolver: zodResolver(ContactFormSchema),
+    defaultValues: DEFAULT_VALUES,
+  });
+
+  // onSubmit: reads cf-turnstile-response from FormData,
+  // merges into ContactSchema, then POSTs to /api/contact
+}
+```
+
+</CodeGroup>
+
+Key behaviors:
+
+- A honeypot field named `website` is hidden from users. If it receives a value, the server silently accepts the submission without storing it.
+- The Turnstile widget is rendered by `turnstile-widget.tsx` and emits a `cf-turnstile-response` field into the form.
+- On every submit attempt, the widget is reset so a fresh token is generated for retries.
+
+### `turnstile-widget.tsx`
+
+A client component that loads the Cloudflare Turnstile script explicitly and renders the challenge into a container div. It exposes an imperative `reset()` handle so the parent can clear the widget after each submission.
+
+Environment variables:
+
+- `NEXT_PUBLIC_TURNSTILE_SITE_KEY` — client-side site key passed into the widget.
+- `TURNSTILE_SECRET_KEY` — server-side secret used to verify tokens in `/api/contact`.
+
+## Theming
+
+The app uses `next-themes` with `attribute="data-theme"` and `defaultTheme="system"` in `apps/web/app/providers.tsx`. This lets Tailwind CSS respond to light, dark, and system preferences without flash.
+
+## Motion
+
+Animations are powered by the `motion` package (the successor to Framer Motion). Per the project README, motion budgets are controlled to keep the site responsive and accessible.
+
+## Instrumentation
+
+`apps/web/instrumentation.ts` imports `sentry.server.config.ts` to initialize Sentry on the server. The config reads `SENTRY_DSN` from the environment, samples traces at `0.1`, and redacts `secret=` query parameters from captured request URLs before events are sent.

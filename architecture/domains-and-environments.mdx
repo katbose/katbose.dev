@@ -1,0 +1,40 @@
+---
+title: "Domains, Environments, and Branch Model"
+description: "Learn the three domains of katbose.dev, how the main branch protects production, and why there is no hosted development environment."
+sidebarTitle: "Domains"
+---
+
+The katbose.dev system spans three domains, each with a distinct runtime profile and security boundary. Only the public site is live today. The CMS and dashboard are planned for later phases and will run on Render behind Cloudflare Access.
+
+## Domain table
+
+| Domain | Serves | Platform | Protected by |
+| --- | --- | --- | --- |
+| `katbose.dev` | Public Next.js site | Cloudflare Workers via OpenNext | Public |
+| `cms.katbose.dev` | Payload CMS admin and API | Render (production only) | Cloudflare Access on `/admin/*` plus Payload auth |
+| `dashboard.katbose.dev` | Private analytics dashboard | Render (production only) | Cloudflare Access (whole subdomain) |
+
+<Note>
+  There is no hosted development environment. All development, Payload work, database migrations, and Cloudflare-runtime checks happen locally before a change reaches `main`.
+</Note>
+
+## Branch model
+
+`main` is the only deployable branch. The release workflow is protected, and CI must pass before any change is merged or pushed through it. Cloudflare Workers Builds is connected to the repository with `main` as its production branch. GitHub Actions validates the change, while Workers Builds performs the production deployment.
+
+Development rules:
+
+- Run and test every public-table migration locally first using `supabase start`.
+- Before a production migration, take a backup, then apply the committed migration to the one production project.
+- `.env.local` is local-only. Production secrets live only in Cloudflare and Render.
+- `IP_PSEUDONYM_KEY` and `IP_PSEUDONYM_EPOCH` exist only on the production web Worker. Render never computes visitor pseudonyms, and epochs are never correlated.
+
+## Environments
+
+| Surface | Production | Local development |
+| --- | --- | --- |
+| Git / web | Cloudflare Workers Builds from protected `main` | Any local work is tested before merge; no branch auto-deploys |
+| Supabase | One production project | `supabase start` with local database, Storage, and generated local credentials |
+| CMS / dashboard | Render production services only | `pnpm --filter cms dev` and dashboard dev processes run only on the developer machine |
+
+No external health-check or keep-warm traffic is used for Render. Monitor its free-tier hour and bandwidth usage; the dashboard remains deferred until Phase 5.

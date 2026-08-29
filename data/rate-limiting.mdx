@@ -1,0 +1,120 @@
+---
+title: "Rate Limiting Architecture and Fail Modes"
+description: "How katbose.dev combines Cloudflare edge rules with Upstash Redis sliding windows, and how each route chooses fail-open or fail-closed behavior."
+sidebarTitle: "Rate Limiting"
+---
+
+The katbose.dev portfolio uses two layers of rate limiting. Cloudflare edge rules absorb floods before they reach the origin. Upstash Redis enforces precise per-route business limits with sliding windows from the application layer. This split keeps the edge cheap and coarse while the app layer handles exact policy.
+
+## Two layers
+
+| Layer | Tool | Role |
+| --- | --- | --- |
+| Edge | Cloudflare Rate Limiting Rules | Blocks obvious abuse before it reaches the Worker |
+| Application | Upstash Redis (`@upstash/ratelimit`) | Enforces per-route business rules with sliding windows |
+
+Cloudflare alone cannot cleanly express combined tiers such as "3 per hour and 10 per day per pseudonymized IP" without Workers code. Upstash alone cannot stop a volumetric flood at the network edge. Using both means the edge absorbs noise while the app enforces the real policy.
+
+## Contact form limits
+
+The contact form at `/api/contact` uses two sliding windows keyed by a pseudonymized IP identifier. The implementation lives in `apps/web/lib/rate-limit/contact.ts`.
+
+| Window | Limit | Prefix |
+| --- | --- | --- |
+| Hourly | 3 requests per hour | `contact-hour` |
+| Daily | 10 requests per day | `contact-day` |
+
+The limiter is instantiated once per credential pair and cached to avoid recreating the Redis client on every request:
+
+```ts
+import { Ratelimit } from "@upstash/ratelimit";
+import { Redis } from "@upstash/redis";
+
+let cachedLimiters: ContactLimiters | undefined;
+
+function getContactLimiters(url: string, token: string) {
+  const credentials = `${url}\u0000${token}`;
+  if (cachedLimiters?.credentials === credentials) return cachedLimiters;
+  const redis = new Redis({ url, token });
+  cachedLimiters = {
+    credentials,
+    hourly: new Ratelimit({
+      redis,
+      limiter: Ratelimit.slidingWindow(3, "1 h"),
+      prefix: "contact-hour",
+    }),
+    daily: new Ratelimit({
+      redis,
+      limiter: Ratelimit.slidingWindow(10, "1 d"),
+      prefix: "contact-day",
+    }),
+  };
+  return cachedLimiters;
+}
+```
+
+The check races the two limit calls against a 2-second timeout. If the identifier is missing, or if Upstash credentials are unavailable, or if the request times out, the result is `{ allowed: false, degraded: true }`.
+
+```ts
+export async function checkContactRateLimit(identifier: string | null): Promise<LimitDecision> {
+  const url = process.env["UPSTASH_REDIS_REST_URL"];
+  const token = process.env["UPSTASH_REDIS_REST_TOKEN"];
+  if (!identifier || !url || !token) return { allowed: false, degraded: true };
+  try {
+    const { hourly, daily } = getContactLimiters(url, token);
+    const [hour, day] = await Promise.race([
+      Promise.all([hourly.limit(identifier), daily.limit(identifier)]),
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error("upstash-timeout")), 2000),
+      ),
+    ]);
+    return { allowed: hour.success && day.success, degraded: false };
+  } catch {
+    return { allowed: false, degraded: true };
+  }
+}
+```
+
+## Fail-open versus fail-closed
+
+The contact form is **fail-closed**: if the rate limiter is unreachable, credentials are missing, or the timeout fires, the request is denied. This is a deliberate security choice because spam protection outweighs brief inconvenience.
+
+<Note>
+  Not every route is fail-closed. The resume download route is **fail-open** because a recruiter must never be blocked because Upstash had a bad minute. Cloudflare edge rules still guard that route. The Ask AI route is fail-closed to protect LLM spend.
+</Note>
+
+## HTTP status mapping
+
+The `/api/contact` route maps limit decisions to the following responses:
+
+| Condition | `allowed` | `degraded` | HTTP status | Meaning |
+| --- | --- | --- | --- | --- |
+| Both windows pass | `true` | `false` | 200 | Request accepted |
+| Window exceeded | `false` | `false` | 429 | Too many requests |
+| Timeout or missing creds | `false` | `true` | 503 | Service temporarily unavailable |
+
+The 503 response is indistinguishable from a genuine service issue, which prevents enumeration of the rate-limit boundary.
+
+## Keying by pseudonymized IP
+
+The identifier passed to the contact limiter comes from `apps/web/lib/security/ip.ts`. It is an HMAC-SHA-256 hash of the `CF-Connecting-IP` header prefixed with a key epoch:
+
+```ts
+export function getRequestPseudonym(request: Request): string | null {
+  const ip = request.headers.get("cf-connecting-ip");
+  const key = process.env["IP_PSEUDONYM_KEY"];
+  const epoch = process.env["IP_PSEUDONYM_EPOCH"];
+  if (!ip || !key || !epoch) return null;
+  return `${epoch}:${pseudonymizeIp(ip, key)}`;
+}
+```
+
+If any of `ip`, `key`, or `epoch` is missing, the identifier is `null`, and the contact limiter returns `{ allowed: false, degraded: true }`.
+
+<Warning>
+  The `CF-Connecting-IP` header is trusted because every request traverses Cloudflare's edge. No `x-forwarded-*` fallback is accepted. See `/architecture/overview` for the edge-to-origin path.
+</Warning>
+
+## Testing failure modes
+
+Unit tests must mock Upstash as unreachable and assert that the contact route denies the request while the resume route allows it. That behavior is a deliberate security decision and must not regress silently.

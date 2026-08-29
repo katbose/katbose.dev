@@ -1,0 +1,25 @@
+---
+title: "Decision Log Conventions and Locations"
+sidebarTitle: "Decision Log"
+description: "Decisions for katbose.dev are recorded in docs/16-decision-log.md with a strict status vocabulary. Changes of direction require new numbered entries; historical text is never rewritten."
+---
+
+All architectural, tooling, and design decisions for katbose.dev are recorded in `docs/16-decision-log.md`. This file is the single source of truth for why the platform is built the way it is, and it is governed by strict conventions that prevent decisions from being quietly reversed.
+
+## Decision conventions
+
+- **Decisions are closed.** Once recorded, a decision is not silently reversed.
+- **Any change of direction requires a new numbered entry.** The new entry must reference the old one using relationship annotations such as `supersedes`, `corrects`, or `clarifies`.
+- **Historical text is never rewritten.** When a decision is superseded or corrected, the original wording stays intact and an annotation is added.
+- **Status vocabulary is exact.** Entries use one of: `Current normative`, `Historical—superseded`, `Current—reason corrected`, `Decided—validation pending`, or `Deferred—closed for current phase`.
+
+## Notable entries
+
+Two examples illustrate how the log works in practice:
+
+- **Decision #56** — Validation-spike artifacts stay local-only; repositories receive results, not probe code. The repo is documentation-first until the real Phase 1 monorepo scaffold lands. Committing throwaway probe routes plus hundreds of MB of build artifacts contradicts that principle.
+- **Decision #63** — Upstream Hackyfolio permission scope. Express permission was granted by the author to use the repository for building this portfolio, but the grant is scoped to this project only. It does not make the upstream code open-source, and no upstream file or content is copied into this repository. This is recorded as inspiration-only.
+
+<Note>
+  The decision log currently contains entries through #95, covering architecture, security, design, tooling, and operational choices. Before reintroducing any retired tool or reversing any settled choice, read the relevant entry and add a new one with your reasoning.
+</Note>

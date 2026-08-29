@@ -1,0 +1,60 @@
+---
+title: "Agent View, Sitemaps, robots.txt, and llms.txt"
+description: "How katbose.dev publishes machine-readable portfolio views, sitemaps, robots rules, and llms.txt from a single typed route manifest to keep SEO and agent artifacts in sync."
+sidebarTitle: "Agent & SEO"
+---
+
+The katbose.dev web app treats SEO and agent discoverability as first-class outputs. Every artifact, from `robots.txt` to `llms.txt`, is generated from the typed route manifest in `apps/web/lib/routes.ts` so that navigation changes automatically propagate to crawlers and AI assistants.
+
+## `/agent` route
+
+The `/agent` page at `apps/web/app/(site)/agent/page.tsx` renders a canonical machine-readable portfolio view. It calls `generateAgentMarkdown()` from `apps/web/lib/agent-outputs.ts` to produce a Markdown document that includes profile, experience, technology stack, featured projects, latest writing, education, public routes, and contact details. The page also emits JSON-LD `BreadcrumbList` structured data.
+
+This route is indexable but not shown in navigation, making it discoverable to crawlers without cluttering the UI.
+
+## SEO and agent artifacts
+
+All of the following files live under `apps/web/app/` and are served as route handlers or static files:
+
+| File | Route | Purpose |
+| --- | --- | --- |
+| `robots.txt/route.ts` | `/robots.txt` | Crawler rules with `Content-Signal`, `Allow`, and `Disallow` directives |
+| `sitemap.ts` | `/sitemap.xml` | XML sitemap of all indexable routes |
+| `llms.txt/route.ts` | `/llms.txt` | Plain-text page index for AI assistants |
+| `humans.txt/route.ts` | `/humans.txt` | Human-readable site credits and standards |
+| `rss.xml/route.ts` | `/rss.xml` | RSS feed for the blog channel |
+| `opengraph-image.png` | `/opengraph-image.png` | Default Open Graph image referenced by metadata |
+
+### robots.txt
+
+The `robots.txt` generator in `apps/web/lib/agent-outputs.ts` defines two sets of rules:
+
+- A general block for `User-Agent: *` that allows `/`, disallows `/api/` and non-indexable paths, and emits `Content-Signal: search=yes, ai-train=no, use=reference`.
+- Explicit `Allow: /` for `GPTBot`, `ClaudeBot`, and `PerplexityBot` so assistant crawlers can read the site.
+- `Disallow: /` for training-only agents such as `Amazonbot`, `Applebot-Extended`, `Bytespider`, `CCBot`, `Google-Extended`, and `meta-externalagent`.
+
+This replaces Cloudflare's managed `robots.txt` to avoid contradictions with the site's intentional assistant access policy.
+
+### sitemap
+
+`apps/web/app/sitemap.ts` filters `PUBLIC_ROUTES` by `indexable` and emits an XML sitemap. The home page gets `changeFrequency: "weekly"` and `priority: 1`; all other routes use `monthly` and `0.5`.
+
+### llms.txt
+
+The `/llms.txt` endpoint returns a plain-text page list generated from the route manifest, plus contact links. It is cached for one hour.
+
+### JSON-LD
+
+Every public route emits JSON-LD structured data via the `JsonLd` component. The home page publishes `Person`, `BreadcrumbList`, and `WebSite` schemas with a `SearchAction` pointing to `/ask-ai`. Other routes add their own `BreadcrumbList` entries.
+
+## Indexability
+
+Indexability is controlled by the `indexable` boolean in `PUBLIC_ROUTES`. Only one route is currently non-indexable:
+
+- `/resume-unavailable` — a graceful fallback page that should not appear in search results.
+
+All other routes, including `/agent`, are indexable. The `robots.txt` and sitemap generators read this flag directly, so adding a new route with `indexable: false` automatically excludes it from both.
+
+<Tip>
+  Because `sitemap.ts`, `robots.txt`, and `llms.txt` all consume `PUBLIC_ROUTES`, changing a route's `indexable` or `navigation` flag updates every SEO and agent artifact from a single source of truth. See [Routes](/web/routes) for the full route registry.
+</Tip>

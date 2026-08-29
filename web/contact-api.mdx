@@ -1,0 +1,114 @@
+---
+title: "POST /api/contact Endpoint Reference"
+description: "Reference for the /api/contact route. Covers Turnstile verification, honeypot filtering, Upstash rate limits, Supabase insertion, and Slack notification with exact request fields and response codes."
+sidebarTitle: "Contact API"
+---
+
+The katbose.dev web app exposes a single API endpoint at `/api/contact` for handling form submissions. It is implemented in `apps/web/app/api/contact/route.ts` and enforces bot checks, rate limits, schema validation, and durable storage before returning a result.
+
+## Endpoint
+
+| Property | Value |
+| --- | --- |
+| Method | `POST` |
+| Path | `/api/contact` |
+| Content-Type | `application/json` |
+
+## Request body
+
+<ParamField body="name" type="string" required>
+  Trimmed, 1 to 100 characters.
+</ParamField>
+
+<ParamField body="email" type="string" required>
+  Valid email address, maximum 200 characters.
+</ParamField>
+
+<ParamField body="message" type="string" required>
+  Trimmed, 10 to 5000 characters.
+</ParamField>
+
+<ParamField body="website" type="string">
+  Honeypot field. Must be an empty string. If non-empty, the server returns `{accepted:true}` without storing the submission.
+</ParamField>
+
+<ParamField body="turnstileToken" type="string" required>
+  Cloudflare Turnstile response token, 1 to 2048 characters. Verified server-side against `cf-connecting-ip`.
+</ParamField>
+
+## Processing order
+
+The handler runs the following steps in order. Any step that fails returns immediately.
+
+<Steps>
+  <Step title="Parse JSON">
+    If the body is not a JSON object, return `400` with `{error:"Invalid request."}`.
+  </Step>
+  <Step title="Verify Turnstile">
+    Call `verifyTurnstileToken(token, cf-connecting-ip)`. If verification fails, return `403` with `{error:"Bot check failed."}`.
+  </Step>
+  <Step title="Honeypot check">
+    If `website` is a non-empty string, return `200` with `{accepted:true}` silently. No storage or notification occurs.
+  </Step>
+  <Step title="Rate limit">
+    Call `checkContactRateLimit(getRequestPseudonym(request))`. This uses Upstash Redis with two sliding windows:
+
+    - `contact-hour`: 3 requests per hour
+    - `contact-day`: 10 requests per day
+
+    If `!allowed` and `degraded` is true, return `503`. Otherwise return `429`. Both use `{error:"Contact is temporarily unavailable."}`.
+  </Step>
+  <Step title="Validate schema">
+    Parse the body through `ContactSchema` from `@katbose/shared`. If invalid, return `400` with `{error:"Invalid contact details."}`.
+  </Step>
+  <Step title="Insert into Supabase">
+    Insert `{name, email, message}` into the `contact_submissions` table via the service client. If the insert fails, the error is captured and the catch-all `503` is returned.
+  </Step>
+  <Step title="Notify Slack">
+    Schedule `notifyContact(input)` via `after()`. This posts to the `#contact-form` Slack channel. If Slack fails, the error is captured in Sentry but the response to the client remains `200`.
+  </Step>
+</Steps>
+
+## Response reference
+
+<ResponseField name="200 OK" type="object">
+  `{accepted:true}` — the submission was accepted and stored.
+</ResponseField>
+
+<ResponseField name="400 Bad Request" type="object">
+  `{error:"Invalid request."}` or `{error:"Invalid contact details."}` — malformed JSON or schema validation failure.
+</ResponseField>
+
+<ResponseField name="403 Forbidden" type="object">
+  `{error:"Bot check failed."}` — Turnstile token was missing, invalid, or mismatched action/hostname.
+</ResponseField>
+
+<ResponseField name="429 Too Many Requests" type="object">
+  `{error:"Contact is temporarily unavailable."}` — rate limit exceeded while Upstash is healthy.
+</ResponseField>
+
+<ResponseField name="503 Service Unavailable" type="object">
+  `{error:"Contact is temporarily unavailable."}` — unexpected error, Upstash degradation, or missing credentials.
+</ResponseField>
+
+## Example request
+
+<CodeGroup>
+
+```bash curl
+ curl -X POST https://katbose.dev/api/contact \
+   -H "Content-Type: application/json" \
+   -d '{
+     "name": "Ada Lovelace",
+     "email": "ada@example.com",
+     "message": "I would love to collaborate on an engineering project.",
+     "website": "",
+     "turnstileToken": "your_turnstile_token_here"
+   }'
+```
+
+</CodeGroup>
+
+<Warning>
+  Rate limiting fails closed. If `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`, or the IP pseudonym is missing, or if Upstash times out after 2 seconds, the endpoint returns `503` rather than allowing unlimited submissions. This is deliberate.
+</Warning>

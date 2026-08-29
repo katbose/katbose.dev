@@ -1,0 +1,95 @@
+---
+title: "Row Level Security Deny-by-Default Model"
+description: "How katbose.dev uses restrictive PostgreSQL RLS policies, privilege revocation, and default ACLs to ensure every application table is deny-by-default for client roles."
+sidebarTitle: "Row Level Security"
+---
+
+The katbose.dev portfolio treats every public schema table as untrusted from the browser's perspective. PostgreSQL's default behavior for Row Level Security uses permissive policies combined with `OR` logic, which means a later permissive grant could silently bypass an earlier deny. The migration discipline closes that hole with restrictive policies, explicit revocations, and default privilege controls.
+
+## The canonical deny pattern
+
+Every migration that creates an application table applies the same sequence:
+
+1. Enable and force RLS on the table.
+2. Revoke all current privileges on the table, sequence, and related functions from `anon` and `authenticated`.
+3. Create a restrictive policy named `deny_client_roles` that returns `false` for both `using` and `with check` for `anon` and `authenticated`.
+4. Set default privileges so future objects created by the migration owner cannot silently restore client access.
+5. Grant full access to `service_role`, the only server-side identity that touches data.
+
+This pattern appears in `supabase/migrations/20260826000100_public_security_foundation.sql` and is repeated for every table:
+
+```sql
+ALTER TABLE public.contact_submissions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.contact_submissions FORCE ROW LEVEL SECURITY;
+
+REVOKE ALL ON TABLE public.contact_submissions FROM anon, authenticated;
+
+CREATE POLICY deny_client_roles
+  ON public.contact_submissions
+  AS RESTRICTIVE FOR ALL TO anon, authenticated
+  USING (false) WITH CHECK (false);
+
+-- Prevent future objects from inheriting client grants
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public
+  REVOKE ALL ON TABLES FROM anon, authenticated;
+```
+
+## Why restrictive policies matter
+
+PostgreSQL evaluates permissive policies with `OR`. If a table has one permissive policy that allows a row, the user sees it regardless of other permissive policies. A restrictive policy is evaluated with `AND` against the combined permissive result, so a restrictive `false` policy makes the final result `false` even if a later permissive policy is added by mistake. This turns an accidental grant into a loud failure instead of a silent bypass.
+
+## Server-only data path
+
+The browser never initializes a Supabase client and never receives an anon key. The only module that reads `SUPABASE_SERVICE_ROLE_KEY` is `apps/web/lib/supabase/service.ts`, which is marked server-only and used exclusively from API routes and server functions.
+
+```ts
+import { createClient } from "@supabase/supabase-js";
+
+export function createServiceClient() {
+  const url = process.env["SUPABASE_URL"];
+  const key = process.env["SUPABASE_SERVICE_ROLE_KEY"];
+  if (!url || !key) throw new Error("Supabase service configuration is unavailable.");
+  return createClient(url, key, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+}
+```
+
+<Warning>
+  The Supabase service role key bypasses every RLS policy. It must never appear in a `NEXT_PUBLIC_*` variable or any client bundle. Keep it in server-only environment bindings.
+</Warning>
+
+## Migration tests
+
+Two pgTAP test files in `supabase/tests/` assert that the deny pattern holds:
+
+- `001_catalog_security.sql` queries `pg_policies`, `pg_class`, `pg_default_acl`, and function catalogs to confirm that RLS is enabled and forced, that the restrictive `deny_client_roles` policy exists for every table, that no permissive policy exists, and that `service_role` retains the necessary grants.
+- `002_client_crud_denied.sql` attempts `SELECT`, `INSERT`, `UPDATE`, and `DELETE` as both `anon` and `authenticated` against every application table, asserting that each attempt fails with `insufficient_privilege`.
+
+Together these tests cover catalog state and runtime behavior. They run in CI against Postgres 17.6 with Supabase Storage.
+
+## Default privilege discipline
+
+Revoking current grants is not enough. The migrations also lock down default privileges so that any table, sequence, or function created later by the `postgres` role does not automatically grant access to `anon` or `authenticated`:
+
+```sql
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public
+  REVOKE ALL ON TABLES FROM anon, authenticated;
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public
+  REVOKE ALL ON SEQUENCES FROM anon, authenticated;
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public
+  REVOKE EXECUTE ON FUNCTIONS FROM anon, authenticated;
+```
+
+This means a future migration that forgets to revoke privileges on a new table is still safe, because the default is denial.
+
+## What this protects against
+
+| Mistake | Protection |
+| --- | --- |
+| Accidental permissive policy added later | Restrictive `false` policy overrides it |
+| New table created without explicit revocations | Default privileges deny client access |
+| Service role key leaked to browser | Key never enters client bundle by design |
+| Direct Supabase client initialization in a Client Component | No anon key is available to initialize one |
+
+For the full migration discipline and schema narrative, see `docs/06-data-model.md` in the repository.

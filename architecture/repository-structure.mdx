@@ -1,0 +1,105 @@
+---
+title: "Monorepo Layout and Directory Reference"
+description: "Navigate the katbose.dev monorepo: pnpm workspaces, top-level directories, and the internal structure of apps/web."
+sidebarTitle: "Repo Structure"
+---
+
+The katbose.dev repository is a pnpm workspace monorepo. It uses Node 24, pnpm 11, strict TypeScript, and exact package versions with a committed lockfile. This page maps the top-level layout and the internal structure of the web application.
+
+## Top-level tree
+
+```text
+katbose-portfolio/
+├── apps/
+│   ├── web/                  # Next.js public site → Cloudflare Workers via OpenNext
+│   ├── cms/                  # planned Phase 2: Payload CMS → Render
+│   └── dashboard/            # planned Phase 5: private analytics dashboard
+├── packages/
+│   ├── shared/               # shared types, Zod schemas, constants, utils
+│   └── katbose-card/         # integrated source for the published `katbose` package
+├── supabase/                 # migrations, local config and pgTAP security tests
+├── scripts/                  # backup-set contracts and restore tooling
+├── e2e/                      # Playwright specs
+├── .github/workflows/        # CI, migration, secret scan and weekly backup
+├── docs/                     # 20-part specification (01–20)
+├── render.yaml               # planned Phase 2 Render blueprint
+├── pnpm-workspace.yaml
+└── PLAN.md
+```
+
+## Directory reference
+
+| Path | Contents |
+| --- | --- |
+| `apps/web` | Next.js 16 public site deployed to Cloudflare Workers via OpenNext |
+| `apps/cms` | Planned Phase 2: Payload CMS on Render |
+| `apps/dashboard` | Planned Phase 5: private analytics dashboard on Render |
+| `packages/shared` | Shared Zod schemas, types, and constants used by multiple apps |
+| `packages/katbose-card` | Source for the published `katbose` npm CLI package |
+| `supabase/` | Migrations, local config, and pgTAP security tests |
+| `scripts/` | Backup scripts, restore tooling, and later-phase content export utilities |
+| `e2e/` | Playwright end-to-end specs |
+| `.github/workflows/` | CI, production migration, secret scanning, and weekly backup workflows |
+| `docs/` | Architecture and specification documents (01 through 20) |
+| `render.yaml` | Render blueprint for Phase 2 (no secret values committed) |
+
+<Warning>
+  `apps/cms` and `apps/dashboard` directories are not present in the repository yet. They are planned for Phase 2 and Phase 5 respectively.
+</Warning>
+
+## `apps/web` internals
+
+```text
+app/
+  (site)/                     # public routes: /, /projects, /experience, /blog, /tie,
+                              # /resume, /ask-ai, /contact, /privacy, /resume-unavailable, /agent
+  api/                        # route handlers: /api/contact
+  error.tsx
+  global-error.tsx
+  not-found.tsx
+  layout.tsx
+  providers.tsx
+  globals.css
+  theme.css
+  robots.txt
+  sitemap.ts
+  rss.xml
+  humans.txt
+  llms.txt
+components/
+  ui/                         # primitives on top of Base UI
+  common/
+  layout/
+  fallbacks/                  # CmsUnavailableFallback, EmptyState
+features/
+  home/                       # config-driven sections, interactive renderer, count-up
+  contact/                    # contact form and Turnstile widget
+lib/
+  payload/                    # typed CMS client
+  supabase/                   # server-only clients
+  search/                     # Cloudflare AI Search client
+  analytics/                  # PostHog wrappers
+  rate-limit/                 # Upstash limiters and failure modes
+  security/                   # IP pseudonym, Turnstile verify, injection screen
+  preview/                    # draft-mode helpers
+  monitoring/                 # Sentry and PostHog config with redaction
+  routes.ts                   # typed public route manifest
+  site-url.ts                 # canonical site URL helper
+  metadata.ts                 # shared metadata utilities
+  agent-outputs.ts            # robots.txt, llms.txt, humans.txt, /agent content generators
+  fallback-content.ts         # Phase 1 fallback content for CMS outages
+  media/                      # image loader and media utilities
+public/                       # static assets
+  media/                      # image assets
+tests/                        # unit and integration tests
+wrangler.jsonc                # Cloudflare Worker bindings and routes
+next.config.ts                # Next.js configuration
+open-next.config.ts           # OpenNext build configuration
+instrumentation.ts            # observability instrumentation
+sentry.server.config.ts       # Sentry server-side initialization
+vitest.config.mts             # Vitest configuration
+```
+
+## Shared package rule
+
+Anything used by two or more apps (Zod schemas, content types, constants like rate-limit values) lives in `packages/shared` so the CMS and web app cannot drift apart. The web app imports from `@katbose/shared`, and the planned CMS app will use the same schemas for validation and types.

@@ -1,0 +1,60 @@
+---
+title: "System Architecture Overview and Data Flow"
+description: "Understand how katbose.dev routes every request through Cloudflare's edge, delegates one responsibility per vendor, and keeps privileged data operations server-only."
+sidebarTitle: "Overview"
+---
+
+The katbose.dev portfolio is built around a single hard constraint: one responsibility per vendor. The public site runs as a Next.js App Router application on Cloudflare Workers via OpenNext, which means every visitor request passes through Cloudflare's edge layer before it reaches application code. This design makes request metadata like `cf-connecting-ip` trustworthy for security and rate limiting, because there is no alternative origin to bypass.
+
+## System diagram
+
+```text
+                              ┌──────────────────────────────┐
+                              │        Cloudflare            │
+                              │  DNS · WAF · Rate Limiting   │
+                              │  Turnstile · Access · AI     │
+                              └──────────────┬───────────────┘
+                                             │
+        ┌────────────────────────────────────┼────────────────────────────────────┐
+        │                                    │                                    │
+┌───────▼────────┐                 ┌─────────▼─────────┐                ┌─────────▼─────────┐
+│  katbose.dev   │                 │  cms.katbose.dev  │                │ dashboard.katbose │
+│  Next.js       │                 │  Payload CMS      │                │ Private analytics │
+│OpenNext Worker │                 │  Render           │                │ Render            │
+└───────┬────────┘                 └─────────┬─────────┘                └─────────┬─────────┘
+        │                                    │                                    │
+        │  server-only service role          │  service role key                  │  service role key
+        └────────────────────────────────────┼────────────────────────────────────┘
+                                             │
+                                  ┌──────────▼───────────┐
+                                  │      Supabase        │
+                                  │ Postgres (public +   │
+                                  │ payload schemas)     │
+                                  │ Storage (private)    │
+                                  └──────────────────────┘
+
+Side services:
+  Upstash Redis  → rate limiting counters
+  PostHog        → product analytics (cookieless)
+  Sentry         → error monitoring
+  Slack          → #katbose-alerts, #contact-form
+  GitHub Actions → CI, nightly reconciliation, weekly backup, secret scanning
+```
+
+## Why Cloudflare Workers via OpenNext
+
+The public site is served from Cloudflare Workers via OpenNext rather than Vercel specifically so every request is routed through Cloudflare's edge. Unlike Vercel's always-on `*.vercel.app` URL, there is no separate non-Cloudflare origin to bypass. This is what makes `cf-connecting-ip` trustworthy for hashing and rate limiting without extra verification.
+
+Privileged Supabase operations run only inside the Worker through a server-only service-role client. Browser code and anon-key clients have no privileged path to the database.
+
+## Side services
+
+| Service | Responsibility |
+| --- | --- |
+| Upstash Redis | Application rate limiting counters |
+| PostHog | Cookieless product analytics |
+| Sentry | Error monitoring and exception capture |
+| Slack | `#katbose-alerts` for operational alerts, `#contact-form` for submission notifications |
+| GitHub Actions | CI validation, nightly reconciliation, weekly backup, secret scanning |
+
+If a new service is proposed, it must displace an existing one or justify itself in the decision log. This rule prevents vendor overlap and keeps the architecture maintainable.

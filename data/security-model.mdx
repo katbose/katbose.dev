@@ -1,0 +1,114 @@
+---
+title: "Security Model, Secrets Ownership, and IP Pseudonyms"
+description: "How katbose.dev protects secrets, pseudonymizes visitor IPs, verifies Turnstile tokens, and prevents credential leaks across the Cloudflare Worker and planned services."
+sidebarTitle: "Security Model"
+---
+
+The katbose.dev portfolio treats every request as potentially hostile and every secret as potentially public. The security model is built around three boundaries: IP pseudonymization at the edge, deny-by-default database access, and strict secrets ownership per deployment surface.
+
+## IP pseudonymization
+
+Raw IP addresses are never stored. The production Worker computes a pseudonym from the trusted `CF-Connecting-IP` header using HMAC-SHA-256 and prefixes it with a non-secret epoch identifier.
+
+```ts
+import { createHmac } from "node:crypto";
+
+export function pseudonymizeIp(ip: string, key: string): string {
+  return createHmac("sha256", key).update(ip).digest("hex");
+}
+
+export function getRequestPseudonym(request: Request): string | null {
+  const ip = request.headers.get("cf-connecting-ip");
+  const key = process.env["IP_PSEUDONYM_KEY"];
+  const epoch = process.env["IP_PSEUDONYM_EPOCH"];
+  if (!ip || !key || !epoch) return null;
+  return `${epoch}:${pseudonymizeIp(ip, key)}`;
+}
+```
+
+The `CF-Connecting-IP` header is trusted because every request traverses Cloudflare's edge. No `x-forwarded-*` fallback is accepted. If the header is absent, the pseudonym is `null`, and security-sensitive limiters fail according to their documented route policy.
+
+### Key rotation and retention
+
+- `IP_PSEUDONYM_KEY` is a random 256-bit secret.
+- `IP_PSEUDONYM_EPOCH` is a non-secret identifier for the active key.
+- Rotate the key quarterly or after compromise. Increment the epoch on each rotation.
+- A daily purge deletes telemetry older than 90 days, including rows with old epochs.
+- Old and new epoch rows may coexist until their rows expire, but application code must never correlate, translate, or backfill identifiers across epochs.
+
+<Warning>
+  Rotation resets short rate-limit continuity for the affected IP. That bounded effect is accepted. Never correlate or backfill pseudonyms across epochs.
+</Warning>
+
+## Secrets ownership
+
+Secrets are owned by exactly one deployment surface. They never move across surfaces unless the architecture explicitly requires it.
+
+| Surface | Store | Holds |
+| --- | --- | --- |
+| Cloudflare Workers (web) | Worker secret bindings | Supabase service role key, Upstash tokens, Turnstile secret, Slack webhooks, preview secrets, `IP_PSEUDONYM_KEY` |
+| Render (CMS/dashboard, planned) | `render.yaml` with `sync: false` \+ Render dashboard | Payload secret, Supabase service role key (separate copy), database URL |
+| Supabase | Project settings | Database URL, anon key, service role key |
+
+### Hard rules
+
+1. The Supabase **service role key never appears in a `NEXT_PUBLIC_*` variable or any client bundle.** It bypasses every RLS policy. Leaking it is a total compromise of the data layer.
+2. Anything prefixed `NEXT_PUBLIC_` is public. Treat it as if it were printed on a billboard.
+3. `render.yaml` is committed; secret values never are.
+4. Local values live only in ignored `.env.local` files. Production values live only in Cloudflare, Render, and Supabase dashboards.
+5. Only the web Worker holds `IP_PSEUDONYM_KEY`, because only it receives trusted visitor request metadata.
+
+<Tip>
+  For the full environment variable inventory, including rotation schedules and which variables are public, see `/operations/environment-variables`.
+</Tip>
+
+## Turnstile verification
+
+The contact form uses Cloudflare Turnstile. Only the widget site key (`NEXT_PUBLIC_TURNSTILE_SITE_KEY`) is public. The server-side secret key (`TURNSTILE_SECRET_KEY`) is bound to the Worker and used to call Cloudflare's `siteverify` endpoint. Tokens are always verified server-side; a client-side success callback proves nothing.
+
+```ts
+export async function verifyTurnstileToken(
+  token: string,
+  remoteIp: string | null,
+): Promise<boolean> {
+  const secret = process.env["TURNSTILE_SECRET_KEY"];
+  if (!secret || token.trim().length === 0 || token.length > 2048) return false;
+
+  const body = new URLSearchParams({ secret, response: token });
+  if (remoteIp) body.set("remoteip", remoteIp);
+  const response = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", {
+    method: "POST",
+    headers: { "content-type": "application/x-www-form-urlencoded" },
+    body,
+    signal: AbortSignal.timeout(3000),
+  });
+  // ... parse and validate success, action, and hostname
+}
+```
+
+## Cloudflare Access (planned)
+
+Cloudflare Access protects the CMS admin at `cms.katbose.dev/admin/*` and the entire dashboard subdomain. The CMS API at `cms.katbose.dev/api/*` is deliberately not covered by Access because the public Next.js site fetches published content from it server-side. Payload's built-in auth controls mutations; guest reads are constrained to published documents.
+
+## Secret leak prevention
+
+The repository uses `gitleaks` on every push and pull request via `.github/workflows/secret-scan.yml`. The scan configuration at `.gitleaks.toml` extends the full default ruleset with no rules disabled. It carries exactly one allowlist entry for `= replace-with-…` placeholder values used in committed `.env.example` templates. The allowlist matches the placeholder value pattern, not the file path, so a real secret pasted into a template still fails the scan.
+
+## Keeping plain-text vars across deploys
+
+The `wrangler.jsonc` file sets `keep_vars: true`. Without this, a deploy would delete every dashboard variable that is not declared in the configuration file, including `IP_PSEUDONYM_EPOCH`. Its absence would make the contact route fail closed with a 503. Secrets are never deleted by a deploy regardless of this setting.
+
+```json
+{
+  "keep_vars": true
+}
+```
+
+## Input handling
+
+- Every request body is validated with a Zod schema at the route boundary. Nothing downstream trusts unvalidated input.
+- Schemas live in `packages/shared` so the client and server validate identically.
+- All Supabase access goes through the client library's parameterized queries. No string-built SQL is used.
+- External redirects are never taken from user input. The only redirect targets are Supabase signed URLs and internal paths.
+
+For the full threat model and accepted risks, see `docs/05-security.md` in the repository.

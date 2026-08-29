@@ -1,0 +1,38 @@
+---
+title: "Project Status and Five-Phase Roadmap"
+sidebarTitle: "Status & Roadmap"
+description: "katbose.dev master plan v1.6 is locked. Phase 1 web foundation is implemented with 20 Next routes, security boundaries, migrations, CI, and the katbose-card package. Phases 2–5 cover content, AI search, resume security, and analytics."
+---
+
+The master plan is at version 1.6 with the architecture finalized and Phase 1 implementation complete locally. Live services and deployment gates remain intentionally unclaimed until their respective validation spikes pass.
+
+## Current status
+
+| Item | Status |
+| --- | --- |
+| Master plan | v1.6 — Final architecture lock |
+| Phase 1 web foundation | Implemented: 20 Next.js routes, typed Home/agent systems, security boundaries, Supabase migrations with pgTAP tests, CI workflows, and `packages/katbose-card` source |
+| CI | Green on Linux: frozen install, typecheck, Oxlint, Oxfmt, 28 Vitest tests, Next.js build, OpenNext Worker bundle, 72 pgTAP assertions, 35 Playwright/axe tests in Workers runtime |
+| Deployment/live vendors | Intentionally unclaimed until spike gates pass |
+
+## Five-phase roadmap
+
+| Phase | Focus | Ships when |
+| --- | --- | --- |
+| **1 — Foundation** | Layout, core pages, utility pages, SEO, deployment | RLS, secrets hygiene, contact protection, privacy policy, CI and OpenNext validation in place |
+| **2 — Content platform** | Payload CMS, Blog, TIE, Profile/SiteSettings identity uploads, canonical Lexical authoring, derived Markdown/MDX, draft preview | Spike B, CMS domain/Access, scoped preview, identity-asset replacement, ISR fallback and restore drill pass |
+| **3 — AI search** | Index, Ask AI, sync pipeline | AI Search binding, reconciliation, cost caps and all four injection layers verified |
+| **4 — Resume security** | Private bucket, signed URLs, Turnstile | E2E download test passes, fail-open behaviour proven |
+| **5 — Analytics & operations** | Dashboard, retention, alerting | Access control, retention and alerting verified |
+
+Full build lists and non-negotiable production gates are documented in `docs/15-roadmap-and-checklist.md`.
+
+<Warning>
+  Three validation spikes act as fail-stop gates for their dependent phases:
+
+  - **Spike A** (local 6/6 `workerd` pass completed 2026-08-25): registered-zone `/cdn-cgi/image` transform/fallback check still pending.
+  - **Spike B** must prove Payload's `payload` schema boundary before Phase 2 can begin.
+  - **Spike C** must prove the Cloudflare AI Search binding and Items API before Phase 3 can begin.
+
+  A failed gate stops its dependent phase and requires a new decision entry in `docs/16-decision-log.md`. Probe scaffolds remain uncommitted by design (decision #56).
+</Warning>

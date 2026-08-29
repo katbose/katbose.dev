@@ -1,0 +1,22 @@
+---
+title: "Core Principles for the katbose.dev Platform"
+sidebarTitle: "Principles"
+description: "The katbose.dev platform follows ten core principles: white-first minimalism, sub-1-second loads, WCAG 2.2 AA, excellent typography, SEO and agent readability, strict TypeScript, free-tier fit, single-responsibility vendors, recruiter-first experience, and no speculative abstraction."
+---
+
+Every design, architecture, and implementation choice in katbose.dev is measured against these core principles. They are derived from `PLAN.md` and the 20-part specification in `docs/`.
+
+## The ten principles
+
+- **White-first, minimalistic UI** with a light/dark toggle that defaults to system preference. Content comes first; decoration is minimal.
+- **Fast** — under 1 second initial load, with excellent Core Web Vitals and a Lighthouse score of at least 95.
+- **Responsive and accessible** — WCAG 2.2 AA compliance, fully keyboard-operable, and tested with axe-core in CI.
+- **Excellent typography** — measured type scales and a single typeface family (DM Sans) across all text roles.
+- **SEO-optimized and agent-readable** — canonical `/agent` route, `robots.txt`, `llms.txt`, `humans.txt`, and JSON-LD structured data. The site is built to be crawled and understood by both search engines and AI agents.
+- **TypeScript-first, strict mode** — no `any` in application code. Exhaustive registries and runtime Zod schemas validate every manifest section and rich-text block.
+- **Everything fits inside free tiers** — the platform is designed to run on generous free tiers across Cloudflare, Supabase, Upstash, Render, PostHog, and Sentry.
+- **One clear responsibility per vendor** — no overlapping services. Each tool does exactly one thing well.
+- **Recruiter experience beats data collection** — no login, no mandatory email, and no tracking. The resume portal is one-click accessible.
+- **Extensible architecture, but no speculative abstraction** — the system is built to grow, but only with proven, well-understood technology. Prefer boring solutions over novelty.
+
+These principles are enforced in CI through typecheck, Oxlint, Oxfmt, Vitest unit tests, Playwright E2E tests, and axe accessibility checks. Every phase of the roadmap must pass its non-negotiable gates before advancing.

@@ -1,0 +1,35 @@
+---
+title: "What katbose.dev Is (and Isn't)"
+sidebarTitle: "What It Is"
+description: "katbose.dev is a personal portfolio platform with six distinct roles: portfolio, showcase, blog, TIE notes, AI search, and resume portal. It is not a knowledge base."
+---
+
+The katbose.dev repository builds a single, unified personal platform with six distinct purposes. Every route and feature exists to serve one or more of these roles, and the architecture is designed to keep each responsibility clear and bounded.
+
+## Six roles of the platform
+
+- **Professional portfolio** — Projects, experience, education, and certifications presented as a cohesive personal profile.
+- **Project showcase** — Case studies with architecture breakdowns, challenges faced, and lessons learned.
+- **Technical blog** — Long-form articles authored in Payload Lexical, with Markdown/MDX derived for rendering, reading time estimates, table of contents, and RSS feeds.
+- **Things I Explore (TIE)** — Short, deliberately unpolished engineering notes published as quick explorations.
+- **AI-searchable representation** — Answer questions about the work with source citations, making the site readable and searchable by both humans and AI agents.
+- **Recruiter-friendly resume portal** — View the resume online plus one-click secured PDF download.
+
+It is **not** a knowledge base. Reference notes and broader knowledge management live in a [separate repository](https://github.com/katbose/knowledge-base) per `docs/18-knowledge-base.md`.
+
+## Retired options
+
+Several tools and services were evaluated and explicitly rejected. They are documented in the [decision log](/reference/decision-log) and should not be reintroduced without a new entry.
+
+| Retired tool | Replaced by | Reason |
+| --- | --- | --- |
+| Strapi | Payload CMS | Better Next.js and TypeScript integration |
+| Umami | PostHog | One analytics tool, not four |
+| OpenPanel | PostHog | Same as above |
+| Vercel Analytics | PostHog | Vendor overlap |
+| Grafana | Custom dashboard page | Overkill for a personal site |
+| Postgres rate-limit counters | Upstash Redis | Reimplements sliding windows; hits the primary DB per request |
+
+<Note>
+  Before reintroducing any retired tool, consult `docs/16-decision-log.md` and record a new numbered entry with the reasoning. Decisions are closed, never quietly reversed.
+</Note>

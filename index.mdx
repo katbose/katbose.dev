@@ -1,0 +1,46 @@
+---
+title: "katbose.dev: AI-Ready Portfolio Platform"
+sidebarTitle: "Overview"
+description: "katbose.dev is a documentation-led, AI-searchable portfolio platform built with Next.js 16, Cloudflare Workers, and Supabase. Explore the architecture, local setup, and operations."
+---
+
+Welcome to the katbose.dev documentation. This site covers a personal portfolio platform that doubles as a project showcase, technical blog, Things I Explore (TIE) notes, recruiter resume portal, and AI-searchable representation of work. The entire system is built as a documentation-led monorepo: the 20-part specification in `docs/` and `PLAN.md` are the authoritative source of truth, and the implementation follows from them.
+
+<CardGroup cols={2}>
+  <Card title="What It Is" icon="lightbulb" href="/overview/what-it-is">
+    Understand the six roles of the platform and what is intentionally out of scope.
+  </Card>
+
+  <Card title="Local Development" icon="rocket" href="/getting-started/local-development">
+    Set up the monorepo with pnpm, Node 24, and local Supabase for development.
+  </Card>
+
+  <Card title="Architecture" icon="apartment" href="/architecture/overview">
+    See how Cloudflare Workers, Supabase, Upstash, and Payload CMS fit together.
+  </Card>
+
+  <Card title="Environment Variables" icon="user-secret" href="/operations/environment-variables">
+    Review the full secrets inventory per surface and rotation calendar.
+  </Card>
+</CardGroup>
+
+## Quick start path
+
+<Steps>
+  <Step title="Read the Overview">
+    Start with [What It Is](/overview/what-it-is) and [Core Principles](/overview/principles) to understand the platform's goals and constraints.
+  </Step>
+  <Step title="Explore the Architecture">
+    Review the [Architecture Overview](/architecture/overview) to learn how requests flow through Cloudflare's edge to the OpenNext Worker and Supabase.
+  </Step>
+  <Step title="Set up local development">
+    Follow [Local Development](/getting-started/local-development) to install dependencies, run the dev server, and apply migrations locally.
+  </Step>
+  <Step title="Review Operations">
+    Check [Environment Variables](/operations/environment-variables), [CI Workflows](/operations/ci-and-workflows), and [Backups](/operations/backups) before touching production.
+  </Step>
+</Steps>
+
+<Info>
+  The deeper source of truth lives in the repository itself. The `docs/` directory contains 20 markdown files covering every system in exhaustive detail, and `PLAN.md` is the master plan index. For authoritative rationale, consult the [Source Documentation Index](/reference/source-documentation).
+</Info>

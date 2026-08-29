@@ -1,0 +1,189 @@
+---
+title: "Supabase Postgres and Storage Schema"
+description: "Reference for the five public application tables, indexes, constraints, and the private resume storage bucket created by the committed Supabase migrations."
+sidebarTitle: "Schema"
+---
+
+The katbose.dev portfolio stores application data in a single Supabase Postgres project. Schema changes are managed through numbered `.sql` migration files in `supabase/migrations/`, applied first against a local Supabase instance and then to production from the protected `main` branch workflow.
+
+Two migrations are currently committed. The first creates five public tables with Row Level Security, restrictive deny policies, and a promotion helper for resume versions. The second adds a private Storage bucket for resumes and a matching restrictive policy on `storage.objects`.
+
+## Migration 1: public security foundation
+
+File: `supabase/migrations/20260826000100_public_security_foundation.sql`
+
+This migration creates the five public application tables, enables and forces RLS on each, revokes all current and default privileges for `anon` and `authenticated`, and grants full access to `service_role`.
+
+### contact\_submissions
+
+Stores messages sent through the contact form. No IP pseudonym is stored here because form abuse is handled before insertion.
+
+```sql
+CREATE TABLE public.contact_submissions (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  name text NOT NULL CHECK (
+    name = btrim(name) AND char_length(name) BETWEEN 1 AND 100
+  ),
+  email text NOT NULL CHECK (
+    email = btrim(email) AND char_length(email) BETWEEN 1 AND 200
+  ),
+  message text NOT NULL CHECK (
+    message = btrim(message) AND char_length(message) BETWEEN 10 AND 5000
+  ),
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+```
+
+### download\_logs
+
+Tracks resume download attempts with pseudonymized IP, device signals, and outcome.
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | `uuid` | Primary key |
+| `storage_path` | `text` | Target file path |
+| `country` | `text` | Geo signal |
+| `referrer` | `text` | Referrer header |
+| `browser` | `text` | Parsed UA family |
+| `device` | `text` | Parsed device type |
+| `user_agent_hash` | `text` | Hashed UA for fingerprinting |
+| `ip_pseudonym` | `text` | HMAC pseudonym |
+| `ip_epoch` | `text` | Key epoch identifier |
+| `turnstile_triggered` | `boolean` | Whether a challenge was shown |
+| `success` | `boolean` | Whether the download succeeded |
+| `error_message` | `text` | Failure reason if any |
+| `created_at` | `timestamptz` | Event time |
+
+**Check constraint:** `download_logs_ip_identity_pair` enforces that `ip_pseudonym` and `ip_epoch` are either both null or both present.
+
+**Index:** `download_logs_created_at_idx` on `(created_at DESC)` for retention queries.
+
+### resume\_versions
+
+Tracks uploaded resume files. At most one row can be current at a time.
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | `uuid` | Primary key |
+| `storage_path` | `text` | Unique, non-empty, trimmed |
+| `uploaded_at` | `timestamptz` | Upload time |
+| `is_current` | `boolean` | Whether this is the active resume |
+
+**Partial unique index:** `one_current_resume` on `(is_current)` where `is_current` is true.
+
+### dead\_letter\_queue
+
+Holds failed CMS sync operations for later retry or inspection.
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | `uuid` | Primary key |
+| `collection` | `text` | CMS collection name |
+| `doc_id` | `text` | Document identifier |
+| `slug` | `text` | URL slug |
+| `operation` | `text` | One of `create`, `update`, `upsert`, `delete` |
+| `error_message` | `text` | Failure reason |
+| `attempts` | `integer` | Retry count, `>= 0` |
+| `resolved` | `boolean` | Whether the item is resolved |
+| `resolved_at` | `timestamptz` | Resolution timestamp |
+| `created_at` | `timestamptz` | Insertion time |
+
+**Check constraint:** `dead_letter_queue_resolution_state` requires that `resolved` and `resolved_at` are either both false/null or both true/non-null.
+
+**Partial index:** `dlq_unresolved_idx` on `(resolved, attempts)` where `not resolved`.
+
+### ai\_query\_logs
+
+Records Ask AI queries, outcomes, and flagged content for review.
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | `uuid` | Primary key |
+| `query` | `text` | User query text |
+| `flagged` | `boolean` | Injection or abuse flag |
+| `answered` | `boolean` | Whether a response was returned |
+| `reason` | `text` | Moderation reason |
+| `sources` | `jsonb` | Cited source list |
+| `ip_pseudonym` | `text` | HMAC pseudonym |
+| `ip_epoch` | `text` | Key epoch identifier |
+| `created_at` | `timestamptz` | Query time |
+
+**Check constraint:** `ai_query_logs_ip_identity_pair` mirrors the same null-or-both rule as `download_logs`.
+
+**Index:** `ai_query_logs_flagged_idx` on `(flagged, created_at DESC)` for review queues.
+
+### promote\_resume\_version function
+
+A `SECURITY DEFINER` function that serializes concurrent resume promotions with a transaction-scoped advisory lock. It inserts a new row, unsets the previous current row, and marks the new row as current.
+
+```sql
+CREATE OR REPLACE FUNCTION public.promote_resume_version(new_storage_path text)
+RETURNS uuid
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+DECLARE
+  new_id uuid;
+BEGIN
+  PERFORM pg_catalog.pg_advisory_xact_lock(
+    pg_catalog.hashtextextended('public.promote_resume_version', 0)
+  );
+
+  INSERT INTO public.resume_versions (storage_path, is_current)
+  VALUES (new_storage_path, false)
+  RETURNING id INTO new_id;
+
+  UPDATE public.resume_versions
+  SET is_current = false
+  WHERE is_current;
+
+  UPDATE public.resume_versions
+  SET is_current = true
+  WHERE id = new_id;
+
+  RETURN new_id;
+END;
+$$;
+```
+
+Execution is granted only to `service_role`; `anon` and `authenticated` are explicitly revoked.
+
+## Migration 2: private resume bucket
+
+File: `supabase/migrations/20260826000200_private_resume_bucket.sql`
+
+This migration creates a private Storage bucket named `resume` and adds a restrictive policy that denies `anon` and `authenticated` access to objects in that bucket.
+
+```sql
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('resume', 'resume', false)
+ON CONFLICT (id) DO UPDATE
+  SET name = excluded.name,
+      public = false;
+
+CREATE POLICY deny_client_roles_resume
+  ON storage.objects
+  AS RESTRICTIVE FOR ALL TO anon, authenticated
+  USING (bucket_id <> 'resume')
+  WITH CHECK (bucket_id <> 'resume');
+```
+
+The migration fails loudly if `storage.buckets` or `storage.objects` does not exist, preventing a release from silently omitting the private boundary.
+
+## Check constraints summary
+
+| Table | Constraint | Rule |
+| --- | --- | --- |
+| `contact_submissions` | implicit | `name` trimmed, 1..100 chars |
+| `contact_submissions` | implicit | `email` trimmed, 1..200 chars, valid shape enforced by app |
+| `contact_submissions` | implicit | `message` trimmed, 10..5000 chars |
+| `download_logs` | `download_logs_ip_identity_pair` | `ip_pseudonym` and `ip_epoch` both null or both set |
+| `resume_versions` | implicit | `storage_path` trimmed, non-empty, unique |
+| `dead_letter_queue` | `dead_letter_queue_resolution_state` | `resolved` and `resolved_at` must be consistent |
+| `dead_letter_queue` | implicit | `operation` in (`create`, `update`, `upsert`, `delete`) |
+| `ai_query_logs` | `ai_query_logs_ip_identity_pair` | `ip_pseudonym` and `ip_epoch` both null or both set |
+
+## What is not in the schema yet
+
+The `payload` schema is planned for Phase 2 and managed by Payload's Postgres adapter. It is not hand-edited, but it is covered by the same backup job. For the full data model narrative, see `docs/06-data-model.md` in the repository.

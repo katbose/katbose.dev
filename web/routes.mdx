@@ -1,0 +1,71 @@
+---
+title: "Public Routes and Navigation Metadata"
+description: "Explore the typed route registry in apps/web/lib/routes.ts. Every public path is validated by Zod, carries navigation and SEO flags, and drives sitemap and robots generation."
+sidebarTitle: "Routes"
+---
+
+The katbose.dev web app declares every public page in a single typed manifest at `apps/web/lib/routes.ts`. This registry is the source of truth for navigation rendering, sitemap generation, and SEO indexing rules. Adding a new public page starts here.
+
+## Route schema
+
+The file exports three key pieces:
+
+- `PublicPathSchema` — a Zod enum of every valid path string.
+- `PublicRouteSchema` — a Zod object with `path`, `label`, `description`, `navigation`, and `indexable`.
+- `PUBLIC_ROUTES` — the runtime array parsed through `PublicRouteSchema`.
+- `getRoute(path)` — a helper that returns the metadata object for a given path or throws if it is missing.
+
+<CodeGroup>
+
+```ts routes.ts
+import { z } from "zod";
+
+export const PublicPathSchema = z.enum([
+  "/",
+  "/projects",
+  "/experience",
+  "/blog",
+  "/tie",
+  "/resume",
+  "/ask-ai",
+  "/contact",
+  "/privacy",
+  "/resume-unavailable",
+  "/agent",
+]);
+
+const PublicRouteSchema = z.object({
+  path: PublicPathSchema,
+  label: z.string().min(1),
+  description: z.string().min(1),
+  navigation: z.boolean(),
+  indexable: z.boolean(),
+});
+
+export type PublicPath = z.infer<typeof PublicPathSchema>;
+export type PublicRoute = z.infer<typeof PublicRouteSchema>;
+```
+
+</CodeGroup>
+
+## Route directory
+
+Every route below is declared in `PUBLIC_ROUTES` and has a matching page file under `apps/web/app/(site)/`.
+
+| Path | Label | Description | In navigation | Indexable |
+| --- | --- | --- | --- | --- |
+| `/` | Home | KatBose's portfolio and engineering work. | Yes | Yes |
+| `/projects` | Projects | Selected software projects and engineering decisions. | Yes | Yes |
+| `/experience` | Experience | Professional experience and areas of impact. | Yes | Yes |
+| `/blog` | Blog | Long-form technical writing. | Yes | Yes |
+| `/tie` | TIE | Short notes on things I explore. | Yes | Yes |
+| `/resume` | Resume | Recruiter-first resume overview and download entry point. | Yes | Yes |
+| `/ask-ai` | Ask AI | Resilient semantic search over public portfolio content. | Yes | Yes |
+| `/contact` | Contact | Send KatBose a message or book a conversation. | Yes | Yes |
+| `/privacy` | Privacy | Plain-language data and privacy policy. | No | Yes |
+| `/resume-unavailable` | Resume unavailable | Graceful resume-download fallback. | No | No |
+| `/agent` | Agent view | Canonical agent-readable portfolio view. | No | Yes |
+
+<Tip>
+  `sitemap.ts` and `robots.txt` are generated directly from this registry. Changing `indexable` or adding a path automatically updates SEO artifacts without touching separate config files. See [Agent & SEO](/web/agent-and-seo) for how `llms.txt`, `humans.txt`, and JSON-LD are kept in sync.
+</Tip>
