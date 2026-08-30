@@ -26,4 +26,8 @@ regexTarget = "line"
 regexes = [
   '''=\s*replace-with-[a-z0-9-]+''',
   '''test-fixture-[a-z0-9-]*not-a-real-secret''',
+  # Sequential-hex keyboard walk. This exact literal was the earlier form of the
+  # three test fixtures above, and the `pull_request` event scans every commit in
+  # the range, so history still surfaces it after the working tree moved on.
+  '''(?:0123456789abcdef){2}''',
 ]
