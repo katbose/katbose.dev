@@ -18,8 +18,14 @@
 
 import { expect, test, type Page } from "@playwright/test";
 
-/** Values the browser reports for an effectively instant transition. */
-const INSTANT_DURATIONS = ["0s", "0.01ms"];
+/**
+ * Upper bound, in seconds, for a transition no visitor can perceive.
+ *
+ * Reduced-motion CSS collapses durations to zero, but `motion` can leave a
+ * hair above it behind, so the assertion allows anything under a millisecond
+ * rather than demanding an exact zero.
+ */
+const IMPERCEPTIBLE_SECONDS = 0.001;
 
 // `page.emulateMedia` rather than `test.use({ reducedMotion })`: the fixture
 // option did not reach the page in CI, so the whole file silently ran with
@@ -29,11 +35,32 @@ test.beforeEach(async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
 });
 
-async function durationOf(page: Page, selector: string): Promise<string> {
+/**
+ * Longest transition on the element, in seconds.
+ *
+ * Comparing the raw `transitionDuration` string against a list of accepted
+ * spellings was brittle: `transitionDuration` can carry several comma-separated
+ * values, and Chromium serialises the same tiny duration as `0.01ms` in one
+ * context and `1e-05s` in another, so a list that matched locally failed in CI
+ * on a value identical in magnitude. Parsing to a number compares what the
+ * assertion actually cares about — whether anything lasts long enough to see.
+ */
+async function longestTransitionSeconds(page: Page, selector: string): Promise<number> {
   return page
     .locator(selector)
     .first()
-    .evaluate((node) => getComputedStyle(node).transitionDuration);
+    .evaluate((node) =>
+      Math.max(
+        ...getComputedStyle(node)
+          .transitionDuration.split(",")
+          .map((value) => {
+            const trimmed = value.trim();
+            const magnitude = Number.parseFloat(trimmed);
+            if (Number.isNaN(magnitude)) return 0;
+            return trimmed.endsWith("ms") ? magnitude / 1000 : magnitude;
+          }),
+      ),
+    );
 }
 
 /**
@@ -127,10 +154,14 @@ test("disclosure and accordion open instantly", async ({ page }) => {
   await page.goto("/");
 
   await page.getByRole("button", { name: "View more" }).click();
-  expect(INSTANT_DURATIONS).toContain(await durationOf(page, ".collapsible-panel"));
+  expect(await longestTransitionSeconds(page, ".collapsible-panel")).toBeLessThan(
+    IMPERCEPTIBLE_SECONDS,
+  );
 
   await page.getByRole("button", { name: "Current focus" }).click();
-  expect(INSTANT_DURATIONS).toContain(await durationOf(page, ".accordion-panel"));
+  expect(await longestTransitionSeconds(page, ".accordion-panel")).toBeLessThan(
+    IMPERCEPTIBLE_SECONDS,
+  );
 });
 
 test("hover affordances do not translate", async ({ page }) => {
