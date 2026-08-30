@@ -9,7 +9,8 @@ export default defineConfig({
   retries: process.env.CI ? 1 : 0,
   reporter: process.env.CI ? "github" : "list",
   use: {
-    baseURL: process.env["PLAYWRIGHT_BASE_URL"] ?? "http://127.0.0.1:8788",
+    baseURL: process.env["PLAYWRIGHT_BASE_URL"] ?? "https://127.0.0.1:8788",
+    ignoreHTTPSErrors: true,
     trace: "retain-on-failure",
   },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
@@ -17,8 +18,9 @@ export default defineConfig({
     ? undefined
     : {
         command:
-          "pnpm --filter web build && pnpm --filter web exec opennextjs-cloudflare preview --port 8788",
-        url: "http://127.0.0.1:8788",
+          "pnpm --filter web build && pnpm --filter web exec opennextjs-cloudflare preview --port 8788 --local-protocol https",
+        url: "https://127.0.0.1:8788",
+        ignoreHTTPSErrors: true,
         reuseExistingServer: false,
         timeout: 180_000,
       },

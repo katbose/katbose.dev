@@ -5,7 +5,7 @@
  * cannot be stripped on one surface and forwarded on another.
  */
 
-import * as Sentry from "@sentry/nextjs";
+import * as Sentry from "@sentry/vercel-edge";
 import { redactUrl } from "@/lib/monitoring/redact";
 import { resolveRelease } from "@/lib/monitoring/release";
 

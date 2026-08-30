@@ -36,6 +36,16 @@ async function readIsrValue(request: APIRequestContext): Promise<number> {
   return Number(match?.[1]);
 }
 
+async function waitForIsrTransition(request: APIRequestContext, previous: number): Promise<number> {
+  for (let attempt = 0; attempt < ISR_POLL_ATTEMPTS; attempt += 1) {
+    await sleep(ISR_POLL_INTERVAL_MS);
+    const latest = await readIsrValue(request);
+    if (latest !== previous) return latest;
+  }
+
+  throw new Error(`ISR cache never transitioned from ${previous}`);
+}
+
 test("@spike runtime serves agent output and the committed Open Graph PNG", async ({ request }) => {
   const llms = await request.get("/llms.txt");
   expect(llms.ok()).toBe(true);
@@ -62,24 +72,25 @@ test("@spike ISR serves from cache, goes stale, then revalidates via the R2 cach
 }) => {
   test.slow();
 
-  const first = await readIsrValue(request);
-  expect(Number.isFinite(first)).toBe(true);
+  const seeded = await readIsrValue(request);
+  expect(Number.isFinite(seeded)).toBe(true);
 
-  // A second read inside the revalidation window must be the same cache entry.
+  // OpenNext populates R2 before Wrangler becomes ready, so the seeded entry
+  // has an arbitrary age. Observe one transition to establish a cache entry
+  // uploaded during this test and therefore a known-fresh baseline.
+  const first = await waitForIsrTransition(request, seeded);
+  expect(first).toBeGreaterThan(seeded);
+
+  // The newly observed entry is cached, not regenerated per request.
   expect(await readIsrValue(request)).toBe(first);
 
   await sleep(ISR_STALE_AFTER_MS);
 
-  // Stale-while-revalidate: the expired entry is still served immediately and
-  // the rebuild happens in the background.
+  // Stale-while-revalidate serves the expired entry while rebuilding it.
   expect(await readIsrValue(request)).toBe(first);
 
-  let latest = first;
-  for (let attempt = 0; attempt < ISR_POLL_ATTEMPTS && latest === first; attempt += 1) {
-    await sleep(ISR_POLL_INTERVAL_MS);
-    latest = await readIsrValue(request);
-  }
-  expect(latest, "background revalidation never produced a new cache entry").toBeGreaterThan(first);
+  const latest = await waitForIsrTransition(request, first);
+  expect(latest).toBeGreaterThan(first);
 
   // The refreshed entry is itself cached, not regenerated per request.
   expect(await readIsrValue(request)).toBe(latest);

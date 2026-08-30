@@ -19,6 +19,7 @@
     "@hookform/resolvers": "5.9.1",
     "@katbose/shared": "workspace:*",
     "@sentry/nextjs": "10.71.0",
+    "@sentry/vercel-edge": "10.71.0",
     "@supabase/supabase-js": "2.112.4",
     "@upstash/ratelimit": "2.0.8",
     "@upstash/redis": "1.38.3",

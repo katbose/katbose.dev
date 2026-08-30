@@ -2,7 +2,6 @@ import { SITE_IDENTITY } from "@katbose/shared";
 import Link from "next/link";
 import { LocalClock } from "@/components/common/local-clock";
 import { ProfilePortrait } from "@/components/common/profile-portrait";
-import { Reveal } from "@/components/common/reveal";
 import { PHASE_ONE_FALLBACK_CONTENT } from "@/lib/fallback-content";
 import { PUBLIC_ROUTES } from "@/lib/routes";
 import {
@@ -19,12 +18,10 @@ function Section({
   children,
 }: Readonly<{ id: string; title: string; children: React.ReactNode }>) {
   return (
-    <Reveal>
-      <section className="home-section" id={id}>
-        <h2>{title}</h2>
-        {children}
-      </section>
-    </Reveal>
+    <section className="home-section" id={id}>
+      <h2>{title}</h2>
+      {children}
+    </section>
   );
 }
 
