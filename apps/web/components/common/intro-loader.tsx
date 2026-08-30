@@ -1,23 +1,26 @@
-const INTRO_SESSION_SCRIPT = `(()=>{try{const root=document.documentElement;const key="katbose-intro-seen";if(!matchMedia("(prefers-reduced-motion: reduce)").matches&&!sessionStorage.getItem(key)){sessionStorage.setItem(key,"true");root.dataset.intro="show"}}catch{}})();`;
+"use client";
+
+import { useEffect, useState } from "react";
 
 const GREETINGS = ["Hello", "నమస్కారం", "नमस्ते", "Bonjour"] as const;
 
-/** Runs before paint so the CSS-only intro can honor once-per-session semantics. */
-export function IntroSessionScript() {
-  return <script dangerouslySetInnerHTML={{ __html: INTRO_SESSION_SCRIPT }} />;
-}
-
-/**
- * The greeting sequence is CSS-driven so it never waits for React hydration.
- * Without JavaScript (or when storage is unavailable) it remains hidden and
- * the complete server-rendered page is visible immediately.
- */
 export function IntroLoader() {
+  const [index, setIndex] = useState<number | null>(null);
+  useEffect(() => {
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reduced || sessionStorage.getItem("katbose-intro-seen")) return;
+    sessionStorage.setItem("katbose-intro-seen", "true");
+    setIndex(0);
+    const timers = GREETINGS.map((_, greetingIndex) =>
+      window.setTimeout(() => setIndex(greetingIndex), greetingIndex * 350),
+    );
+    timers.push(window.setTimeout(() => setIndex(null), 1750));
+    return () => timers.forEach(window.clearTimeout);
+  }, []);
+  if (index === null) return null;
   return (
     <div aria-hidden="true" className="intro-loader">
-      {GREETINGS.map((greeting) => (
-        <span key={greeting}>{greeting}</span>
-      ))}
+      {GREETINGS[index]}
     </div>
   );
 }

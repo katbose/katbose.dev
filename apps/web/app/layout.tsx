@@ -2,7 +2,7 @@ import { SITE_IDENTITY } from "@katbose/shared";
 import type { Metadata } from "next";
 import { DM_Sans, JetBrains_Mono } from "next/font/google";
 import type { ReactNode } from "react";
-import { IntroLoader, IntroSessionScript } from "@/components/common/intro-loader";
+import { IntroLoader } from "@/components/common/intro-loader";
 import { BottomBar } from "@/components/layout/bottom-bar";
 import { SiteFooter } from "@/components/layout/site-footer";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
@@ -44,9 +44,6 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
   return (
     <html className={`${sans.variable} ${mono.variable}`} lang="en" suppressHydrationWarning>
-      <head>
-        <IntroSessionScript />
-      </head>
       <body>
         <Providers>
           <a className="skip-link" href="#content">

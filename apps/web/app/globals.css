@@ -263,58 +263,15 @@ button:disabled {
 }
 .intro-loader {
   position: fixed;
-  top: 50%;
-  left: 50%;
+  inset: 0;
   z-index: 80;
-  display: none;
+  display: grid;
   place-items: center;
+  background: var(--color-bg);
   color: var(--color-text);
   font-size: var(--text-2xl);
   font-weight: 700;
   pointer-events: none;
-  transform: translate(-50%, -50%);
-  visibility: hidden;
-}
-html[data-intro="show"] .intro-loader {
-  display: grid;
-  visibility: visible;
-  animation: intro-loader-exit 1750ms steps(1, end) forwards;
-}
-.intro-loader span {
-  grid-area: 1 / 1;
-  border: var(--border-w) solid var(--color-border-strong);
-  border-radius: var(--radius-pill);
-  background: var(--color-bg);
-  padding: var(--space-3) var(--space-5);
-  box-shadow: var(--shadow-md);
-  opacity: 0;
-}
-html[data-intro="show"] .intro-loader span {
-  animation: intro-greeting-show 350ms steps(1, end);
-}
-html[data-intro="show"] .intro-loader span:nth-child(2) {
-  animation-delay: 350ms;
-}
-html[data-intro="show"] .intro-loader span:nth-child(3) {
-  animation-delay: 700ms;
-}
-html[data-intro="show"] .intro-loader span:nth-child(4) {
-  animation-delay: 1050ms;
-  animation-duration: 700ms;
-}
-@keyframes intro-greeting-show {
-  from,
-  to {
-    opacity: 1;
-  }
-}
-@keyframes intro-loader-exit {
-  from {
-    visibility: visible;
-  }
-  to {
-    visibility: hidden;
-  }
 }
 .content-page,
 .agent-view {
