@@ -12,7 +12,7 @@
 
 import { expect, test } from "@playwright/test";
 
-/** Longer than the 1750ms intro loader, with headroom for a slow CI runner. */
+/** Longer than the 1000ms intro sequence, with headroom for a slow CI runner. */
 const OBSERVATION_WINDOW_MS = 3_500;
 
 /**
@@ -54,10 +54,12 @@ for (const path of MEASURED_PATHS) {
     });
 
     await page.goto(path);
+    const loader = page.locator(".intro-loader");
+    await expect(loader, "the fresh-session loader never mounted").toBeVisible();
     await page.waitForLoadState("networkidle");
-    // The intro overlay unmounts on a timer, which is the highest-risk moment.
+    // The intro overlay exits through CSS and then unmounts, the highest-risk moment.
     await page.waitForTimeout(OBSERVATION_WINDOW_MS);
-    await expect(page.locator(".intro-loader")).toHaveCount(0);
+    await expect(loader).toHaveCount(0);
 
     const score = await page.evaluate(() => window.__layoutShiftScore ?? -1);
     expect(score, "layout-shift observer never attached").toBeGreaterThanOrEqual(0);

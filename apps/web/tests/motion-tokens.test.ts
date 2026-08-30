@@ -81,6 +81,7 @@ describe("motion tokens", () => {
       expect.arrayContaining([
         "--dur-base",
         "--dur-crossfade",
+        "--dur-intro",
         "--dur-count",
         "--dur-reveal",
         "--dur-marquee",

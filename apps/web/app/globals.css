@@ -272,6 +272,85 @@ button:disabled {
   font-size: var(--text-2xl);
   font-weight: 700;
   pointer-events: none;
+  animation: intro-loader-exit var(--dur-intro) linear forwards;
+}
+.intro-greeting {
+  grid-area: 1 / 1;
+  opacity: 0;
+  animation-duration: var(--dur-intro);
+  animation-fill-mode: forwards;
+  animation-timing-function: linear;
+}
+.intro-greeting:nth-child(1) {
+  animation-name: intro-greeting-1;
+}
+.intro-greeting:nth-child(2) {
+  animation-name: intro-greeting-2;
+}
+.intro-greeting:nth-child(3) {
+  animation-name: intro-greeting-3;
+}
+.intro-greeting:nth-child(4) {
+  animation-name: intro-greeting-4;
+}
+@keyframes intro-loader-exit {
+  0%,
+  90% {
+    visibility: visible;
+    opacity: 1;
+  }
+  100% {
+    visibility: hidden;
+    opacity: 0;
+  }
+}
+@keyframes intro-greeting-1 {
+  0%,
+  23% {
+    opacity: 1;
+  }
+  25%,
+  100% {
+    opacity: 0;
+  }
+}
+@keyframes intro-greeting-2 {
+  0%,
+  23% {
+    opacity: 0;
+  }
+  25%,
+  48% {
+    opacity: 1;
+  }
+  50%,
+  100% {
+    opacity: 0;
+  }
+}
+@keyframes intro-greeting-3 {
+  0%,
+  48% {
+    opacity: 0;
+  }
+  50%,
+  73% {
+    opacity: 1;
+  }
+  75%,
+  100% {
+    opacity: 0;
+  }
+}
+@keyframes intro-greeting-4 {
+  0%,
+  73% {
+    opacity: 0;
+  }
+  75%,
+  100% {
+    opacity: 1;
+  }
 }
 .content-page,
 .agent-view {

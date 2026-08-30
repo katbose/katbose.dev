@@ -1,12 +1,13 @@
 /**
  * Motion constants that cannot be expressed as a CSS `var()`.
  *
- * The design tokens in `app/theme.css` are the specification. Two places need
+ * The design tokens in `app/theme.css` are the specification. Three places need
  * the same numbers in JavaScript instead:
  *
  * - the scroll reveal is driven by `motion`, which takes numeric props rather
  *   than CSS custom properties;
- * - the mode crossfade has to know when to remove its attribute.
+ * - the mode crossfade has to know when to remove its attribute;
+ * - the intro loader needs a cleanup fallback after its CSS sequence ends.
  *
  * Reading the tokens from `getComputedStyle` during render is not an option for
  * the reveal — the component also renders on the server, and diverging values
@@ -36,6 +37,9 @@ export const EASE_OUT: readonly [number, number, number, number] = [0.2, 0, 0, 1
 /** Mirrors `--dur-crossfade`. */
 export const CROSSFADE_DURATION_MS = 350;
 
+/** Mirrors `--dur-intro`, including the greeting cycle and overlay exit. */
+export const INTRO_DURATION_MS = 1000;
+
 /** How a token's declared value should be interpreted when comparing. */
 export type MotionTokenUnit = "time" | "length" | "ratio";
 
@@ -55,6 +59,7 @@ export interface MirroredMotionToken {
  */
 export const MIRRORED_MOTION_TOKENS: Readonly<Record<string, MirroredMotionToken>> = {
   "--dur-crossfade": { value: CROSSFADE_DURATION_MS, unit: "time" },
+  "--dur-intro": { value: INTRO_DURATION_MS, unit: "time" },
   "--dur-reveal": { value: REVEAL_MOTION.durationMs, unit: "time" },
   "--reveal-shift": { value: REVEAL_MOTION.shiftPx, unit: "length" },
   "--reveal-blur": { value: REVEAL_MOTION.blurPx, unit: "length" },

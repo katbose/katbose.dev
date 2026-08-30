@@ -279,6 +279,7 @@ reduced-motion override has exactly one place to apply.
 | `--dur-fast` | 120ms | colour/opacity state change |
 | `--dur-base` | 180ms | hover/underline state change |
 | `--dur-crossfade` | 350ms | human ↔ agent content crossfade |
+| `--dur-intro` | 1000ms | complete four-greeting intro sequence, including exit |
 | `--dur-count` | 1800ms | count-up completion |
 | `--dur-reveal` | 900–1100ms | source-observed scroll reveal range |
 | `--ease-out` | `cubic-bezier(0.2, 0, 0, 1)` | entrances, expansion |
@@ -291,8 +292,10 @@ reduced-motion override has exactly one place to apply.
 | `--dur-shine` | 1.5s | bottom-bar edge shine, `ease-in-out`, once |
 | `--delay-shine` | 450ms | shine start delay |
 
-The intro sequence—including exit—must complete in ≤2 seconds; implementation may distribute that
-budget across greetings but must not derive an over-budget total from a per-language dwell token.
+The intro sequence—including exit—uses one 1000ms compositor-driven opacity timeline. JavaScript
+only mounts it once per session and removes the completed overlay; the CSS final frame reveals the
+page even if main-thread cleanup is delayed. The total remains within the inherited ≤2-second
+budget from 19 §19.3 and 13 §13.2.
 
 Budget rules, inherited from 19 §19.3 and 13 §13.2:
 
