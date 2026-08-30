@@ -17,6 +17,13 @@ package-lock.json
 .env.*
 !.env.example
 
+# Local diagnostic output (browser-automation traces, ad-hoc Lighthouse HTML,
+# build logs). These are throwaway artifacts from investigating the performance
+# and contact gates; none of them belong in history.
+.playwright-mcp/
+*.report.html
+.next-build.log
+
 # OS / editor noise
 Thumbs.db
 .DS_Store

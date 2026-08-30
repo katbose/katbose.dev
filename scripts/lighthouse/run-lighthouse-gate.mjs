@@ -3,6 +3,16 @@
  * Runs the Phase 1 Lighthouse gate against the built OpenNext Worker.
  *
  * Thresholds live in `lighthouserc.json`, not here, so the gate is declarative.
+ *
+ * One audit is skipped there and nowhere else: `robots-txt`. Lighthouse validates
+ * robots.txt against a hardcoded directive safelist that predates the Content
+ * Signals Policy, so it reports `Content-Signal` — which this site owns on
+ * purpose, see decision #92 — as an "Unknown directive" and scores the audit 0.
+ * That is a validator vocabulary gap, not a discoverability defect, and it capped
+ * SEO at 0.92 on every page. robots.txt validity is still gated, by
+ * `apps/web/tests/robots-txt-validity.test.ts` on every `pnpm test`. See decision
+ * #102. The SEO threshold itself stays at 95.
+ *
  * This script exists only to own the preview server's lifecycle:
  *
  * - Lighthouse CI can start a server itself, but only by matching a readiness

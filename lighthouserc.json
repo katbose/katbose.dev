@@ -10,6 +10,7 @@
       "settings": {
         "formFactor": "mobile",
         "throttlingMethod": "simulate",
+        "skipAudits": ["robots-txt"],
         "screenEmulation": {
           "mobile": true,
           "width": 412,

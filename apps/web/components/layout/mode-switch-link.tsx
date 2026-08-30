@@ -51,7 +51,7 @@ export function ModeSwitchLink({ href, className, children }: Readonly<ModeSwitc
   }, [href, pathname]);
 
   return (
-    <Link className={className} href={href} onClick={armCrossfade}>
+    <Link className={className} href={href} onClick={armCrossfade} prefetch={false}>
       {children}
     </Link>
   );

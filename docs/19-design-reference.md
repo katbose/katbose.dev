@@ -212,12 +212,12 @@ Running `npx katbose` in any terminal prints a compact ANSI business card: name,
 - Lives in the monorepo as `packages/katbose-card`, published to npm as **`katbose`**. The
   package was created and published (user-confirmed 2026-08-24); keep the repository source and
   published package synchronized as the card evolves.
-  **Parity status (2026-08-27):** the published `0.0.1` is a placeholder stub, not this source —
-  see [15-roadmap-and-checklist.md](15-roadmap-and-checklist.md). The workspace package is now the
-  canonical definition, its metadata matches `SITE_IDENTITY`, and
+  **Parity status (2026-08-28):** `katbose@0.0.2` was manually published from the corrected
+  workspace package and tagged `katbose-v0.0.2`; the downloaded 626-byte registry tarball exactly
+  matches the workspace tarball at SHA-1 `73f90d862686bdc5792c29440edc3d642eba73ba`.
   `apps/web/tests/katbose-card.test.ts` fails if the card's printed identity values, package
-  metadata, dependency-free guarantee or size budget drift. Reconciling `npx katbose` requires a
-  manual `0.0.2` publish.
+  metadata, dependency-free guarantee or size budget drift. A cold-cache run on 2026-08-29
+  printed the correct card but took 15,507.9 ms, so the under-three-second gate remains open.
 - Zero runtime dependencies if possible (hand-rolled ANSI codes; `picocolors` at most). A
   business card that pulls 40 packages is the wrong statement.
 - Content is a **build-time snapshot** (name, links, tagline baked into the published version) —
@@ -277,6 +277,30 @@ Points of friction found and resolved:
 
 Dark mode and Cal.com scheduling were reconsidered from this table — both are adopted, in a
 lighter form than Hackyfolio ships. See the two subsections under §19.2 above.
+
+### 19.6.1 Upstream provenance comparison packet
+
+This machine-assisted packet was prepared on 2026-08-29 against the immutable
+[`PythonHacker24/yo-hackyfolio` revision `b37b169f7cdf6686f9c03bfa7b7019e8954686fb`](https://github.com/PythonHacker24/yo-hackyfolio/commit/b37b169f7cdf6686f9c03bfa7b7019e8954686fb).
+No upstream source was copied into the workspace while preparing it.
+
+- **Architecture and data:** upstream is one client page driven by `portfolio.json`, local state,
+  `AnimatePresence`, a QR modal and a water shader. KatBose's Home is a Server Component driven by
+  a Zod-validated typed manifest, with a separate canonical `/agent`, JSON-LD, `SITE_IDENTITY` and
+  Phase 2 Payload source boundaries.
+- **Renderer pattern:** both implementations dispatch discriminated section types through a
+  renderer or registry. Their schemas, component boundaries, routing, content and accessibility
+  implementation differ; the shared idea is a general architecture pattern, not copied source.
+- **Motion and icons:** upstream `Reveal` statically imports `framer-motion`, and tech icons load
+  from `cdn.simpleicons.org`. The local implementation uses `motion/react`, `LazyMotion`, project
+  motion tokens, pre-hydration reduced-motion CSS and tests, plus build-time `simple-icons` paths.
+- **Navigation and content:** upstream navigation includes QR and social actions, the water shader
+  and an in-page mode switch. Local `BottomBar` uses routes, `ModeSwitchLink` and `MobileMenu`.
+  No upstream personal content was identified in `apps/web/lib/fallback-content.ts`.
+
+The reviewed implementation scope contained no machine-identified copied upstream file. This is
+preparatory evidence only: Requirement 7.8 remains open until a named human reviewer records a
+dated confirmation against the pinned revision.
 
 ---
 

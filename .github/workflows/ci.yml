@@ -144,5 +144,11 @@ jobs:
         with:
           name: lighthouse-reports
           path: .lighthouseci
-          if-no-files-found: warn
+          # `.lighthouseci` is dot-prefixed and the action skips hidden paths by
+          # default, so this step ran on every failed gate and uploaded nothing.
+          # Requirement 9.5 needs the reports retained, and the first failing run
+          # had to be diagnosed from job logs because they were not.
+          include-hidden-files: true
+          # A gate that produced no report is a broken gate, not a warning.
+          if-no-files-found: error
           retention-days: 30

@@ -1,21 +1,29 @@
 # Gitleaks configuration for katbose.dev
 #
-# Extends the full default ruleset — no rule is disabled. The only allowlist
-# entry covers the literal placeholder values used in committed `.env.example`
-# templates ([17-env-vars.md](docs/17-env-vars.md) requires those templates to
-# be committed with placeholders and comments).
+# Extends the full default ruleset — no rule is disabled. The allowlist covers
+# two classes of literal non-secret:
 #
-# The allowlist is deliberately scoped to the *placeholder value pattern*, not
-# to the `.env.example` file path. Allowlisting the whole file would mean a real
-# secret accidentally pasted into a template goes undetected; matching only
-# `KEY=replace-with-...` keeps every other value in those files in scope.
+# 1. the placeholder values used in committed `.env.example` templates
+#    ([17-env-vars.md](docs/17-env-vars.md) requires those templates to be
+#    committed with placeholders and comments);
+# 2. the self-labelling dummy credentials used by unit and E2E tests, which the
+#    `generic-api-key` rule reported on PR #20 in `constant-time.test.ts`,
+#    `contact-route.test.ts` and `e2e/workers-spike.spec.ts`.
+#
+# Both entries are deliberately scoped to the *value pattern*, not to a file
+# path. Allowlisting whole files would mean a real secret accidentally pasted
+# into a template or a test goes undetected; matching only
+# `KEY=replace-with-...` and `test-fixture-…-not-a-real-secret` keeps every
+# other value in those files in scope. Any test fixture that needs to be
+# ignored has to spell out that it is not a real secret.
 
 [extend]
 useDefault = true
 
 [allowlist]
-description = "Documented .env.example placeholders are not secrets"
+description = "Documented .env.example placeholders and self-labelled test fixtures are not secrets"
 regexTarget = "line"
 regexes = [
   '''=\s*replace-with-[a-z0-9-]+''',
+  '''test-fixture-[a-z0-9-]*not-a-real-secret''',
 ]

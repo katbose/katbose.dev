@@ -16,7 +16,6 @@ body {
   font-family: var(--font-dm-sans), sans-serif;
   font-size: var(--text-sm);
   line-height: 1.625;
-  text-rendering: optimizeLegibility;
 }
 a {
   color: var(--color-link);
@@ -264,15 +263,58 @@ button:disabled {
 }
 .intro-loader {
   position: fixed;
-  inset: 0;
+  top: 50%;
+  left: 50%;
   z-index: 80;
-  display: grid;
+  display: none;
   place-items: center;
-  background: var(--color-bg);
   color: var(--color-text);
   font-size: var(--text-2xl);
   font-weight: 700;
   pointer-events: none;
+  transform: translate(-50%, -50%);
+  visibility: hidden;
+}
+html[data-intro="show"] .intro-loader {
+  display: grid;
+  visibility: visible;
+  animation: intro-loader-exit 1750ms steps(1, end) forwards;
+}
+.intro-loader span {
+  grid-area: 1 / 1;
+  border: var(--border-w) solid var(--color-border-strong);
+  border-radius: var(--radius-pill);
+  background: var(--color-bg);
+  padding: var(--space-3) var(--space-5);
+  box-shadow: var(--shadow-md);
+  opacity: 0;
+}
+html[data-intro="show"] .intro-loader span {
+  animation: intro-greeting-show 350ms steps(1, end);
+}
+html[data-intro="show"] .intro-loader span:nth-child(2) {
+  animation-delay: 350ms;
+}
+html[data-intro="show"] .intro-loader span:nth-child(3) {
+  animation-delay: 700ms;
+}
+html[data-intro="show"] .intro-loader span:nth-child(4) {
+  animation-delay: 1050ms;
+  animation-duration: 700ms;
+}
+@keyframes intro-greeting-show {
+  from,
+  to {
+    opacity: 1;
+  }
+}
+@keyframes intro-loader-exit {
+  from {
+    visibility: visible;
+  }
+  to {
+    visibility: hidden;
+  }
 }
 .content-page,
 .agent-view {
@@ -550,6 +592,23 @@ button:disabled {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  /*
+   * The scroll reveal renders on the server, where the reduced-motion
+   * preference is unknowable, so `motion` inlines its hidden initial state —
+   * opacity 0 and a blur — into the server HTML for every wrapper on the page.
+   * The client drops the wrapper once the preference resolves, but the first
+   * paint happens before that, and is all a visitor ever gets if the script
+   * fails. `!important` is what outranks an inline style, so this rule is the
+   * only thing holding the pre-hydration paint at rest.
+   *
+   * `transform` is safe to clear here because `.reveal` is a wrapper this
+   * component owns outright; no static layout transform lives on it.
+   */
+  .reveal {
+    opacity: 1 !important;
+    filter: none !important;
+    transform: none !important;
+  }
   .bottom-bar::before {
     animation: none;
     opacity: 0;

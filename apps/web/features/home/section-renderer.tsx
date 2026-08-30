@@ -32,17 +32,15 @@ export function SectionRenderer({ section }: Readonly<{ section: HomeSection }>)
   switch (section.type) {
     case "hero":
       return (
-        <Reveal>
-          <section className="hero" id={section.id}>
-            <ProfilePortrait />
-            <div>
-              <p className="pronunciation">{PHASE_ONE_FALLBACK_CONTENT.hero.pronunciation}</p>
-              <h1>{SITE_IDENTITY.name}</h1>
-              <p className="hero-intro">{PHASE_ONE_FALLBACK_CONTENT.hero.intro}</p>
-              <LocalClock />
-            </div>
-          </section>
-        </Reveal>
+        <section className="hero" id={section.id}>
+          <ProfilePortrait />
+          <div>
+            <p className="pronunciation">{PHASE_ONE_FALLBACK_CONTENT.hero.pronunciation}</p>
+            <h1>{SITE_IDENTITY.name}</h1>
+            <p className="hero-intro">{PHASE_ONE_FALLBACK_CONTENT.hero.intro}</p>
+            <LocalClock />
+          </div>
+        </section>
       );
     case "experience":
       return (

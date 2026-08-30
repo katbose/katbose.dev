@@ -74,29 +74,23 @@ pnpm add @sentry/nextjs
 npx @sentry/wizard@latest -i nextjs
 ```
 
-Covers both client and server (route handler) errors. Configure:
+Covers both browser and server (route-handler) errors. As implemented:
 
-- `tracesSampleRate` low — this is a portfolio, not a high-traffic app
-- `beforeSend` redaction for the preview secret
-- Source maps uploaded at build time
-- Release tagging tied to the deployment SHA
-
-```ts
-// apps/web/lib/monitoring/sentry-config.ts
-Sentry.init({
-  dsn: process.env.SENTRY_DSN,
-  tracesSampleRate: 0.1,
-  beforeSend(event) {
-    if (event.request?.url) {
-      event.request.url = event.request.url.replace(/([?&]secret=)[^&]+/, "$1[REDACTED]");
-    }
-    return event;
-  },
-});
-```
+- `instrumentation-client.ts` checks `NEXT_PUBLIC_SENTRY_DSN` before dynamically importing the
+  browser runtime, so an unconfigured build makes no Sentry request and executes no Sentry SDK code.
+- The asynchronous boundary re-exports only `init`, allowing the configured browser chunk to
+  tree-shake unrelated SDK surfaces.
+- Browser tracing, profiling, replay and client reports are disabled. Phase 1 retains only the
+  default browser error handlers; diagnostics do not spend first-paint budget on performance traces.
+- Browser and server `beforeSend` hooks share `apps/web/lib/monitoring/redact.ts`; navigation and
+  fetch breadcrumbs receive the same URL redaction.
+- Source maps upload only when the required build credentials are present. Browser and server events
+  use the deployment SHA resolved through `NEXT_PUBLIC_RELEASE` so their stacks map to one release.
 
 Sentry fills the gap v1.0 had entirely: nothing else in the stack catches runtime errors in
-production.
+production. The browser SDK still has a measurable configured cost, so conditional loading and the
+error-only scope are retained as a performance decision; the measurements and remaining Lighthouse
+gap are recorded in decision [#104](16-decision-log.md).
 
 ---
 

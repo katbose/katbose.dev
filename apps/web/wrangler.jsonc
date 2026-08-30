@@ -18,6 +18,16 @@
       "custom_domain": true,
     },
   ],
+  // `wrangler dev` — which is what `opennextjs-cloudflare preview` runs — takes
+  // its origin from "the host of the first route of project" by default, so the
+  // custom domain above made Miniflare rewrite `request.url` and `Host` to
+  // `katbose.dev` inside the preview Worker. That made the loopback-guarded
+  // Spike A probes refuse their own CI run. Pinning the dev host to the address
+  // the preview actually serves on keeps the guard's production denial absolute
+  // instead of relaxing it. Dev-only: it has no effect on a deploy.
+  "dev": {
+    "host": "127.0.0.1",
+  },
   "assets": {
     "directory": ".open-next/assets",
     "binding": "ASSETS",

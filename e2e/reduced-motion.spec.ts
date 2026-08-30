@@ -4,8 +4,16 @@
  *
  * The previous spec checked two of the eight behaviours, so a new animation
  * could ship without a reduced-motion fallback and nothing would fail. Each
- * catalogue entry now has an assertion, and the final case checks the invariant
- * that matters most: no content is left mid-animation.
+ * catalogue entry now has an assertion, plus the invariant that matters most:
+ * no content is left mid-animation.
+ *
+ * That invariant is asserted twice, because the reveal has two distinct states to
+ * defend. After hydration the client has resolved the preference and dropped the
+ * `motion` wrapper entirely. Before hydration the server has already emitted the
+ * wrapper with a transparent, blurred inline style, since the preference cannot
+ * be read during a server render — so the pre-hydration paint has to be checked
+ * on its own, with the script blocked, or the assertion is just racing hydration
+ * and reporting whichever state it happened to catch.
  */
 
 import { expect, test, type Page } from "@playwright/test";
@@ -28,6 +36,49 @@ async function durationOf(page: Page, selector: string): Promise<string> {
     .evaluate((node) => getComputedStyle(node).transitionDuration);
 }
 
+/**
+ * Counts the elements inside `main` that are caught mid-animation.
+ *
+ * A partial opacity or a blur is the signature of a reveal that is still
+ * animating. `transform` is deliberately not checked: it is used for static
+ * layout in several places and would report false positives.
+ */
+async function midAnimationCount(page: Page): Promise<number> {
+  return page.evaluate(() => {
+    const elements = [...document.querySelectorAll("main, main *")];
+    return elements.filter((element) => {
+      const styles = getComputedStyle(element);
+      const opacity = Number(styles.opacity);
+      return (opacity > 0 && opacity < 1) || styles.filter.includes("blur");
+    }).length;
+  });
+}
+
+/**
+ * Waits until the client has applied the reduced-motion preference.
+ *
+ * `Reveal` renders on the server, where the preference is unknowable, so the
+ * server HTML always carries the reveal wrapper. The client renders the children
+ * without it once the preference resolves. Waiting for the wrapper to go is
+ * therefore a direct signal that hydration has settled — the invariant scan used
+ * to race it — rather than a fixed sleep that would pass or fail with runner
+ * load.
+ */
+async function settleReveal(page: Page): Promise<void> {
+  await page.waitForLoadState("networkidle");
+  await expect(
+    page.locator(".reveal"),
+    "the reveal wrapper survived hydration under reduced motion",
+  ).toHaveCount(0);
+  // Two frames, so any style committed by that final render has been painted.
+  await page.evaluate(
+    () =>
+      new Promise<void>((resolve) => {
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+      }),
+  );
+}
+
 test("intro loader never renders", async ({ page }) => {
   await page.goto("/");
   await expect(page.locator(".intro-loader")).toHaveCount(0);
@@ -38,18 +89,27 @@ test("intro loader never renders", async ({ page }) => {
 
 test("scroll reveal renders content at rest", async ({ page }) => {
   await page.goto("/");
-  const animating = await page.evaluate(() => {
-    const elements = [...document.querySelectorAll("main, main *")];
-    return elements.filter((element) => {
-      const styles = getComputedStyle(element);
-      const opacity = Number(styles.opacity);
-      // A partial opacity or a blur is the signature of a reveal caught
-      // mid-animation. `transform` is deliberately not checked: it is used for
-      // static layout in several places and would report false positives.
-      return (opacity > 0 && opacity < 1) || styles.filter.includes("blur");
-    }).length;
-  });
-  expect(animating).toBe(0);
+  await settleReveal(page);
+  expect(await midAnimationCount(page)).toBe(0);
+});
+
+test("the server-rendered reveal is already at rest before hydration", async ({ page }) => {
+  // Blocking every script freezes the page in the state the server sent, which is
+  // the window the previous test cannot see. `Reveal` renders on the server, where
+  // the reduced-motion preference is unknowable, so `motion` inlines a transparent,
+  // blurred initial state into the HTML for all nine wrappers. Only the stylesheet
+  // can undo that before the script runs, and this is the assertion that proves it
+  // does. Stylesheets and documents are left alone so the override is actually
+  // loaded.
+  await page.route("**/*", (route) =>
+    route.request().resourceType() === "script" ? route.abort() : route.continue(),
+  );
+  await page.goto("/");
+
+  // The wrapper is still there, so this really is the pre-hydration markup and
+  // not a page that quietly hydrated and removed the evidence.
+  await expect(page.locator(".reveal").first()).toBeAttached();
+  expect(await midAnimationCount(page)).toBe(0);
 });
 
 test("count-up shows its final value immediately", async ({ page }) => {
@@ -82,14 +142,54 @@ test("hover affordances do not translate", async ({ page }) => {
 
 test("the bottom bar shine animation is suppressed", async ({ page }) => {
   await page.goto("/");
-  // The shine is painted by `.bottom-bar::before`, so the pseudo-element has to
-  // be inspected directly — asserting on the host element would pass trivially.
-  const shine = await page.locator(".bottom-bar").evaluate((node) => {
-    const styles = getComputedStyle(node, "::before");
-    return { animationName: styles.animationName, opacity: styles.opacity };
+  // Settling first is what makes the rest of this test mean anything. Under
+  // reduced motion `Reveal` renders its children without the wrapper the server
+  // emitted, so React reports a hydration mismatch and regenerates the tree —
+  // which replaces the bottom bar. A locator resolved before that point holds a
+  // detached node, and Chromium answers every property on a detached element with
+  // an empty string. That is precisely how this test used to fail: `animationName`
+  // came back as `""`, while `Number("") === 0` let the opacity assertion pass on
+  // a pseudo-element it had never read.
+  await settleReveal(page);
+
+  // Querying inside the page rather than through a locator handle keeps the read
+  // on whichever element is live at that moment.
+  const shine = await page.evaluate(() => {
+    const bar = document.querySelector(".bottom-bar");
+    if (!bar) return null;
+    const styles = getComputedStyle(bar, "::before");
+    return {
+      connected: bar.isConnected,
+      content: styles.content,
+      animationName: styles.animationName,
+      opacity: styles.opacity,
+      // Pseudo-element animations are reachable through the host's subtree, so
+      // this reports whether anything is actually running on the shine rather
+      // than only what the cascade resolved to.
+      running: bar
+        .getAnimations({ subtree: true })
+        .filter((animation) => animation.effect?.pseudoElement === "::before")
+        .map((animation) => (animation as CSSAnimation).animationName),
+    };
   });
-  expect(shine.animationName).toBe("none");
-  expect(Number(shine.opacity)).toBe(0);
+
+  expect(shine, "no .bottom-bar in the document").not.toBeNull();
+  // The two guards against a vacuous pass. A detached node or an ungenerated
+  // pseudo-element makes every property below an empty string, so both have to be
+  // ruled out before the suppression assertions carry any weight.
+  expect(shine?.connected, "the bottom bar was detached when its style was read").toBe(true);
+  expect(shine?.content, "the ::before pseudo-element was not generated").toBe('""');
+
+  // The discriminating assertion: `animation-name` is the only resolved property
+  // that differs between a suppressed shine and a running one. The universal
+  // reduced-motion reset already collapses every `animation-duration` to 0.01ms,
+  // and the base rule already sets `opacity: 0`, so neither of those can tell the
+  // two apart on its own.
+  expect(shine?.animationName, "the shine animation is still declared").toBe("none");
+  expect(shine?.running, "an animation is running on the shine").toEqual([]);
+  // Compared as the reported string, never through `Number`, which would read an
+  // empty string as a satisfied assertion.
+  expect(shine?.opacity).toBe("0");
 });
 
 test("switching between human and agent views does not crossfade", async ({ page }) => {
