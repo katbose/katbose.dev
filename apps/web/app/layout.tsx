@@ -2,6 +2,7 @@ import { SITE_IDENTITY } from "@katbose/shared";
 import type { Metadata } from "next";
 import { DM_Sans, JetBrains_Mono } from "next/font/google";
 import type { ReactNode } from "react";
+import { IntroLoader } from "@/components/common/intro-loader";
 import { BottomBar } from "@/components/layout/bottom-bar";
 import { SiteFooter } from "@/components/layout/site-footer";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
@@ -49,6 +50,7 @@ export default function RootLayout({ children }: Readonly<{ children: ReactNode 
             Skip to content
           </a>
           <BottomBar />
+          <IntroLoader />
           <div className="site-shell">
             <header className="site-header">
               <a className="site-mark" href="/" aria-label="KatBose home">

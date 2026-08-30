@@ -115,33 +115,39 @@ test("intro loader never renders", async ({ page }) => {
 });
 
 test("scroll reveal renders content at rest", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/probe/reveal");
   await settleReveal(page);
+  await expect(page.locator('[data-probe="reveal"]')).toBeVisible();
   expect(await midAnimationCount(page)).toBe(0);
 });
 
 test("the server-rendered reveal is already at rest before hydration", async ({ page }) => {
-  // Blocking every script freezes the page in the state the server sent, which is
-  // the window the previous test cannot see. `Reveal` renders on the server, where
-  // the reduced-motion preference is unknowable, so `motion` inlines a transparent,
-  // blurred initial state into the HTML for all nine wrappers. Only the stylesheet
-  // can undo that before the script runs, and this is the assertion that proves it
-  // does. Stylesheets and documents are left alone so the override is actually
-  // loaded.
+  // Blocking every script freezes the page in the state the server sent. The
+  // probe emits one real Reveal wrapper whose inline hidden state can only be
+  // neutralised before hydration by the reduced-motion stylesheet override.
+  // Stylesheets and documents remain available so the browser exercises the
+  // production cascade rather than a hand-written test fixture.
   await page.route("**/*", (route) =>
     route.request().resourceType() === "script" ? route.abort() : route.continue(),
   );
-  await page.goto("/");
+  await page.goto("/probe/reveal");
 
   // The wrapper is still there, so this really is the pre-hydration markup and
   // not a page that quietly hydrated and removed the evidence.
-  await expect(page.locator(".reveal").first()).toBeAttached();
+  const reveal = page.locator(".reveal").first();
+  await expect(reveal).toBeAttached();
+  await expect(reveal).toHaveCSS("opacity", "1");
+  await expect(reveal).toHaveCSS("filter", "none");
+  await expect(reveal).toHaveCSS("transform", "none");
   expect(await midAnimationCount(page)).toBe(0);
 });
 
 test("count-up shows its final value immediately", async ({ page }) => {
   await page.goto("/");
   await expect(page.locator(".count-up")).toHaveText("11 routes");
+  // Keep the broad homepage invariant even though Reveal itself now lives only
+  // on the dedicated probe route.
+  expect(await midAnimationCount(page)).toBe(0);
 });
 
 test("marquee is a static wrapped grid with no duplicated track", async ({ page }) => {
@@ -172,7 +178,7 @@ test("hover affordances do not translate", async ({ page }) => {
 });
 
 test("the bottom bar shine animation is suppressed", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/probe/reveal");
   // Settling first is what makes the rest of this test mean anything. Under
   // reduced motion `Reveal` renders its children without the wrapper the server
   // emitted, so React reports a hydration mismatch and regenerates the tree —
