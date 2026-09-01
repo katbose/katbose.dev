@@ -27,11 +27,11 @@ or confirm them only when their phase needs them:
 | --- | --- | --- | --- |
 | `katbose.dev` registration + Cloudflare DNS zone | Before Spike A's remote/domain pass and certainly before production deploy | Worker custom domain, trusted `CF-Connecting-IP`, CMS/dashboard subdomains | Confirmed active with the production Worker bound to the apex custom domain; parking records were removed and Cloudflare nameservers are authoritative |
 | Cloudflare Workers + Images + Turnstile + Access | Workers/Images for Spike A; Turnstile/Access before their Phase 1 gates | Web runtime, image transforms, bot checks and admin protection | The existing non-interactive Turnstile widget is restricted to `katbose.dev`; its public build variable and Worker secret binding are configured. Fresh-token success and replay rejection through the deployed contact route remain unverified. Access remains phase-scoped and unconfirmed. |
-| npm package `katbose` | Before shipping `packages/katbose-card` | `npx katbose` distribution | Published (user-confirmed 2026-08-24) and monorepo source integrated; registry byte parity not independently checked |
+| npm package `katbose` | Before shipping `packages/katbose-card` | `npx katbose` distribution | Published and monorepo source integrated. Registry byte parity **was** independently checked on 2026-08-28: the downloaded `katbose@0.0.2` tarball matches the workspace tarball exactly at SHA-1 `73f90d862686bdc5792c29440edc3d642eba73ba`. A cold-cache run on 2026-08-29 used Windows 10.0.26200 X64, Node v24.17.0, npm 11.13.0 and a unique empty cache. It exited 0 with the correct card in 15,507.9 ms, after which the cache was removed; the under-three-second gate remains unmet |
 | Local Supabase CLI | Spike B | Free local Postgres/Storage/migration proof | Config, migrations and pgTAP tests are committed and pass in CI against Postgres 17.6/Supabase Storage (72 assertions); Docker remains unavailable on this workstation |
 | Production Supabase project | Before first protected production migration | Production Postgres and Storage | `katbose-db` (`ap-south-1`, PostgreSQL 17.6) is active and healthy; both committed migrations are recorded, all five public tables have forced RLS/restrictive client-role denies, and the private `resume` bucket exists. Supabase GitHub **Deploy to production** is disabled, so future migrations remain owned by the backup-first workflow |
 | Encrypted weekly backup controls | Before the first weekly run | Off-primary database/Storage recovery | The scripts are proven end to end by `backup-drill.yml` (run `33190795456`, 2026-08-28) against loopback infrastructure. Production is still not armed: as verified the same day, `SUPABASE_DB_URL`, `BACKUP_AGE_RECIPIENT` and `R2_RCLONE_CONFIG` exist in the `production` environment but `SUPABASE_STORAGE_RCLONE_CONFIG` does not, at environment or repository scope; the environment has no deployment-branch restriction or approval rule, `katbose-backups` has no lock rules, the active workflow has no runs, and no restore has used the real offline age identity |
-| Upstash, PostHog, Sentry and Slack workspace | While implementing their Phase 1 route/observability items | Rate limits, analytics, errors and alerts | PostHog EU ingestion and production-host events are verified. The Slack contact Worker secret binding exists, but delivery is unverified. Upstash live behavior, Sentry, and the alerts-channel path remain unverified |
+| Upstash, PostHog, Sentry and Slack workspace | While implementing their Phase 1 route/observability items | Rate limits, analytics, errors and alerts | PostHog EU ingestion and production-host events are verified, and browser/server Sentry plus shared redaction are now wired in the repository. Still unverified against the live vendors: Upstash limiter behaviour, a de-minified Sentry event under the deploy release, `#katbose-alerts` delivery, and `#contact-form` delivery. Sentry source-map upload additionally needs `SENTRY_ORG` and `SENTRY_PROJECT` alongside `SENTRY_AUTH_TOKEN`, and the browser needs `NEXT_PUBLIC_SENTRY_DSN` |
 | Render | Spike B / Phase 2 deployment | Payload CMS; dashboard waits until Phase 5 | Not confirmed here |
 | Cloudflare AI Search instance | Spike C / Phase 3 | Items API, cited chat and reconciliation | Not confirmed here |
 | Cal.com | **Confirmed:** `https://cal.com/katbose/meet` | Scheduling link on Home and Contact | Confirmed |
@@ -61,12 +61,24 @@ Render.
 | `TURNSTILE_SECRET_KEY` | **No** | Server-side `siteverify` | On compromise |
 | `NEXT_PUBLIC_POSTHOG_KEY` | Yes | Analytics | — |
 | `NEXT_PUBLIC_POSTHOG_HOST` | Yes | Analytics host | — |
-| `SENTRY_DSN` | No | Error reporting | — |
+| `SENTRY_DSN` | No | Server error reporting | — |
+| `NEXT_PUBLIC_SENTRY_DSN` | Yes | Browser error reporting; also derives the CSP `connect-src` ingest origin | — |
 | `SENTRY_AUTH_TOKEN` | **No** | Source map upload at build time | Quarterly |
+| `SENTRY_ORG` | No | Sentry organisation slug for source-map upload | — |
+| `SENTRY_PROJECT` | No | Sentry project slug for source-map upload | — |
 | `SLACK_ALERTS_WEBHOOK_URL` | **No** | `#katbose-alerts` | On compromise |
 | `SLACK_CONTACT_WEBHOOK_URL` | **No** | `#contact-form` | On compromise |
 | `CONTACT_FALLBACK_EMAIL` | Rendered, not client env | Server-side fallback passed as a serializable form prop (`im@katbose.dev`) | — |
 | `NEXT_PUBLIC_CAL_LINK` | Yes | Cal.com booking link, rendered as a plain outbound link (`https://cal.com/katbose/meet`, [19-design-reference.md](19-design-reference.md)) | — |
+
+`NEXT_PUBLIC_RELEASE` is **derived, not configured**. `next.config.ts` resolves it from
+`WORKERS_CI_COMMIT_SHA` (Workers Builds) or `GITHUB_SHA` (Actions) and inlines it, so the browser
+bundle and the server runtime report the same Sentry release and share one source map. It is
+absent from `.env.example` on purpose: setting it by hand would mislabel a build.
+
+Source-map upload activates only when `SENTRY_AUTH_TOKEN`, `SENTRY_ORG` and `SENTRY_PROJECT` are
+all present. Any build missing one of them produces the same output as before the wrapper existed,
+which keeps CI independent of Sentry availability.
 
 AI Search is a Wrangler `ai_search` binding in `apps/web/wrangler.jsonc`, not an application
 environment variable. The binding is configured with `remote: true` for local Workers-runtime

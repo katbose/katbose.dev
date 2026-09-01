@@ -106,8 +106,8 @@ is the production release event; the Workers Build then deploys the resulting Op
 
 | Workflow | Trigger | Purpose | Repository status |
 | --- | --- | --- | --- |
-| `ci.yml` | PR, push to `main` | Typecheck, lint, unit, OpenNext build, database tests, Workers-runtime E2E | **all three jobs green on 2026-08-27** (`quality` 1m08s, `database` 2m05s, `e2e` 1m48s) |
-| Cloudflare Workers Builds | Push to protected `main` | OpenNext production build and Worker deployment | external configuration unverified |
+| `ci.yml` | PR, push to `main` | Typecheck, lint, format, unit, OpenNext build, database tests, Workers-runtime E2E, Lighthouse gate | `quality`, `database` and `e2e` were **green on 2026-08-27** (1m08s, 2m05s, 1m48s). The `lighthouse` job is new and has not yet recorded a passing run |
+| Cloudflare Workers Builds | Push to protected `main` | OpenNext production build and Worker deployment | **deploying:** the squash-merge of PR #5 on 2026-08-27 built and deployed the Worker, and the apex custom domain serves it ([15-roadmap-and-checklist.md](15-roadmap-and-checklist.md)). Pull-request preview builds still fail because the dashboard build command runs `npx wrangler versions upload` at the repository root, where there is no `wrangler.jsonc`; the fix is a dashboard change, not a repository one |
 | `secret-scan.yml` | PR, push | gitleaks | **green on 2026-08-27** (7s); initially failed on `.env.example` placeholders, resolved by the root `.gitleaks.toml` allowlist ([05-security.md](05-security.md) §5.3) |
 | `production-migration.yml` | explicit dispatch from `main` | encrypted backup + committed migration application | **successful on 2026-08-27** (run `33114400303`); the database was already current because the then-enabled Supabase GitHub production deployment had applied the migrations first. That auto-deploy is now disabled so future schema changes remain backup-first |
 | `nightly-reconciliation.yml` | 02:00 daily | DLQ retry + index sweep | planned Phase 3 |
@@ -122,7 +122,7 @@ These commands are added with the initial scaffold. A written design is not a pa
 
 | Spike | Command | Pass condition |
 | --- | --- | --- |
-| OpenNext/Workers + images | `pnpm --filter web test:spike:workers` | Starts `opennextjs-cloudflare preview`; proves ISR stale/revalidate behavior, Draft Mode cookie round-trip/expiry, `timingSafeEqual` in `workerd`, dynamic OG PNG response, top-right theme system default + manual persistence, transformed image cache hit, and original-image fallback |
+| OpenNext/Workers + images | `pnpm --filter web test:spike:workers` | Starts `opennextjs-cloudflare preview`; proves ISR serve → stale → background revalidation against the R2 incremental cache, Draft Mode cookie issue/round-trip/revocation plus rejection of a forged cookie, `timingSafeEqual` from `node:crypto` in `workerd` including the length-mismatch path, the **committed static** Open Graph PNG and its metadata reference, top-right theme system default + manual persistence, transformed image cache hit, and original-image fallback. The Open Graph assertion is deliberately static: the dynamic `ImageResponse` route was withdrawn because its WASM runtime exceeded the 3 MiB Worker script limit, and per-post dynamic images return in Phase 2 with their own budget decision (decision [#98](16-decision-log.md)) |
 | Payload + `payload` schema | `pnpm test:spike:payload-schema` | Starts local Supabase; runs Payload migrations with `push: false` and `schemaName: "payload"`; seeds fixtures; proves draft/publish/unpublish, profile/favicon media and resume uploads, Profile/SiteSettings replacement + signed revalidation; dumps both schemas; restores into a fresh scratch DB; confirms Payload never creates/changes `public` tables |
 | AI Search | `pnpm --filter web test:spike:ai-search` | Uses the remote `AI_SEARCH` binding to upload, list, replace, `chatCompletions` with cited chunks, resolve key → item ID, delete, and reconcile; then confirms usage alerts/caps are configured |
 
@@ -153,6 +153,22 @@ that must not regress silently:
 //     zero, invented, stale or disallowed IDs discard the answer
 // resume route — no is_current row → redirect to /resume-unavailable
 // media loader — transform error/quota → original Supabase-CDN response, never a broken image
+// contact route — the full decision table: malformed body → 400 with no Sentry report; failed
+//     Turnstile → 403 before the limiter is consulted; filled honeypot → the same generic
+//     acceptance a real submission gets, with no write and no notification; exhausted limit →
+//     429; degraded limiter → 503; exactly one insert, always before any notification; a failed
+//     insert never notifies; a failed notification never changes an accepted response; only
+//     cf-connecting-ip seeds the pseudonym
+// redactUrl — removes every sensitive query value at any position and in any case, is idempotent,
+//     and leaves unrelated parameters, paths and fragments byte-identical
+// constantTimeEquals — accepts only a byte-identical value and returns false on a length
+//     mismatch instead of throwing
+// runtime probe guard — loopback hosts only; every production hostname and an unparseable URL
+//     fail closed
+// motion tokens — every declared motion token has a consumer, and each mirrored JavaScript
+//     constant equals its token
+// media probe — the origin/transform/cache-hit/fallback checks and their failure reporting,
+//     exercised against a stubbed transport
 // identity assets — reject bad magic bytes/type/size/dimensions and SVG favicon; replacement gets
 //     a new immutable key, complete favicon variants and the correct signed revalidation targets
 // seed guard — seed:dev throws when NODE_ENV=production or ALLOW_DEV_SEED is not true

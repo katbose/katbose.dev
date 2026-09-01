@@ -56,6 +56,7 @@
   --dur-fast: 120ms;
   --dur-base: 180ms;
   --dur-crossfade: 350ms;
+  --dur-intro: 800ms;
   --dur-count: 1800ms;
   --dur-reveal: 950ms;
   --dur-marquee: 30s;

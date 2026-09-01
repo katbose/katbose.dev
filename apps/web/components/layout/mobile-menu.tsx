@@ -2,9 +2,17 @@
 
 import { Dialog } from "@base-ui/react/dialog";
 import Link from "next/link";
-import { PUBLIC_ROUTES } from "@/lib/routes";
 
-export function MobileMenu() {
+interface MobileMenuLink {
+  readonly href: string;
+  readonly label: string;
+}
+
+interface MobileMenuProps {
+  readonly links: readonly MobileMenuLink[];
+}
+
+export function MobileMenu({ links }: Readonly<MobileMenuProps>) {
   return (
     <Dialog.Root>
       <Dialog.Trigger className="menu-trigger">Menu</Dialog.Trigger>
@@ -18,12 +26,11 @@ export function MobileMenu() {
             </div>
             <Dialog.Description>Choose a public portfolio page.</Dialog.Description>
             <nav aria-label="All pages" className="dialog-links">
-              {PUBLIC_ROUTES.filter((route) => route.navigation).map((route) => (
-                <Dialog.Close key={route.path} render={<Link href={route.path} />}>
-                  {route.label}
+              {links.map((link) => (
+                <Dialog.Close key={link.href} render={<Link href={link.href} prefetch={false} />}>
+                  {link.label}
                 </Dialog.Close>
               ))}
-              <Dialog.Close render={<Link href="/agent" />}>Agent view</Dialog.Close>
             </nav>
           </Dialog.Popup>
         </Dialog.Viewport>

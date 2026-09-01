@@ -16,7 +16,6 @@ body {
   font-family: var(--font-dm-sans), sans-serif;
   font-size: var(--text-sm);
   line-height: 1.625;
-  text-rendering: optimizeLegibility;
 }
 a {
   color: var(--color-link);
@@ -273,6 +272,85 @@ button:disabled {
   font-size: var(--text-2xl);
   font-weight: 700;
   pointer-events: none;
+  animation: intro-loader-exit var(--dur-intro) linear forwards;
+}
+.intro-greeting {
+  grid-area: 1 / 1;
+  opacity: 0;
+  animation-duration: var(--dur-intro);
+  animation-fill-mode: forwards;
+  animation-timing-function: linear;
+}
+.intro-greeting:nth-child(1) {
+  animation-name: intro-greeting-1;
+}
+.intro-greeting:nth-child(2) {
+  animation-name: intro-greeting-2;
+}
+.intro-greeting:nth-child(3) {
+  animation-name: intro-greeting-3;
+}
+.intro-greeting:nth-child(4) {
+  animation-name: intro-greeting-4;
+}
+@keyframes intro-loader-exit {
+  0%,
+  90% {
+    visibility: visible;
+    opacity: 1;
+  }
+  100% {
+    visibility: hidden;
+    opacity: 0;
+  }
+}
+@keyframes intro-greeting-1 {
+  0%,
+  23% {
+    opacity: 1;
+  }
+  25%,
+  100% {
+    opacity: 0;
+  }
+}
+@keyframes intro-greeting-2 {
+  0%,
+  23% {
+    opacity: 0;
+  }
+  25%,
+  48% {
+    opacity: 1;
+  }
+  50%,
+  100% {
+    opacity: 0;
+  }
+}
+@keyframes intro-greeting-3 {
+  0%,
+  48% {
+    opacity: 0;
+  }
+  50%,
+  73% {
+    opacity: 1;
+  }
+  75%,
+  100% {
+    opacity: 0;
+  }
+}
+@keyframes intro-greeting-4 {
+  0%,
+  73% {
+    opacity: 0;
+  }
+  75%,
+  100% {
+    opacity: 1;
+  }
 }
 .content-page,
 .agent-view {
@@ -463,15 +541,44 @@ button:disabled {
   border-radius: var(--radius-sm);
   text-align: left;
 }
-.accordion [role="region"] {
-  padding: var(--space-3);
-}
 .collapsible {
   display: grid;
   gap: var(--space-3);
 }
 .collapsible > button {
   justify-self: start;
+}
+
+/*
+ * Disclosure and accordion panels unfold smoothly instead of snapping open.
+ *
+ * Base UI publishes the measured content height as --collapsible-panel-height
+ * and --accordion-panel-height, and marks the transition boundaries with
+ * [data-starting-style] / [data-ending-style], so the height is animatable
+ * without hard-coding a max-height guess.
+ *
+ * Padding lives on .panel-inner rather than the panel: padding on the animating
+ * element keeps the closed panel visibly taller than zero.
+ */
+.collapsible-panel,
+.accordion-panel {
+  overflow: hidden;
+  transition: height var(--dur-base) var(--ease-out);
+}
+.collapsible-panel {
+  height: var(--collapsible-panel-height);
+}
+.accordion-panel {
+  height: var(--accordion-panel-height);
+}
+.collapsible-panel[data-starting-style],
+.collapsible-panel[data-ending-style],
+.accordion-panel[data-starting-style],
+.accordion-panel[data-ending-style] {
+  height: 0;
+}
+.accordion-panel .panel-inner {
+  padding: var(--space-3);
 }
 .marquee {
   overflow: hidden;
@@ -502,10 +609,52 @@ button:disabled {
   gap: var(--space-1);
 }
 
+/*
+ * Human <-> agent content crossfade (docs/19-design-reference.md §19.3).
+ *
+ * Armed by ModeSwitchLink only when the visitor moves between / and /agent, so
+ * a cold visit never pays for it and Largest Contentful Paint is unaffected.
+ */
+[data-mode-crossfade] .site-shell > main {
+  animation: mode-crossfade var(--dur-crossfade) var(--ease-out) both;
+}
+@keyframes mode-crossfade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
+  /*
+   * The scroll reveal renders on the server, where the reduced-motion
+   * preference is unknowable, so `motion` inlines its hidden initial state —
+   * opacity 0 and a blur — into the server HTML for every wrapper on the page.
+   * The client drops the wrapper once the preference resolves, but the first
+   * paint happens before that, and is all a visitor ever gets if the script
+   * fails. `!important` is what outranks an inline style, so this rule is the
+   * only thing holding the pre-hydration paint at rest.
+   *
+   * `transform` is safe to clear here because `.reveal` is a wrapper this
+   * component owns outright; no static layout transform lives on it.
+   */
+  .reveal {
+    opacity: 1 !important;
+    filter: none !important;
+    transform: none !important;
+  }
   .bottom-bar::before {
     animation: none;
     opacity: 0;
+  }
+  [data-mode-crossfade] .site-shell > main {
+    animation: none;
+  }
+  .collapsible-panel,
+  .accordion-panel {
+    transition: none;
   }
   .marquee {
     overflow: visible;

@@ -2,7 +2,6 @@ import { SITE_IDENTITY } from "@katbose/shared";
 import Link from "next/link";
 import { LocalClock } from "@/components/common/local-clock";
 import { ProfilePortrait } from "@/components/common/profile-portrait";
-import { Reveal } from "@/components/common/reveal";
 import { PHASE_ONE_FALLBACK_CONTENT } from "@/lib/fallback-content";
 import { PUBLIC_ROUTES } from "@/lib/routes";
 import {
@@ -19,12 +18,10 @@ function Section({
   children,
 }: Readonly<{ id: string; title: string; children: React.ReactNode }>) {
   return (
-    <Reveal>
-      <section className="home-section" id={id}>
-        <h2>{title}</h2>
-        {children}
-      </section>
-    </Reveal>
+    <section className="home-section" id={id}>
+      <h2>{title}</h2>
+      {children}
+    </section>
   );
 }
 
@@ -32,17 +29,15 @@ export function SectionRenderer({ section }: Readonly<{ section: HomeSection }>)
   switch (section.type) {
     case "hero":
       return (
-        <Reveal>
-          <section className="hero" id={section.id}>
-            <ProfilePortrait />
-            <div>
-              <p className="pronunciation">{PHASE_ONE_FALLBACK_CONTENT.hero.pronunciation}</p>
-              <h1>{SITE_IDENTITY.name}</h1>
-              <p className="hero-intro">{PHASE_ONE_FALLBACK_CONTENT.hero.intro}</p>
-              <LocalClock />
-            </div>
-          </section>
-        </Reveal>
+        <section className="hero" id={section.id}>
+          <ProfilePortrait />
+          <div>
+            <p className="pronunciation">{PHASE_ONE_FALLBACK_CONTENT.hero.pronunciation}</p>
+            <h1>{SITE_IDENTITY.name}</h1>
+            <p className="hero-intro">{PHASE_ONE_FALLBACK_CONTENT.hero.intro}</p>
+            <LocalClock />
+          </div>
+        </section>
       );
     case "experience":
       return (

@@ -15,12 +15,14 @@ export function ExperiencePreview({ items }: Readonly<{ items: readonly string[]
             Current focus <span aria-hidden="true">+</span>
           </Accordion.Trigger>
         </Accordion.Header>
-        <Accordion.Panel>
-          <ul>
-            {items.map((item) => (
-              <li key={item}>{item}</li>
-            ))}
-          </ul>
+        <Accordion.Panel className="accordion-panel">
+          <div className="panel-inner">
+            <ul>
+              {items.map((item) => (
+                <li key={item}>{item}</li>
+              ))}
+            </ul>
+          </div>
         </Accordion.Panel>
       </Accordion.Item>
       <Accordion.Item value="previous">
@@ -29,8 +31,10 @@ export function ExperiencePreview({ items }: Readonly<{ items: readonly string[]
             Previously <span aria-hidden="true">+</span>
           </Accordion.Trigger>
         </Accordion.Header>
-        <Accordion.Panel>
-          <p>Earlier work and verified role details will come from Payload in Phase 2.</p>
+        <Accordion.Panel className="accordion-panel">
+          <div className="panel-inner">
+            <p>Earlier work and verified role details will come from Payload in Phase 2.</p>
+          </div>
         </Accordion.Panel>
       </Accordion.Item>
     </Accordion.Root>
@@ -62,7 +66,7 @@ export function TechStackPreview({ items }: Readonly<{ items: readonly Technolog
         </div>
       </div>
       <Collapsible.Trigger>{open ? "Hide categories" : "View categories"}</Collapsible.Trigger>
-      <Collapsible.Panel>
+      <Collapsible.Panel className="collapsible-panel">
         <ul className="tag-list">
           {items.map((item) => (
             <li key={item.name}>
@@ -80,7 +84,7 @@ export function StoryPreview({ text }: Readonly<{ text: string }>) {
   return (
     <Collapsible.Root className="collapsible" onOpenChange={setOpen} open={open}>
       <Collapsible.Trigger>{open ? "Show less" : "View more"}</Collapsible.Trigger>
-      <Collapsible.Panel>
+      <Collapsible.Panel className="collapsible-panel">
         <p>{text}</p>
       </Collapsible.Panel>
     </Collapsible.Root>
