@@ -1,0 +1,157 @@
+name: production-media-fixtures
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: Type UPLOAD PRODUCTION MEDIA FIXTURES to continue
+        required: true
+        type: string
+
+permissions:
+  actions: read
+  contents: read
+  deployments: read
+
+concurrency:
+  group: production-media-fixtures
+  cancel-in-progress: false
+
+jobs:
+  preflight:
+    name: Verify protected production boundary
+    if: github.ref == 'refs/heads/main' && github.ref_protected == true
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Require protected main ref and explicit confirmation
+        shell: bash
+        env:
+          CONFIRMATION: ${{ inputs.confirmation }}
+          REF_PROTECTED: ${{ github.ref_protected }}
+          SELECTED_REF: ${{ github.ref }}
+        run: |
+          set -euo pipefail
+          test "$SELECTED_REF" = "refs/heads/main"
+          test "$REF_PROTECTED" = "true"
+          test "$CONFIRMATION" = "UPLOAD PRODUCTION MEDIA FIXTURES"
+
+      - name: Require protected production environment and exact project target
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          KATBOSE_EXPECTED_SUPABASE_URL: https://ersangtaqrggqldfdbxq.supabase.co/
+        run: |
+          set -euo pipefail
+          environment_json="$(gh api \
+            --header "X-GitHub-Api-Version: 2022-11-28" \
+            "repos/${GITHUB_REPOSITORY}/environments/production")"
+          required_reviewers="$(jq \
+            '[.protection_rules[]? | select(.type == "required_reviewers")] | length' \
+            <<< "$environment_json")"
+          protected_branches_only="$(jq \
+            '.deployment_branch_policy != null and
+             .deployment_branch_policy.protected_branches == true and
+             .deployment_branch_policy.custom_branch_policies == false' \
+            <<< "$environment_json")"
+          admins_cannot_bypass="$(jq '.can_admins_bypass == false' <<< "$environment_json")"
+          configured_supabase_url="$(gh api \
+            --header "X-GitHub-Api-Version: 2022-11-28" \
+            "repos/${GITHUB_REPOSITORY}/environments/production/variables/SUPABASE_URL" \
+            --jq '.value')"
+
+          if [[ "$required_reviewers" -lt 1 ]]; then
+            echo "The production environment must require a reviewer." >&2
+            exit 1
+          fi
+          if [[ "$protected_branches_only" != "true" ]]; then
+            echo "The production environment must allow protected branches only." >&2
+            exit 1
+          fi
+          if [[ "$admins_cannot_bypass" != "true" ]]; then
+            echo "The production environment must disable administrator bypass." >&2
+            exit 1
+          fi
+          if [[ "$configured_supabase_url" != "$KATBOSE_EXPECTED_SUPABASE_URL" ]]; then
+            echo "The production SUPABASE_URL must be the canonical katbose project root." >&2
+            exit 1
+          fi
+
+  upload:
+    name: Upload exact immutable fixtures
+    needs: preflight
+    if: needs.preflight.result == 'success' && github.ref == 'refs/heads/main' && github.ref_protected == true
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: production
+    steps:
+      - name: Check out protected main revision without retaining a token
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Use Node.js 24 LTS
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Enable pinned Corepack pnpm
+        run: |
+          corepack enable
+          test "$(pnpm --version)" = "11.24.0"
+
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Verify committed fixtures
+        run: pnpm media:fixtures:verify
+
+      - name: Upload exact immutable objects without overwrite
+        env:
+          KATBOSE_SUPABASE_PROJECT_REF: ersangtaqrggqldfdbxq
+          MEDIA_FIXTURE_UPLOAD_CONFIRMATION: ${{ inputs.confirmation }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          SUPABASE_URL: ${{ vars.SUPABASE_URL }}
+        run: pnpm media:fixtures:upload
+
+  probe:
+    name: Prove public media delivery without credentials
+    needs: upload
+    if: needs.upload.result == 'success' && github.ref == 'refs/heads/main' && github.ref_protected == true
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out the uploaded protected main revision
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Use Node.js 24 LTS
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Enable pinned Corepack pnpm
+        run: |
+          corepack enable
+          test "$(pnpm --version)" = "11.24.0"
+
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run credential-free production probe
+        shell: bash
+        run: |
+          set -euo pipefail
+          pnpm media:probe | tee "$RUNNER_TEMP/media-probe.txt"
+
+      - name: Retain media probe evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: media-probe-${{ github.run_id }}
+          path: ${{ runner.temp }}/media-probe.txt
+          if-no-files-found: error
+          retention-days: 30
