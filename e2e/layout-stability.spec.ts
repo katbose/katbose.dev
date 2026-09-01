@@ -12,7 +12,7 @@
 
 import { expect, test } from "@playwright/test";
 
-/** Longer than the 1000ms intro sequence, with headroom for a slow CI runner. */
+/** Longer than the 800ms intro sequence, with headroom for a slow CI runner. */
 const OBSERVATION_WINDOW_MS = 3_500;
 
 /**

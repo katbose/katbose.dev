@@ -38,7 +38,7 @@ export const EASE_OUT: readonly [number, number, number, number] = [0.2, 0, 0, 1
 export const CROSSFADE_DURATION_MS = 350;
 
 /** Mirrors `--dur-intro`, including the greeting cycle and overlay exit. */
-export const INTRO_DURATION_MS = 1000;
+export const INTRO_DURATION_MS = 800;
 
 /** How a token's declared value should be interpreted when comparing. */
 export type MotionTokenUnit = "time" | "length" | "ratio";

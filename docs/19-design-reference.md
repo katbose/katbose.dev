@@ -189,7 +189,7 @@ page.
 - Sequence: `Hello` → `నమస్కారం` (Telugu) → `नमस्ते` (Hindi) → `Bonjour` (French). The complete
   greeting sequence **including exit** is timed as one ≤2-second budget; it is not four 450ms dwells
   plus an unbounded exit. Languages are configurable in one array. The current implementation uses
-  one compositor-driven 1000ms sequence so the page becomes visible independently of main-thread
+  one compositor-driven 800ms sequence so the page becomes visible independently of main-thread
   timer cleanup.
 - **Once per session:** a `sessionStorage` flag skips it on subsequent navigations. It never
   plays on internal route changes — only a hard landing.
