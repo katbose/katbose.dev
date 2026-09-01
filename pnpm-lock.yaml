@@ -17,12 +17,18 @@ importers:
       '@playwright/test':
         specifier: 1.62.1
         version: 1.62.1
+      '@supabase/supabase-js':
+        specifier: 2.112.4
+        version: 2.112.4(@opentelemetry/api@1.9.1)
       oxfmt:
         specifier: 0.65.0
         version: 0.65.0
       oxlint:
         specifier: 1.80.0
         version: 1.80.0
+      sharp:
+        specifier: 0.35.3
+        version: 0.35.3(@types/node@24.13.3)
       typescript:
         specifier: 7.0.2
         version: 7.0.2
@@ -9635,7 +9641,6 @@ snapshots:
       '@img/sharp-win32-ia32': 0.35.3
       '@img/sharp-win32-x64': 0.35.3
       '@types/node': 24.13.3
-    optional: true
 
   shebang-command@2.0.0:
     dependencies:

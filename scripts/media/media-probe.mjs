@@ -1,38 +1,28 @@
 #!/usr/bin/env node
 /**
- * Registered-zone image delivery probe (docs/15 Spike A image gate).
+ * Credential-free registered-zone media delivery probe.
  *
- * Verifies the four behaviours the Phase 1 gate requires, against the real
- * production zone:
- *
- *   1. the same-zone origin proxy serves the immutable Supabase original;
- *   2. `/cdn-cgi/image` returns a transformed variant;
- *   3. the second identical transform is a Cloudflare cache hit;
- *   4. when the transform cannot be performed, `onerror=redirect` still
- *      delivers the original bytes.
- *
- * Credential-free by construction: every request is an unauthenticated public
- * GET, so this can run from any machine and nothing sensitive enters a report.
- *
- * Check 4 needs a deliberately untransformable object, because a transform
- * failure cannot be forced reliably from outside the zone. Without one the probe
- * reports the check as NOT VERIFIED and exits non-zero rather than implying the
- * gate passed.
- *
- * Usage:
- *   node scripts/media/media-probe.mjs --key profile/portrait.png \
- *     --fallback-key fixtures/untransformable.svg
+ * The committed manifest identifies two immutable public fixtures exactly: a
+ * supported square PNG and a valid PNG whose 12,001-pixel width exceeds
+ * Cloudflare Image Resizing's dimension bound. The latter forces the real
+ * `onerror=redirect` path without relying on corrupt image bytes.
  */
 
-import { createHash } from "node:crypto";
+import { resolve } from "node:path";
+import { pathToFileURL } from "node:url";
+import {
+  CLOUDFLARE_MAX_IMAGE_DIMENSION,
+  DEFAULT_FIXTURE_MANIFEST,
+  decodeImage,
+  loadAndVerifyFixtures,
+  sha256,
+} from "./media-fixtures.mjs";
 
-/** Transform options the production image loader emits (lib/media/image-loader.ts). */
+export { CLOUDFLARE_MAX_IMAGE_DIMENSION, DEFAULT_FIXTURE_MANIFEST, loadAndVerifyFixtures, sha256 };
+
+/** Transform options emitted by the production image loader. */
 export const TRANSFORM_OPTIONS = "width=640,quality=80,fit=scale-down,format=auto,onerror=redirect";
-
-/** Width requested by {@link TRANSFORM_OPTIONS}, asserted when the variant is a PNG. */
 export const TRANSFORM_WIDTH = 640;
-
-const PNG_SIGNATURE = Uint8Array.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 
 /** Absolute URL of the same-zone origin proxy for a media key. */
 export function buildOriginalUrl(baseUrl, key) {
@@ -46,134 +36,216 @@ export function buildTransformUrl(baseUrl, key, options = TRANSFORM_OPTIONS) {
   return new URL(`/cdn-cgi/image/${options}${original.pathname}`, baseUrl).toString();
 }
 
-export function sha256(bytes) {
-  return createHash("sha256").update(bytes).digest("hex");
+function normalizeContentType(value) {
+  return value.split(";", 1)[0].trim().toLowerCase();
 }
 
-/** True when the payload carries the PNG magic number. */
-export function isPng(bytes) {
-  if (bytes.length < PNG_SIGNATURE.length) return false;
-  return PNG_SIGNATURE.every((byte, index) => bytes[index] === byte);
+function hasImmutableOneYearCache(value) {
+  const directives = new Map();
+  for (const rawDirective of value.split(",")) {
+    const directive = rawDirective.trim().toLowerCase();
+    if (!directive) return false;
+
+    const separator = directive.indexOf("=");
+    const name = (separator === -1 ? directive : directive.slice(0, separator)).trim();
+    const directiveValue = separator === -1 ? null : directive.slice(separator + 1).trim();
+    if (!name || directives.has(name)) return false;
+    directives.set(name, directiveValue);
+  }
+
+  return (
+    directives.get("public") === null &&
+    directives.get("immutable") === null &&
+    directives.get("max-age") === "31536000" &&
+    !directives.has("private") &&
+    !directives.has("no-cache") &&
+    !directives.has("no-store")
+  );
 }
 
-/**
- * Reads the pixel dimensions from a PNG IHDR chunk.
- *
- * Returns null for any other format: Cloudflare answers `format=auto` with WebP
- * or AVIF depending on the client, and guessing at those headers would make the
- * probe fail for the wrong reason.
- */
-export function readPngDimensions(bytes) {
-  if (!isPng(bytes) || bytes.length < 24) return null;
-  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-  return { width: view.getUint32(16), height: view.getUint32(20) };
-}
-
-async function getImage(fetchImpl, url, headers = {}) {
-  const response = await fetchImpl(url, { headers, redirect: "follow" });
+async function getImage(fetchImpl, url, { redirect = "follow" } = {}) {
+  const response = await fetchImpl(url, {
+    headers: { accept: "image/avif,image/webp,image/png,image/*,*/*;q=0.8" },
+    redirect,
+  });
   const bytes = new Uint8Array(await response.arrayBuffer());
   return {
     status: response.status,
     contentType: response.headers.get("content-type") ?? "",
     cacheControl: response.headers.get("cache-control") ?? "",
     cacheStatus: response.headers.get("cf-cache-status") ?? "",
+    location: response.headers.get("location") ?? "",
     bytes,
     digest: sha256(bytes),
   };
+}
+
+async function inspectImage(bytes) {
+  try {
+    return { ok: true, decoded: await decodeImage(bytes), error: "" };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return { ok: false, decoded: null, error: message.replaceAll(/\s+/g, " ").slice(0, 240) };
+  }
 }
 
 function check(name, passed, detail) {
   return { name, passed, detail };
 }
 
+function matchesFixture(response, inspection, fixture) {
+  return (
+    response.status === 200 &&
+    normalizeContentType(response.contentType) === fixture.mimeType &&
+    response.bytes.byteLength === fixture.bytes &&
+    response.digest === fixture.sha256 &&
+    inspection.ok &&
+    inspection.decoded.format === "png" &&
+    inspection.decoded.width === fixture.width &&
+    inspection.decoded.height === fixture.height
+  );
+}
+
+function imageDetail(response, inspection) {
+  const decoded = inspection.ok
+    ? `${inspection.decoded.format} ${inspection.decoded.width}x${inspection.decoded.height} (${inspection.decoded.decodedBytes} decoded bytes)`
+    : `failed: ${inspection.error}`;
+  return `status=${response.status} type=${response.contentType || "absent"} bytes=${response.bytes.byteLength} sha256=${response.digest} decode=${decoded}`;
+}
+
 /**
- * Runs every check and returns a structured result.
- *
- * `fetchImpl` is injected so the probe's own logic is unit-testable without a
- * network or a production fixture.
+ * Runs every production check against descriptors from the committed manifest.
+ * `fetchImpl` is injected so transport and redirect handling remain unit-testable.
  */
-export async function runProbe({ baseUrl, key, fallbackKey }, fetchImpl = fetch) {
+export async function runProbe({ baseUrl, fixtures }, fetchImpl = fetch) {
   const checks = [];
+  const supported = fixtures?.supported;
+  if (!supported) throw new Error("A supported fixture descriptor is required.");
 
-  const original = await getImage(fetchImpl, buildOriginalUrl(baseUrl, key));
+  const originalUrl = buildOriginalUrl(baseUrl, supported.objectKey);
+  const original = await getImage(fetchImpl, originalUrl);
+  const originalInspection = await inspectImage(original.bytes);
   checks.push(
     check(
-      "origin proxy serves the immutable original",
-      original.status === 200 &&
-        original.contentType.startsWith("image/") &&
-        original.cacheControl.includes("immutable") &&
-        original.bytes.length > 0,
-      `status=${original.status} type=${original.contentType} sha256=${original.digest}`,
+      "supported original matches the immutable manifest fixture",
+      matchesFixture(original, originalInspection, supported) &&
+        hasImmutableOneYearCache(original.cacheControl),
+      `${imageDetail(original, originalInspection)} cache-control=${original.cacheControl || "absent"}`,
     ),
   );
 
-  const transformUrl = buildTransformUrl(baseUrl, key);
+  const transformUrl = buildTransformUrl(baseUrl, supported.objectKey);
   const transformed = await getImage(fetchImpl, transformUrl);
-  const dimensions = readPngDimensions(transformed.bytes);
+  const transformedInspection = await inspectImage(transformed.bytes);
   checks.push(
     check(
-      "transform returns a resized variant",
+      "transform returns a fully decoded 640x640 variant",
       transformed.status === 200 &&
-        transformed.contentType.startsWith("image/") &&
+        normalizeContentType(transformed.contentType).startsWith("image/") &&
         transformed.digest !== original.digest &&
-        (dimensions === null || dimensions.width === TRANSFORM_WIDTH),
-      `status=${transformed.status} type=${transformed.contentType}` +
-        (dimensions ? ` width=${dimensions.width}` : " width=not-a-png"),
+        transformedInspection.ok &&
+        transformedInspection.decoded.width === TRANSFORM_WIDTH &&
+        transformedInspection.decoded.height === TRANSFORM_WIDTH,
+      imageDetail(transformed, transformedInspection),
     ),
   );
 
-  // The first transform populates the edge cache; the second must be served
-  // from it. A MISS on both means the transform is being recomputed per request.
   const repeated = await getImage(fetchImpl, transformUrl);
+  const repeatedInspection = await inspectImage(repeated.bytes);
   checks.push(
     check(
-      "repeated transform is served from the edge cache",
-      repeated.status === 200 && repeated.cacheStatus.toUpperCase() === "HIT",
-      `cf-cache-status=${repeated.cacheStatus || "absent"}`,
+      "repeated transform is identical and served from the edge cache",
+      repeated.status === 200 &&
+        repeated.digest === transformed.digest &&
+        repeatedInspection.ok &&
+        repeatedInspection.decoded.width === TRANSFORM_WIDTH &&
+        repeatedInspection.decoded.height === TRANSFORM_WIDTH &&
+        repeated.cacheStatus.toUpperCase() === "HIT",
+      `${imageDetail(repeated, repeatedInspection)} cf-cache-status=${repeated.cacheStatus || "absent"}`,
     ),
   );
 
-  if (!fallbackKey) {
+  const forcedFallback = fixtures?.forcedFallback;
+  if (!forcedFallback) {
     checks.push(
       check(
-        "forced transform failure falls back to the original",
+        "forced transform failure redirects to the original fixture",
         false,
-        "NOT VERIFIED — pass --fallback-key with a deliberately untransformable object",
+        "NOT VERIFIED — the manifest did not supply the forced-fallback fixture",
       ),
     );
     return { checks, passed: false };
   }
 
-  const fallbackOriginal = await getImage(fetchImpl, buildOriginalUrl(baseUrl, fallbackKey));
-  const fallbackTransform = await getImage(fetchImpl, buildTransformUrl(baseUrl, fallbackKey));
+  const fallbackOriginalUrl = buildOriginalUrl(baseUrl, forcedFallback.objectKey);
+  const fallbackOriginal = await getImage(fetchImpl, fallbackOriginalUrl);
+  const fallbackOriginalInspection = await inspectImage(fallbackOriginal.bytes);
   checks.push(
     check(
-      "forced transform failure falls back to the original",
-      fallbackTransform.status === 200 &&
-        fallbackOriginal.status === 200 &&
-        fallbackTransform.digest === fallbackOriginal.digest,
-      `status=${fallbackTransform.status} matches-original=${
-        fallbackTransform.digest === fallbackOriginal.digest
-      }`,
+      "over-limit original matches the immutable manifest fixture",
+      matchesFixture(fallbackOriginal, fallbackOriginalInspection, forcedFallback) &&
+        hasImmutableOneYearCache(fallbackOriginal.cacheControl),
+      `${imageDetail(fallbackOriginal, fallbackOriginalInspection)} cache-control=${fallbackOriginal.cacheControl || "absent"}`,
+    ),
+  );
+
+  const fallbackTransformUrl = buildTransformUrl(baseUrl, forcedFallback.objectKey);
+  const redirectResponse = await getImage(fetchImpl, fallbackTransformUrl, { redirect: "manual" });
+  let resolvedLocation = "";
+  try {
+    if (redirectResponse.location) {
+      resolvedLocation = new URL(redirectResponse.location, fallbackTransformUrl).toString();
+    }
+  } catch {
+    resolvedLocation = "";
+  }
+  const locationMatches = resolvedLocation === fallbackOriginalUrl;
+  checks.push(
+    check(
+      "forced transform failure returns the exact same-zone redirect",
+      redirectResponse.status === 302 && locationMatches,
+      `status=${redirectResponse.status} location=${redirectResponse.location || "absent"} expected=${fallbackOriginalUrl}`,
+    ),
+  );
+
+  if (!locationMatches) {
+    checks.push(
+      check(
+        "redirect target decodes to the exact fallback fixture",
+        false,
+        "NOT VERIFIED — an unexpected redirect target was not fetched",
+      ),
+    );
+    return { checks, passed: false };
+  }
+
+  const redirectedBody = await getImage(fetchImpl, resolvedLocation, { redirect: "manual" });
+  const redirectedInspection = await inspectImage(redirectedBody.bytes);
+  checks.push(
+    check(
+      "redirect target decodes to the exact fallback fixture",
+      matchesFixture(redirectedBody, redirectedInspection, forcedFallback),
+      imageDetail(redirectedBody, redirectedInspection),
     ),
   );
 
   return { checks, passed: checks.every((entry) => entry.passed) };
 }
 
-/** Minimal `--flag value` parser; avoids a dependency for four options. */
+/** Minimal `--flag value` parser for credential-free probe configuration. */
 export function parseArgs(argv) {
-  const options = { baseUrl: "https://katbose.dev", key: undefined, fallbackKey: undefined };
+  const options = {
+    baseUrl: "https://katbose.dev",
+    manifest: DEFAULT_FIXTURE_MANIFEST,
+  };
   for (let index = 0; index < argv.length; index += 2) {
     const flag = argv[index];
     const value = argv[index + 1];
     if (value === undefined) throw new Error(`Missing value for ${flag}`);
     if (flag === "--base-url") options.baseUrl = value;
-    else if (flag === "--key") options.key = value;
-    else if (flag === "--fallback-key") options.fallbackKey = value;
+    else if (flag === "--manifest") options.manifest = value;
     else throw new Error(`Unknown option ${flag}`);
   }
-  if (!options.key) throw new Error("--key is required");
   return options;
 }
 
@@ -185,10 +257,16 @@ export function formatReport({ checks, passed }) {
   return lines.join("\n");
 }
 
-// Executed only when run directly, so the helpers stay importable by tests.
-if (process.argv[1] && import.meta.url.endsWith(process.argv[1].replaceAll("\\", "/"))) {
+const isDirect =
+  process.argv[1] && pathToFileURL(resolve(process.argv[1])).href === import.meta.url;
+if (isDirect) {
   try {
-    const result = await runProbe(parseArgs(process.argv.slice(2)));
+    const options = parseArgs(process.argv.slice(2));
+    const verified = await loadAndVerifyFixtures(options.manifest);
+    const result = await runProbe(
+      { baseUrl: options.baseUrl, fixtures: verified.manifest.fixtures },
+      fetch,
+    );
     process.stdout.write(`${formatReport(result)}\n`);
     process.exitCode = result.passed ? 0 : 1;
   } catch (error) {

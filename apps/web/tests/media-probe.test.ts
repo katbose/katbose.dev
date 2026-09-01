@@ -1,30 +1,30 @@
-/**
- * Tests for the registered-zone media probe.
- *
- * The probe cannot run for real until production has a media fixture, so
- * without these tests it would sit in the repository untested and unverifiable —
- * exactly the situation that let five defects into the backup scripts. A stubbed
- * fetch exercises every branch, including the failure detail strings an operator
- * will read during the gate.
- */
-
 // @ts-expect-error — the probe is plain ESM JavaScript with no type declarations.
 import * as probe from "../../../scripts/media/media-probe.mjs";
+import sharp from "sharp";
 import { describe, expect, it } from "vitest";
 
 const BASE_URL = "https://katbose.dev";
-const KEY = "profile/portrait-v1.png";
+const verified = await probe.loadAndVerifyFixtures();
+const descriptors = verified.manifest.fixtures;
+const supportedBody = new Uint8Array(verified.fixtures.supported.body);
+const fallbackBody = new Uint8Array(verified.fixtures.forcedFallback.body);
+const transformedBody = new Uint8Array(
+  await sharp(supportedBody).resize(640, 640, { fit: "fill" }).png().toBuffer(),
+);
+const alternateTransformedBody = new Uint8Array(
+  await sharp(supportedBody)
+    .resize(640, 640, { fit: "fill" })
+    .png({ compressionLevel: 1 })
+    .toBuffer(),
+);
 
-/** Builds a valid PNG header with the given dimensions. */
-function pngBytes(width: number, height: number, filler = 0): Uint8Array {
-  const bytes = new Uint8Array(64);
-  bytes.set([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a], 0);
-  const view = new DataView(bytes.buffer);
-  view.setUint32(16, width);
-  view.setUint32(20, height);
-  bytes[32] = filler;
-  return bytes;
-}
+const supportedOriginalUrl = probe.buildOriginalUrl(BASE_URL, descriptors.supported.objectKey);
+const supportedTransformUrl = probe.buildTransformUrl(BASE_URL, descriptors.supported.objectKey);
+const fallbackOriginalUrl = probe.buildOriginalUrl(BASE_URL, descriptors.forcedFallback.objectKey);
+const fallbackTransformUrl = probe.buildTransformUrl(
+  BASE_URL,
+  descriptors.forcedFallback.objectKey,
+);
 
 interface StubResponse {
   status?: number;
@@ -32,51 +32,81 @@ interface StubResponse {
   bytes?: Uint8Array;
 }
 
-/** Deterministic fetch stub keyed by URL substring. */
-function stubFetch(routes: Array<[string, StubResponse]>) {
-  const calls: string[] = [];
-  const fetchImpl = async (url: string) => {
-    calls.push(url);
-    const seen = calls.filter((entry) => entry === url).length;
-    const match = routes.find(([pattern]) => url.includes(pattern));
-    const stub = match?.[1] ?? {};
+type StubResponseFactory = StubResponse | ((seen: number) => StubResponse);
+type StubRoute = [url: string, response: StubResponseFactory];
+
+function stubFetch(routes: StubRoute[]) {
+  const calls: Array<{ url: string; redirect: RequestRedirect | undefined }> = [];
+  const seen = new Map<string, number>();
+  const fetchImpl = async (input: string, init?: RequestInit) => {
+    const url = String(input);
+    const count = (seen.get(url) ?? 0) + 1;
+    seen.set(url, count);
+    calls.push({ url, redirect: init?.redirect });
+
+    const route = routes.find(([candidate]) => candidate === url);
+    if (!route) throw new Error(`Unexpected test request: ${url}`);
+    const stub = typeof route[1] === "function" ? route[1](count) : route[1];
     const headers = new Headers(stub.headers ?? {});
-    // The edge reports a hit only once the entry is populated.
-    if (headers.get("cf-cache-status") === "MISS" && seen > 1)
+    if (headers.get("cf-cache-status") === "MISS" && count > 1) {
       headers.set("cf-cache-status", "HIT");
-    const body = stub.bytes ?? new Uint8Array();
+    }
+    const body = Uint8Array.from(stub.bytes ?? new Uint8Array());
+
     return {
       status: stub.status ?? 200,
       headers,
-      arrayBuffer: async () =>
-        body.buffer.slice(body.byteOffset, body.byteOffset + body.byteLength),
-    } as unknown as Response;
+      arrayBuffer: async () => body.buffer as ArrayBuffer,
+    } as Response;
   };
   return { fetchImpl, calls };
 }
 
-const ORIGINAL_BYTES = pngBytes(1024, 1024, 1);
-const TRANSFORMED_BYTES = pngBytes(640, 640, 2);
+interface HealthyOverrides {
+  supportedOriginal?: StubResponseFactory;
+  supportedTransform?: StubResponseFactory;
+  fallbackOriginal?: StubResponseFactory;
+  fallbackTransform?: StubResponseFactory;
+}
 
-const HEALTHY_ROUTES: Array<[string, StubResponse]> = [
-  [
-    "/cdn-cgi/image/",
-    {
-      headers: { "content-type": "image/png", "cf-cache-status": "MISS" },
-      bytes: TRANSFORMED_BYTES,
-    },
-  ],
-  [
-    "/media/original/",
-    {
-      headers: {
-        "content-type": "image/png",
-        "cache-control": "public, max-age=31536000, immutable",
+function healthyRoutes(overrides: HealthyOverrides = {}): StubRoute[] {
+  return [
+    [
+      supportedOriginalUrl,
+      overrides.supportedOriginal ?? {
+        headers: {
+          "content-type": "image/png",
+          "cache-control": "public, max-age=31536000, immutable",
+        },
+        bytes: supportedBody,
       },
-      bytes: ORIGINAL_BYTES,
-    },
-  ],
-];
+    ],
+    [
+      supportedTransformUrl,
+      overrides.supportedTransform ?? {
+        headers: { "content-type": "image/png", "cf-cache-status": "MISS" },
+        bytes: transformedBody,
+      },
+    ],
+    [
+      fallbackOriginalUrl,
+      overrides.fallbackOriginal ?? {
+        headers: {
+          "content-type": "image/png",
+          "cache-control": "public, max-age=31536000, immutable",
+        },
+        bytes: fallbackBody,
+      },
+    ],
+    [
+      fallbackTransformUrl,
+      overrides.fallbackTransform ?? {
+        status: 302,
+        headers: { location: fallbackOriginalUrl },
+      },
+    ],
+  ];
+}
 
 function checkByName(
   result: { checks: Array<{ name: string; passed: boolean; detail: string }> },
@@ -87,200 +117,211 @@ function checkByName(
   return found!;
 }
 
-describe("URL construction", () => {
-  it("builds the same-zone origin proxy URL", () => {
-    expect(probe.buildOriginalUrl(BASE_URL, KEY)).toBe(`${BASE_URL}/media/original/${KEY}`);
+describe("committed media fixtures", () => {
+  it("match their literal manifest identity and fully decode", () => {
+    expect(verified.fixtures.supported.decoded).toMatchObject({
+      format: "png",
+      width: 1024,
+      height: 1024,
+    });
+    expect(verified.fixtures.forcedFallback.decoded).toMatchObject({
+      format: "png",
+      width: 12_001,
+      height: 16,
+    });
+    expect(descriptors.forcedFallback.width).toBeGreaterThan(probe.CLOUDFLARE_MAX_IMAGE_DIMENSION);
+    expect(supportedBody.byteLength).toBe(descriptors.supported.bytes);
+    expect(fallbackBody.byteLength).toBe(descriptors.forcedFallback.bytes);
+    expect(probe.sha256(supportedBody)).toBe(descriptors.supported.sha256);
+    expect(probe.sha256(fallbackBody)).toBe(descriptors.forcedFallback.sha256);
   });
+});
 
-  it("encodes each key segment without encoding the separators", () => {
+describe("URL construction", () => {
+  it("builds and segment-encodes the same-zone origin URL", () => {
     expect(probe.buildOriginalUrl(BASE_URL, "a b/c+d.png")).toBe(
       `${BASE_URL}/media/original/a%20b/c%2Bd.png`,
     );
   });
 
-  it("builds a transform URL that matches the production loader options", () => {
-    const url = probe.buildTransformUrl(BASE_URL, KEY);
-    expect(url).toBe(`${BASE_URL}/cdn-cgi/image/${probe.TRANSFORM_OPTIONS}/media/original/${KEY}`);
-    expect(url).toContain("onerror=redirect");
-    expect(url).toContain(`width=${probe.TRANSFORM_WIDTH}`);
-  });
-});
-
-describe("PNG inspection", () => {
-  it("reads the dimensions from an IHDR chunk", () => {
-    expect(probe.readPngDimensions(pngBytes(640, 480))).toEqual({ width: 640, height: 480 });
-  });
-
-  it("returns null for a non-PNG payload so other formats do not fail the probe", () => {
-    expect(probe.readPngDimensions(new Uint8Array([0xff, 0xd8, 0xff, 0xe0]))).toBeNull();
-    expect(probe.readPngDimensions(new Uint8Array())).toBeNull();
-  });
-
-  it("returns null for a truncated PNG", () => {
-    expect(probe.readPngDimensions(pngBytes(1, 1).slice(0, 20))).toBeNull();
+  it("builds the production transform URL including redirect fallback", () => {
+    expect(supportedTransformUrl).toBe(
+      `${BASE_URL}/cdn-cgi/image/${probe.TRANSFORM_OPTIONS}/media/original/${descriptors.supported.objectKey}`,
+    );
+    expect(supportedTransformUrl).toContain("onerror=redirect");
+    expect(supportedTransformUrl).toContain(`width=${probe.TRANSFORM_WIDTH}`);
   });
 });
 
 describe("runProbe", () => {
-  it("passes every check when delivery and fallback are healthy", async () => {
-    const fallbackBytes = pngBytes(2048, 2048, 9);
-    const { fetchImpl } = stubFetch([
-      [
-        "/cdn-cgi/image/width=640,quality=80,fit=scale-down,format=auto,onerror=redirect/media/original/fixtures/untransformable",
-        { headers: { "content-type": "image/png" }, bytes: fallbackBytes },
-      ],
-      [
-        "/media/original/fixtures/untransformable",
-        {
-          headers: {
-            "content-type": "image/png",
-            "cache-control": "public, max-age=31536000, immutable",
-          },
-          bytes: fallbackBytes,
-        },
-      ],
-      ...HEALTHY_ROUTES,
-    ]);
+  it("passes exact identity, full decode, cache and manual redirect checks", async () => {
+    const { fetchImpl, calls } = stubFetch(healthyRoutes());
+    const result = await probe.runProbe({ baseUrl: BASE_URL, fixtures: descriptors }, fetchImpl);
 
-    const result = await probe.runProbe(
-      { baseUrl: BASE_URL, key: KEY, fallbackKey: "fixtures/untransformable.svg" },
-      fetchImpl,
-    );
-    expect(result.checks.map((entry: { passed: boolean }) => entry.passed)).toEqual([
-      true,
-      true,
-      true,
-      true,
-    ]);
+    expect(result.checks).toHaveLength(6);
+    expect(result.checks.every((entry: { passed: boolean }) => entry.passed)).toBe(true);
     expect(result.passed).toBe(true);
+    expect(calls.find((call) => call.url === fallbackTransformUrl)?.redirect).toBe("manual");
+    expect(calls.filter((call) => call.url === fallbackOriginalUrl)).toHaveLength(2);
   });
 
-  it("fails and says so when no fallback fixture is supplied", async () => {
-    const { fetchImpl } = stubFetch(HEALTHY_ROUTES);
-    const result = await probe.runProbe({ baseUrl: BASE_URL, key: KEY }, fetchImpl);
+  it("rejects lookalike and contradictory cache directives", async () => {
+    for (const cacheControl of [
+      "x-public, s-max-age=315360000, x-immutable",
+      "public, private, max-age=31536000, immutable",
+    ]) {
+      const { fetchImpl } = stubFetch(
+        healthyRoutes({
+          supportedOriginal: {
+            headers: { "content-type": "image/png", "cache-control": cacheControl },
+            bytes: supportedBody,
+          },
+        }),
+      );
+      const result = await probe.runProbe(
+        { baseUrl: BASE_URL, fixtures: { supported: descriptors.supported } },
+        fetchImpl,
+      );
+      expect(checkByName(result, "supported original").passed).toBe(false);
+    }
+  });
+
+  it("reports NOT VERIFIED when no forced-fallback fixture is supplied", async () => {
+    const { fetchImpl } = stubFetch(healthyRoutes());
+    const result = await probe.runProbe(
+      { baseUrl: BASE_URL, fixtures: { supported: descriptors.supported } },
+      fetchImpl,
+    );
+
     expect(result.passed).toBe(false);
     expect(checkByName(result, "forced transform failure").detail).toContain("NOT VERIFIED");
   });
 
-  it("fails when the original is not immutable", async () => {
-    const { fetchImpl } = stubFetch([
-      HEALTHY_ROUTES[0]!,
-      [
-        "/media/original/",
-        {
-          headers: { "content-type": "image/png", "cache-control": "no-store" },
-          bytes: ORIGINAL_BYTES,
+  it("fails when the original does not match the manifest", async () => {
+    const { fetchImpl } = stubFetch(
+      healthyRoutes({
+        supportedOriginal: {
+          headers: {
+            "content-type": "image/png",
+            "cache-control": "public, max-age=31536000, immutable",
+          },
+          bytes: fallbackBody,
         },
-      ],
-    ]);
-    const result = await probe.runProbe({ baseUrl: BASE_URL, key: KEY }, fetchImpl);
-    expect(checkByName(result, "origin proxy").passed).toBe(false);
+      }),
+    );
+    const result = await probe.runProbe({ baseUrl: BASE_URL, fixtures: descriptors }, fetchImpl);
+    expect(checkByName(result, "supported original").passed).toBe(false);
   });
 
-  it("fails when the transform returns the original bytes unchanged", async () => {
-    const { fetchImpl } = stubFetch([
-      [
-        "/cdn-cgi/image/",
-        {
+  it("fails when the transformed response cannot be fully decoded", async () => {
+    const { fetchImpl } = stubFetch(
+      healthyRoutes({
+        supportedTransform: {
           headers: { "content-type": "image/png", "cf-cache-status": "MISS" },
-          bytes: ORIGINAL_BYTES,
+          bytes: new Uint8Array([0x89, 0x50, 0x4e, 0x47]),
         },
-      ],
-      HEALTHY_ROUTES[1]!,
-    ]);
-    const result = await probe.runProbe({ baseUrl: BASE_URL, key: KEY }, fetchImpl);
-    expect(checkByName(result, "transform returns").passed).toBe(false);
+      }),
+    );
+    const result = await probe.runProbe({ baseUrl: BASE_URL, fixtures: descriptors }, fetchImpl);
+    expect(checkByName(result, "fully decoded").passed).toBe(false);
+    expect(checkByName(result, "fully decoded").detail).toContain("decode=failed");
   });
 
-  it("fails when the transform width does not match the request", async () => {
-    const { fetchImpl } = stubFetch([
-      [
-        "/cdn-cgi/image/",
-        {
+  it("fails when the transformed dimensions do not match 640x640", async () => {
+    const { fetchImpl } = stubFetch(
+      healthyRoutes({
+        supportedTransform: {
           headers: { "content-type": "image/png", "cf-cache-status": "MISS" },
-          bytes: pngBytes(1280, 1280, 3),
+          bytes: supportedBody,
         },
-      ],
-      HEALTHY_ROUTES[1]!,
-    ]);
-    const result = await probe.runProbe({ baseUrl: BASE_URL, key: KEY }, fetchImpl);
-    expect(checkByName(result, "transform returns").passed).toBe(false);
+      }),
+    );
+    const result = await probe.runProbe({ baseUrl: BASE_URL, fixtures: descriptors }, fetchImpl);
+    expect(checkByName(result, "fully decoded").passed).toBe(false);
+    expect(checkByName(result, "fully decoded").detail).toContain("1024x1024");
   });
 
   it("fails when the repeated transform never reports a cache hit", async () => {
-    const { fetchImpl } = stubFetch([
-      [
-        "/cdn-cgi/image/",
-        {
+    const { fetchImpl } = stubFetch(
+      healthyRoutes({
+        supportedTransform: {
           headers: { "content-type": "image/png", "cf-cache-status": "DYNAMIC" },
-          bytes: TRANSFORMED_BYTES,
+          bytes: transformedBody,
         },
-      ],
-      HEALTHY_ROUTES[1]!,
-    ]);
-    const result = await probe.runProbe({ baseUrl: BASE_URL, key: KEY }, fetchImpl);
+      }),
+    );
+    const result = await probe.runProbe({ baseUrl: BASE_URL, fixtures: descriptors }, fetchImpl);
     expect(checkByName(result, "edge cache").passed).toBe(false);
     expect(checkByName(result, "edge cache").detail).toContain("DYNAMIC");
   });
 
-  it("fails when the fallback response is not the original image", async () => {
-    const { fetchImpl } = stubFetch([
-      [
-        "/cdn-cgi/image/width=640,quality=80,fit=scale-down,format=auto,onerror=redirect/media/original/fixtures/untransformable",
-        { status: 415, headers: { "content-type": "text/plain" }, bytes: new Uint8Array([1, 2]) },
-      ],
-      [
-        "/media/original/fixtures/untransformable",
-        {
+  it("fails when the repeated transform body changes", async () => {
+    expect(probe.sha256(alternateTransformedBody)).not.toBe(probe.sha256(transformedBody));
+    const { fetchImpl } = stubFetch(
+      healthyRoutes({
+        supportedTransform: (seen) => ({
+          headers: { "content-type": "image/png", "cf-cache-status": seen === 1 ? "MISS" : "HIT" },
+          bytes: seen === 1 ? transformedBody : alternateTransformedBody,
+        }),
+      }),
+    );
+    const result = await probe.runProbe({ baseUrl: BASE_URL, fixtures: descriptors }, fetchImpl);
+    expect(checkByName(result, "edge cache").passed).toBe(false);
+  });
+
+  it("refuses to fetch an unexpected redirect target", async () => {
+    const external = "https://example.test/untrusted.png";
+    const { fetchImpl, calls } = stubFetch(
+      healthyRoutes({
+        fallbackTransform: { status: 302, headers: { location: external } },
+      }),
+    );
+    const result = await probe.runProbe({ baseUrl: BASE_URL, fixtures: descriptors }, fetchImpl);
+    expect(checkByName(result, "same-zone redirect").passed).toBe(false);
+    expect(checkByName(result, "redirect target decodes").detail).toContain("NOT VERIFIED");
+    expect(calls.some((call) => call.url === external)).toBe(false);
+  });
+
+  it("fails when the redirect target body differs from the fallback manifest", async () => {
+    const { fetchImpl } = stubFetch(
+      healthyRoutes({
+        fallbackOriginal: (seen) => ({
           headers: {
-            "content-type": "image/svg+xml",
+            "content-type": "image/png",
             "cache-control": "public, max-age=31536000, immutable",
           },
-          bytes: pngBytes(8, 8, 7),
-        },
-      ],
-      ...HEALTHY_ROUTES,
-    ]);
-    const result = await probe.runProbe(
-      { baseUrl: BASE_URL, key: KEY, fallbackKey: "fixtures/untransformable.svg" },
-      fetchImpl,
+          bytes: seen === 1 ? fallbackBody : supportedBody,
+        }),
+      }),
     );
-    expect(result.passed).toBe(false);
-    expect(checkByName(result, "forced transform failure").passed).toBe(false);
+    const result = await probe.runProbe({ baseUrl: BASE_URL, fixtures: descriptors }, fetchImpl);
+    expect(checkByName(result, "over-limit original").passed).toBe(true);
+    expect(checkByName(result, "redirect target decodes").passed).toBe(false);
   });
 });
 
 describe("parseArgs", () => {
-  it("defaults to the production origin and requires a key", () => {
-    expect(probe.parseArgs(["--key", KEY])).toEqual({
+  it("defaults to the production origin and committed manifest", () => {
+    expect(probe.parseArgs([])).toEqual({
       baseUrl: "https://katbose.dev",
-      key: KEY,
-      fallbackKey: undefined,
+      manifest: probe.DEFAULT_FIXTURE_MANIFEST,
     });
-    expect(() => probe.parseArgs([])).toThrow(/--key is required/);
   });
 
-  it("accepts an override origin and a fallback key", () => {
+  it("accepts origin and manifest overrides", () => {
     expect(
-      probe.parseArgs([
-        "--base-url",
-        "https://staging.example",
-        "--key",
-        KEY,
-        "--fallback-key",
-        "f.svg",
-      ]),
-    ).toEqual({ baseUrl: "https://staging.example", key: KEY, fallbackKey: "f.svg" });
+      probe.parseArgs(["--base-url", "https://staging.example", "--manifest", "fixtures.json"]),
+    ).toEqual({ baseUrl: "https://staging.example", manifest: "fixtures.json" });
   });
 
-  it("rejects an unknown flag and a flag with no value", () => {
+  it("rejects unknown flags and missing values", () => {
     expect(() => probe.parseArgs(["--nope", "x"])).toThrow(/Unknown option/);
-    expect(() => probe.parseArgs(["--key"])).toThrow(/Missing value/);
+    expect(() => probe.parseArgs(["--manifest"])).toThrow(/Missing value/);
   });
 });
 
 describe("formatReport", () => {
-  it("marks the overall outcome and lists each check", () => {
+  it("marks the overall outcome and lists every check", () => {
     const report = probe.formatReport({
       checks: [
         { name: "a", passed: true, detail: "ok" },

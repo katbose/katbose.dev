@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "fixtures": {
+    "supported": {
+      "file": "supported-1024.png",
+      "objectKey": "phase-1-gate/supported-1024-v1.png",
+      "mimeType": "image/png",
+      "width": 1024,
+      "height": 1024,
+      "bytes": 783492,
+      "sha256": "b01e304cb3a916cf3d701419dbe2168e7fdbb2102238da5395eafebb9b24d6cb"
+    },
+    "forcedFallback": {
+      "file": "over-limit-12001x16.png",
+      "objectKey": "phase-1-gate/over-limit-12001x16-v1.png",
+      "mimeType": "image/png",
+      "width": 12001,
+      "height": 16,
+      "bytes": 15178,
+      "sha256": "d2a1941ae68c8e3a9d72ca35f29637dfab29b9916594ddb86341f616049fe823"
+    }
+  }
+}

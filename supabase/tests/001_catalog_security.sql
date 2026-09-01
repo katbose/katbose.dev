@@ -4,7 +4,35 @@ create schema if not exists extensions;
 create extension if not exists pgtap with schema extensions;
 set local search_path = public, extensions, pg_catalog;
 
-select plan(32);
+select plan(34);
+
+select ok(
+  exists (
+    select 1 from storage.buckets
+    where id = 'media' and name = 'media' and public is true
+  ),
+  'media bucket exists and is public'
+);
+
+select is(
+  (
+    select count(*)
+    from pg_policies
+    where schemaname = 'storage'
+      and tablename = 'objects'
+      and policyname = 'deny_client_roles_media'
+      and permissive = 'RESTRICTIVE'
+      and cmd = 'ALL'
+      and cardinality(roles) = 2
+      and roles @> array['anon'::name, 'authenticated'::name]
+      and regexp_replace(qual, '[[:space:]()]', '', 'g') =
+        'bucket_id<>''media''::text'
+      and regexp_replace(with_check, '[[:space:]()]', '', 'g') =
+        'bucket_id<>''media''::text'
+  ),
+  1::bigint,
+  'media objects have a restrictive client-role mutation guard'
+);
 
 select has_table('public', 'contact_submissions', 'contact_submissions exists');
 select has_table('public', 'download_logs', 'download_logs exists');
