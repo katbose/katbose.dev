@@ -154,7 +154,9 @@ Notes:
 
 - Four sans weights, because the measurement shows all four in use (400 body, 500 controls,
   600 h3/h4, 700 h1/h2). That is the whole budget; Latin subset only, self-hosted through
-  `next/font/google` with `display: swap` (13 §13.2).
+  `next/font/google` with `display: optional` (13 §13.2). Fast loads use DM Sans; constrained
+  loads retain the metric-compatible fallback rather than triggering a late text swap and a
+  second LCP candidate.
 - **The reference has no monospace family.** Its pronunciation line and live clock are DM Sans. We
   match that, and keep `--font-mono` scoped strictly to syntax-highlighted code and the terminal
   card — surfaces the reference does not have and where a mono face is functional, not decorative.

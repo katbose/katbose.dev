@@ -26,8 +26,9 @@
 - **`next/image`** everywhere, with explicit dimensions to prevent layout shift; a custom loader
   uses Cloudflare Images for responsive transforms over immutable Supabase-CDN originals
   ([01-architecture.md](01-architecture.md) §1.4.1)
-- **`next/font`** with self-hosted fonts, `font-display: swap`, and a minimal family set —
-  typography is a core principle, so subset carefully rather than loading many weights
+- **`next/font`** with self-hosted fonts, `font-display: optional`, and a minimal family set —
+  the custom faces render on fast loads, while constrained devices keep the metric-compatible
+  fallback instead of performing a late swap that can reset LCP
 - **Minimal JavaScript** — Motion (the `motion` package, formerly Framer Motion) is used sparingly
   through `LazyMotion`/`domAnimation`; no animation library loads on pages that do not animate
 - **Route-level code splitting**; heavy features (Ask AI, syntax highlighting) load on demand
