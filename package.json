@@ -9,7 +9,11 @@
     "format:check": "oxfmt --check apps packages e2e scripts package.json playwright.config.ts tsconfig.base.json pnpm-workspace.yaml",
     "lighthouse": "pnpm --filter web build && node scripts/lighthouse/run-lighthouse-gate.mjs",
     "lint": "oxlint --deny-warnings apps packages e2e scripts",
-    "test": "pnpm --recursive --if-present test",
+    "media:fixtures:generate": "node scripts/media/generate-media-fixtures.mjs",
+    "media:fixtures:upload": "node scripts/media/upload-media-fixtures.mjs",
+    "media:fixtures:verify": "node scripts/media/verify-media-fixtures.mjs",
+    "media:probe": "node scripts/media/media-probe.mjs",
+    "test": "pnpm media:fixtures:verify && pnpm --recursive --if-present test",
     "test:e2e:workers": "pnpm --filter web test:e2e:workers",
     "typecheck": "pnpm --recursive --if-present typecheck"
   },
@@ -17,8 +21,10 @@
     "@axe-core/playwright": "4.13.0",
     "@lhci/cli": "0.15.1",
     "@playwright/test": "1.62.1",
+    "@supabase/supabase-js": "2.112.4",
     "oxfmt": "0.65.0",
     "oxlint": "1.80.0",
+    "sharp": "0.35.3",
     "typescript": "7.0.2"
   },
   "engines": {
