@@ -1,9 +1,4 @@
-import { expect, test, type Locator, type Page } from "@playwright/test";
-
-/** True while focus is inside the given container. */
-function focusIsInside(container: Locator): Promise<boolean> {
-  return container.evaluate((node) => node.contains(document.activeElement));
-}
+import { expect, test, type Page } from "@playwright/test";
 
 /** Focus ring specification from `:focus-visible` in `globals.css`. */
 async function focusIndicator(page: Page) {
@@ -50,20 +45,42 @@ test("mobile menu traps focus in both directions", async ({ page }) => {
 
   const dialog = page.getByRole("dialog");
   await expect(dialog).toBeVisible();
-  const controlCount = await dialog.locator("a, button").count();
-  expect(controlCount).toBeGreaterThan(1);
 
-  // Cycling past the last control must wrap to the first, never escape to the
-  // page behind the dialog.
-  for (let step = 0; step < controlCount + 2; step += 1) {
+  const controlLabels = [
+    "Close",
+    "Home",
+    "Projects",
+    "Experience",
+    "Blog",
+    "TIE",
+    "Resume",
+    "Ask AI",
+    "Contact",
+    "Agent view",
+  ];
+  const controls = dialog.locator("button, a[href]");
+  await expect(controls).toHaveText(controlLabels);
+
+  let focusIndex = 0;
+  await expect(controls.nth(focusIndex)).toBeFocused();
+
+  // Assert the exact order in both directions. `toBeFocused` retries through
+  // Base UI's one-frame focus-guard transition at each wrap boundary.
+  for (let step = 0; step < controlLabels.length + 2; step += 1) {
     await page.keyboard.press("Tab");
-    expect(await focusIsInside(dialog), `focus left the dialog after ${step + 1} Tabs`).toBe(true);
+    focusIndex = (focusIndex + 1) % controlLabels.length;
+    await expect(
+      controls.nth(focusIndex),
+      `forward focus did not reach ${controlLabels[focusIndex]} after ${step + 1} Tabs`,
+    ).toBeFocused();
   }
-  for (let step = 0; step < controlCount + 2; step += 1) {
+  for (let step = 0; step < controlLabels.length + 2; step += 1) {
     await page.keyboard.press("Shift+Tab");
-    expect(await focusIsInside(dialog), `focus left the dialog after ${step + 1} Shift+Tabs`).toBe(
-      true,
-    );
+    focusIndex = (focusIndex - 1 + controlLabels.length) % controlLabels.length;
+    await expect(
+      controls.nth(focusIndex),
+      `reverse focus did not reach ${controlLabels[focusIndex]} after ${step + 1} Shift+Tabs`,
+    ).toBeFocused();
   }
 });
 
