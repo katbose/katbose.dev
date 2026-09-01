@@ -1,0 +1,85 @@
+name: npx-cold-benchmark
+
+on:
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: npx-cold-benchmark
+  cancel-in-progress: false
+
+jobs:
+  benchmark:
+    name: Measure cold registry execution
+    if: github.ref == 'refs/heads/main' && github.ref_protected == true
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      BENCHMARK_OUTPUT: /tmp/katbose-npx-cold-${{ github.run_id }}
+    steps:
+      - name: Require protected main ref
+        shell: bash
+        env:
+          SELECTED_REF: ${{ github.ref }}
+          REF_PROTECTED: ${{ github.ref_protected }}
+        run: |
+          set -euo pipefail
+          test "$SELECTED_REF" = "refs/heads/main"
+          test "$REF_PROTECTED" = "true"
+
+      - name: Check out repository without retaining a token
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Use the documented Node.js runtime
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24.17.0
+
+      - name: Make benchmark inputs read-only
+        run: chmod -R a-w "$GITHUB_WORKSPACE"
+
+      - name: Collect isolated cold-cache evidence as an unprivileged user
+        shell: bash
+        run: |
+          set -euo pipefail
+          nobody_group="$(id -gn nobody)"
+          sudo install --directory --mode=0755 \
+            --owner=nobody --group="$nobody_group" "$BENCHMARK_OUTPUT"
+          node_binary="$(command -v node)"
+          timeout --signal=TERM --kill-after=15s 180s \
+            sudo --user=nobody env -i \
+            CI=true \
+            GITHUB_ACTIONS=true \
+            GITHUB_RUN_ID="$GITHUB_RUN_ID" \
+            GITHUB_SHA="$GITHUB_SHA" \
+            LANG="${LANG:-C.UTF-8}" \
+            PATH="$PATH" \
+            RUNNER_ARCH="$RUNNER_ARCH" \
+            RUNNER_OS="$RUNNER_OS" \
+            TMPDIR=/tmp \
+            "$node_binary" scripts/benchmarks/npx-cold-benchmark.mjs \
+            --output "$BENCHMARK_OUTPUT"
+
+      # Upload precedes assertion so a slow, malformed or failed attempt remains
+      # available for diagnosis instead of disappearing with a red job.
+      - name: Retain every benchmark attempt
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: npx-cold-benchmark-${{ github.run_id }}
+          path: ${{ env.BENCHMARK_OUTPUT }}
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Enforce package identity and three-second limit
+        if: always()
+        run: node scripts/benchmarks/assert-npx-cold-benchmark.mjs "$BENCHMARK_OUTPUT/report.json"
+
+      - name: Restore checkout permissions for action cleanup
+        if: always()
+        run: chmod -R u+w "$GITHUB_WORKSPACE"

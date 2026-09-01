@@ -300,9 +300,14 @@ No upstream source was copied into the workspace while preparing it.
   and an in-page mode switch. Local `BottomBar` uses routes, `ModeSwitchLink` and `MobileMenu`.
   No upstream personal content was identified in `apps/web/lib/fallback-content.ts`.
 
-The reviewed implementation scope contained no machine-identified copied upstream file. This is
-preparatory evidence only: Requirement 7.8 remains open until a named human reviewer records a
-dated confirmation against the pinned revision.
+The reviewed implementation scope contained no machine-identified copied upstream file. KatBose
+completed the required human review against the pinned revision and recorded this attestation:
+
+> Reviewed by KatBose on 2026-08-30 against revision
+> b37b169f7cdf6686f9c03bfa7b7019e8954686fb — no upstream source file was copied.
+
+This dated human review satisfies Requirement 7.8. The independent cold-cache timing gate in
+Requirement 7.7 remains open.
 
 ---
 
@@ -317,7 +322,7 @@ These fold into the existing Phase 1 gate ([15-roadmap-and-checklist.md](15-road
 - [ ] Canonical `/agent` and generated `/llms.txt` derive from the typed route manifest—grep proves no handwritten runtime duplicate
 - [ ] Bottom-bar navigation passes the keyboard E2E specs (skip link first, focus visible, Escape behaviour on any expanded state)
 - [ ] `katbose` published to npm (done 2026-08-24); `npx katbose` prints the card in a cold cache under 3s
-- [ ] No file in `apps/web` is a copy of an upstream Hackyfolio file (architecture/quality/inspiration-only rule)
+- [x] No file in `apps/web` is a copy of an upstream Hackyfolio file (architecture/quality/inspiration-only rule)
 - [ ] Light and dark tokens both pass AA contrast (4.5:1 body / 3:1 large); `color-scheme` set so native controls flip too
 - [ ] Top-right theme toggle defaults to system preference on a clean first visit, switches light ⇄ dark, persists a manual choice across reload, and causes no flash of the wrong theme
 - [ ] `NEXT_PUBLIC_CAL_LINK` renders as a plain link on Home and `/contact`, distinct from the message form

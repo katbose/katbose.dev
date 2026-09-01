@@ -198,13 +198,14 @@ Tasks 23 through 27 are marked **Operator-owned**. They need vendor console acce
   - Leave the gate explicitly blocked if neither is done; it must not be represented as complete
   - _Requirements: 8.1, 8.7_
 
-- [-] 26. Close the remaining design-reference evidence — **Operator-owned**
+- [~] 26. Close the remaining design-reference evidence — **Operator-owned**
   - **Diagnosis complete; the package is not the bottleneck.** `katbose@0.0.2` is a 626-byte, zero-dependency, zero-lifecycle-script tarball, and running its entry point directly through Node takes 129.9–186.5 ms. The cost is npm's fixed resolve-and-install overhead on this Windows/OneDrive path: 9,243.2 ms on a clean cold registry run, 15,507.9 ms on an earlier one, 6,106.8 ms from a local tarball, and still 5,011.1 ms fully warm. No source-side change can close a gap that persists when the package is already cached, and the published version is immutable
-  - **Recommended route:** measure the cold-cache run on Linux CI, the same environment already treated as normative for the Lighthouse and Workers-runtime gates, and retain that figure. If Linux also exceeds three seconds then the three-second target is unreachable via `npx` by construction and needs an explicit decision rather than a silent redefinition of "cold cache"
-  - Record a cold-cache `npx katbose` timing under three seconds, identifying the package version and the environment
+  - **Linux evidence workflow prepared, not yet run.** `npx-cold-benchmark.yml` uses a fresh `ubuntu-latest` runner with Node 24.17.0, no persisted checkout token, a read-only checkout and an unprivileged execution user. The collector supplies empty user/global npm configs, a unique empty cache, a two-minute subprocess deadline, exact card-output comparison and an unrounded `≤3000 ms` decision
+  - The collector binds package identity to the exact tarball content stored by the timed `npx`, verifies SHA-1 `73f90d862686bdc5792c29440edc3d642eba73ba`, and retains the tarball, stdout, stderr, JSON and Markdown reports. Artifact upload runs before the assertion so every completed attempt survives a red timing or integrity gate
+  - **Still open:** merge the reviewed workflow to protected `main`, dispatch it, and retain a genuine Linux cold-cache result. If Linux exceeds three seconds, Requirement 7.7 needs an explicit approved decision rather than a threshold change or a redefinition of cold cache
   - Benchmark evidence (2026-08-29 16:05:55 +05:30): `npx.cmd --yes --cache <unique-empty-temp-cache> --package=katbose@0.0.2 -- katbose` ran on Windows 10.0.26200 X64 with Node v24.17.0 and npm 11.13.0. It exited 0 and printed the correct card, but took 15,507.9 ms; the temporary cache was removed. Requirement 7.7 remains unmet
-  - Complete and date the upstream-provenance review, naming the compared upstream revision and the reviewer, confirming no upstream source file was copied into the implementation
-  - A machine-assisted comparison packet is retained in `docs/19-design-reference.md` against immutable upstream revision `b37b169f7cdf6686f9c03bfa7b7019e8954686fb`. It found no copied source in the reviewed implementation scope, but Requirement 7.8 remains open until a named human reviewer dates and confirms that conclusion
+  - A machine-assisted comparison packet is retained in `docs/19-design-reference.md` against immutable upstream revision `b37b169f7cdf6686f9c03bfa7b7019e8954686fb`. It found no copied source in the reviewed implementation scope
+  - **Requirement 7.8 satisfied by dated human review:** `Reviewed by KatBose on 2026-08-30 against revision b37b169f7cdf6686f9c03bfa7b7019e8954686fb — no upstream source file was copied.` Requirement 7.7 remains open pending genuine Linux cold-cache evidence
   - _Requirements: 7.7, 7.8_
 
 - [x] 27. Fix the Workers Builds pull-request preview — **Operator-owned**, pre-existing
