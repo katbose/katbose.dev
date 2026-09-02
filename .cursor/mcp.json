@@ -54,8 +54,7 @@
         "list_pull_requests",
         "list_branches",
         "get_me",
-        "list_commits",
-        "create_pull_request"
+        "list_commits"
       ]
     },
     "mintlify-admin": {
