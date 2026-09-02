@@ -1,0 +1,5 @@
+#!/bin/sh
+# Block push if MCP mirrors are out of sync with the Kiro source of truth.
+# Wire this with: git config core.hooksPath .githooks
+set -e
+node scripts/sync-mcp.mjs --check

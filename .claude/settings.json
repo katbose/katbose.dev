@@ -8,6 +8,7 @@
     "firecrawl@claude-plugins-official": true,
     "code-review@claude-plugins-official": true,
     "security-guidance@claude-plugins-official": true,
-    "greptile@claude-plugins-official": true
+    "greptile@claude-plugins-official": true,
+    "render@claude-plugins-official": true
   }
 }

@@ -57,16 +57,19 @@
         "list_commits"
       ]
     },
-  "mintlify-admin": {
-    "url": "https://mcp.mintlify.com",
-    "disabled": false,
-    "autoApprove": []
+    "mintlify-admin": {
+      "url": "https://mcp.mintlify.com",
+      "disabled": false,
+      "autoApprove": []
     },
-  "mintlify-search": {
-    "url": "https://mintlify.com/docs/mcp",
-    "disabled": false,
-    "autoApprove": ["search_mintlify", "query_docs_filesystem_mintlify"]
-},
+    "mintlify-search": {
+      "url": "https://mintlify.com/docs/mcp",
+      "disabled": false,
+      "autoApprove": [
+        "search_mintlify",
+        "query_docs_filesystem_mintlify"
+      ]
+    },
     "chrome-devtools": {
       "command": "npx",
       "args": [

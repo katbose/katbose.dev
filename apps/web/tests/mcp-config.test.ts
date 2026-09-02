@@ -89,14 +89,16 @@ describe("committed MCP configuration", () => {
     // create_pull_request cannot touch the protected main branch directly: every
     // PR still requires the quality/database/e2e/gitleaks checks and a squash
     // merge, so auto-approving it does not bypass branch protection. Every other
-    // approved GitHub tool is read-only: pull_request_read, list_pull_requests
-    // and list_branches retrieve state and make no changes. Merging, pushing and
-    // any other write stay supervised.
+    // approved GitHub tool is read-only: pull_request_read, list_pull_requests,
+    // list_branches, get_me, and list_commits retrieve state and make no changes.
+    // Merging, pushing, and any other write stay supervised.
     expect(github?.autoApprove).toEqual([
       "create_pull_request",
       "pull_request_read",
       "list_pull_requests",
       "list_branches",
+      "get_me",
+      "list_commits",
     ]);
 
     const browserApprovals: Record<string, string[]> = {
