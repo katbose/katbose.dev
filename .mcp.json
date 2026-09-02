@@ -7,7 +7,8 @@
         "search",
         "execute",
         "docs"
-      ]
+      ],
+      "type": "http"
     },
     "cloudflare-bindings": {
       "url": "https://bindings.mcp.cloudflare.com/mcp",
@@ -17,7 +18,8 @@
         "kv_namespaces_list",
         "r2_buckets_list",
         "r2_bucket_create"
-      ]
+      ],
+      "type": "http"
     },
     "cloudflare-builds": {
       "url": "https://builds.mcp.cloudflare.com/mcp",
@@ -28,19 +30,22 @@
         "workers_builds_get_build_logs",
         "workers_builds_list_builds",
         "workers_get_worker"
-      ]
+      ],
+      "type": "http"
     },
     "cloudflare-observability": {
       "url": "https://observability.mcp.cloudflare.com/mcp",
       "disabled": false,
-      "autoApprove": []
+      "autoApprove": [],
+      "type": "http"
     },
     "cloudflare-docs": {
       "url": "https://docs.mcp.cloudflare.com/mcp",
       "disabled": false,
       "autoApprove": [
         "search_cloudflare_documentation"
-      ]
+      ],
+      "type": "http"
     },
     "github": {
       "url": "https://api.githubcopilot.com/mcp/",
@@ -56,18 +61,24 @@
         "get_me",
         "list_commits",
         "create_pull_request"
-      ]
+      ],
+      "type": "http"
     },
-  "mintlify-admin": {
-    "url": "https://mcp.mintlify.com",
-    "disabled": false,
-    "autoApprove": []
+    "mintlify-admin": {
+      "url": "https://mcp.mintlify.com",
+      "disabled": false,
+      "autoApprove": [],
+      "type": "http"
     },
-  "mintlify-search": {
-    "url": "https://mintlify.com/docs/mcp",
-    "disabled": false,
-    "autoApprove": ["search_mintlify", "query_docs_filesystem_mintlify"]
-},
+    "mintlify-search": {
+      "url": "https://mintlify.com/docs/mcp",
+      "disabled": false,
+      "autoApprove": [
+        "search_mintlify",
+        "query_docs_filesystem_mintlify"
+      ],
+      "type": "http"
+    },
     "chrome-devtools": {
       "command": "npx",
       "args": [
@@ -81,7 +92,8 @@
       "disabled": false,
       "autoApprove": [
         "list_pages"
-      ]
+      ],
+      "type": "stdio"
     },
     "playwright": {
       "command": "npx",
@@ -96,14 +108,16 @@
       "disabled": false,
       "autoApprove": [
         "browser_tabs"
-      ]
+      ],
+      "type": "stdio"
     },
     "posthog": {
       "url": "https://mcp.posthog.com/mcp",
       "disabled": false,
       "autoApprove": [
         "exec"
-      ]
+      ],
+      "type": "http"
     },
     "sentry": {
       "url": "https://mcp.sentry.dev/mcp",
@@ -113,7 +127,8 @@
         "find_projects",
         "search_sentry_tools",
         "execute_sentry_tool"
-      ]
+      ],
+      "type": "http"
     }
   }
 }

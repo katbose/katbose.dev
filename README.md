@@ -249,6 +249,54 @@ the production gates.
   migration.
 - Prefer boring, well-understood technology over novelty.
 
+### MCP setup (Claude Code, Cursor, opencode, VS Code)
+
+MCP servers are defined once in `.kiro/settings/mcp.json` and mirrored to each IDE's expected
+config file by `scripts/sync-mcp.mjs`. After `pnpm install` the mirrors are auto-generated via
+the `prepare` script.
+
+To re-sync or check for drift:
+
+```sh
+pnpm mcp:sync            # rewrite .mcp.json, .cursor/mcp.json, opencode.json
+pnpm mcp:sync:vscode     # also write .vscode/mcp.json (gitignored)
+pnpm mcp:check           # exit 1 if any committed mirror is out of date
+```
+
+The pre-push hook at `.githooks/pre-push` runs `mcp:check` automatically once you enable it:
+
+```sh
+git config core.hooksPath .githooks
+```
+
+### Environment variables
+
+MCP configs reference secrets via `${env:VAR_NAME}` — the loader reads from your OS-level
+environment, not from `.env` files. Set the variables once on your machine:
+
+**Windows (user-level, persists across sessions):**
+1. `Win + R` → `sysdm.cpl` → **Advanced** tab → **Environment Variables**
+2. Under **User variables**, click **New**
+3. Add the variable name and your token/key
+4. **Restart your terminal / IDE** so the new env is picked up
+
+**Session-only (current terminal only, dies on close):**
+
+```sh
+# bash
+export GITHUB_PERSONAL_ACCESS_TOKEN=ghp_xxxxxxxxxxxx
+
+# PowerShell
+$env:GITHUB_PERSONAL_ACCESS_TOKEN = "ghp_xxxxxxxxxxxx"
+```
+
+For repo secrets and runtime config (Supabase keys, Render env vars, etc.), use `.env.local` for
+Next.js — but be aware that `.env` files are **not** read by the MCP loader. MCP secrets must
+live in the OS environment.
+
+Use fine-grained tokens scoped to only the repos you need, and rotate immediately if a token
+leaks. Never commit a token, even to a private repo — once it's in git history it's permanent.
+
 ---
 
 ## Credits
